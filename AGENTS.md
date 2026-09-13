@@ -502,6 +502,40 @@ Charakter). Die **Offiziersnotiz ist leer** und steht dem System zur Verfügung.
 Als Datenquelle für die Hauptrolle taugt die öffentliche Notiz übrigens nicht —
 Freitext ohne festes Format.
 
+### Das Notizformat
+
+    LO:4500,3800,52,0,3
+       │    │    │  │ └── Gegenstände in dieser Raidstufe  (§ 8, Gleichstand)
+       │    │    │  └──── abgemeldete Raidtage in Folge    (§ 2, Deckel bei 3)
+       │    │    └─────── Kalenderwoche des letzten Verfalls
+       │    └────────── Rüstwert
+       └─────────────── Einsatz
+
+**✅ Länge gemessen:** `LO:99999,99999,52,XXXXXXXXXXXX` (30 Zeichen) kam ungekürzt
+an. Realistisch braucht das Format 19 Zeichen — also gut zehn Zeichen Puffer.
+
+**⭐ Folge: Der Addon-Sync ist für den laufenden Betrieb überflüssig.** Deckel- und
+Item-Zähler mussten bisher über den Gildenkanal verteilt werden, weil sie
+angeblich nicht in die Notiz passen. Sie passen. Übrig bleibt für den Sync nur die
+Vergabehistorie — Komfort, kein Betriebsmittel.
+
+⚠️ **Nur ganze Zahlen in der Notiz.** Einsatz und Rüstwert sind durch den Verfall
+Kommazahlen; beim Schreiben wird gerundet. Weil der Verfall multiplikativ wirkt,
+bleibt der relative Fehler winzig und summiert sich nicht auf — Nachkommastellen
+wären Platzverschwendung.
+
+### Schreibrhythmus
+
+- **Vergaben sofort** wegschreiben (betrifft ein bis zwei Spieler, in einer
+  Sekunde erledigt).
+- **Einsatz erst am Raidende**, gesammelt.
+- ⚠️ Grund für das sofortige Schreiben der Vergaben: **SavedVariables landen erst
+  beim Ausloggen auf der Platte.** Ein Absturz mitten im Raid verlöre alles
+  Zwischengerechnete; was in der Notiz steht, überlebt ihn.
+- **⭐ Nur Raidteilnehmer schreiben, nicht die ganze Gilde.** Wer nicht dabei war,
+  ändert sich ausschließlich durch Verfall — und der wird beim nächsten Lesen über
+  den Wochenstempel nachgeholt. Das drückt die Schreiblast von 60 auf ~20.
+
 **✅ Schreiben ist bestätigt.** Der Aufruf
 
     /run C_GuildInfo.SetNote("Player-6409-044A1EDA", "LO:100,100,38", false)
