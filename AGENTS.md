@@ -498,9 +498,21 @@ Also: **öffentliche Notiz = Feld 7, Offiziersnotiz = Feld 8, GUID = Feld 17.**
 **⚠️ Die öffentliche Notiz ist bei Resurrected belegt** — dort steht Spezialisierung
 und Beruf (`Ret - Schwertschmied`). **Nicht anfassen.** Sie wird für die
 Twink-zu-Main-Zuordnung gebraucht (§ 6: das Konto gehört dem Spieler, nicht dem
-Charakter). Die **Offiziersnotiz ist leer** und steht dem System zur Verfügung.
-Als Datenquelle für die Hauptrolle taugt die öffentliche Notiz übrigens nicht —
-Freitext ohne festes Format.
+Charakter). Als Datenquelle für die Hauptrolle taugt sie übrigens nicht — Freitext
+ohne festes Format.
+
+❗ **Die Offiziersnotiz ist NICHT durchgängig leer — hier lag ich falsch.** Kaosx'
+Feld war leer, andere Mitglieder haben dort Einträge (gesehen: `von Patric`,
+vermutlich wer wen eingeladen hat). **Vor dem ersten Schreiben klären, sonst
+überschreibt das Addon gepflegte Daten der Gilde.** Drei Wege stehen offen: den
+vorhandenen Text stehen lassen und den LO-Block anhängen (bei ~31 Zeichen wird das
+eng, `LO:4500,3800,52,0,3` braucht allein 19), das Feld gildenweit freiräumen, oder
+die Zähler doch über den Addon-Sync verteilen und die Notiz kurz halten.
+
+❗ **Live vorgeführt: der Index-Fallstrick ist real.** Ein zweiter Lesetest auf
+`GetGuildRosterInfo(1)` lieferte einen anderen Spieler als beim ersten Mal, weil
+sich die Sortierung geändert hatte. Nie über den Index adressieren — immer über
+Name oder GUID suchen.
 
 ### Das Notizformat
 
