@@ -86,10 +86,11 @@ Alle vom Nutzer beschlossen, mit Begründung — nicht ohne Anlass wieder aufmac
 - **Absagen bringen Punkte**, damit sich alle von selbst melden und die
   Raidleitung niemandem hinterherläuft. Der Anreiz entsteht aus der **Differenz
   zu null**, nicht aus einer Strafe für No-Shows — sozial deutlich verträglicher.
-- **Gedeckelt auf drei Raidtage in Folge**, Zähler wird bei jeder Teilnahme
-  zurückgesetzt. Grund: Ein Abwesender baut keinen Rüstwert auf, seine Prio
-  steigt also ungebremst. Bei drei Tagen sind es +15 % (Rauschen), bei acht
-  +55 %, im Dauerzustand Prio 2,50 gegen 1,11 eines aktiven Raiders.
+- **Gedeckelt auf vier Raidtage in Folge** (Entscheidung des Nutzers, 14.09.2026;
+  drei war der Vorschlag), Zähler wird bei jeder Teilnahme zurückgesetzt. Grund:
+  Ein Abwesender baut keinen Rüstwert auf, seine Prio steigt also ungebremst.
+  Bei vier Tagen sind es +22 %, bei acht +55 %, im Dauerzustand Prio 2,50 gegen
+  1,11 eines aktiven Raiders.
 - **Bezugsgröße ist der tatsächlich gelaufene Abend**, nicht eine Pauschale.
   Schöner Nebeneffekt: Fällt der Raid aus, bekommt niemand etwas — sonst hätten
   ausgerechnet die Absagen Punkte gebracht, die ihn platzen ließen.
