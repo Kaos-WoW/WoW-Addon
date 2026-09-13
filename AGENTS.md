@@ -425,7 +425,10 @@ Bank so lange von Hand vermerkt.
 
 ## Zusammenarbeit über Git
 
-Repo: **`Kaos-WoW/loot-ordnung`** (privat), Branch `main`. Am Projekt arbeiten
+Repo: **https://github.com/Kaos-WoW/WoW-Addon**, Branch `main`.
+Das Regelwerk liegt in der Wurzel; das geplante Addon bekommt später einen
+eigenen Unterordner, der so heißen muss wie das Addon selbst (WoW-Konvention,
+der Ordnername muss zur `.toc` passen). Am Projekt arbeiten
 mehrere Personen — der Nutzer, ein zweiter Entwickler und Claude-Sitzungen.
 
 **⭐ Vor jedem Push `git fetch` und den Stand prüfen.** Dasselbe Problem wie bei
