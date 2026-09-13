@@ -408,6 +408,47 @@ Entscheidung aus § 6 mit einem Klick umgangen. Zwei Gegenmittel, beide nötig:
 2. **Das Protokoll ist öffentlich.** Wer etwas als Zweitbedarf nimmt und dann in
    der Hauptrolle trägt, fällt auf.
 
+### ✅ Verifizierte API für die Gildennotiz (Anniversary-Client, 2026-09-13)
+
+**Am lebenden Client gemessen, nicht geraten.** Gilt für Anniversary TBC; für
+Forever wahrscheinlich, aber am 17. gegenzuprüfen.
+
+⚠️ **Die alten Globals existieren NICHT mehr** — `GuildRosterSetOfficerNote` und
+`CanEditOfficerNote` sind beide `nil`. Alles ist nach `C_GuildInfo` gewandert.
+Lesen läuft dagegen weiter über Globals. Die Aufteilung ist also gemischt:
+
+| Zweck | Funktion |
+|---|---|
+| Roster anfordern | `C_GuildInfo.GuildRoster()` |
+| Mitglied lesen | `GetGuildRosterInfo(i)` — **global geblieben** |
+| Anzahl | `GetNumGuildMembers()` — **global geblieben** |
+| Notiz schreiben | `C_GuildInfo.SetNote(guid, note, isPublic)` |
+| Darf ich schreiben? | `C_GuildInfo.CanEditOfficerNote()` |
+| Darf ich überhaupt sehen? | `C_GuildInfo.CanViewOfficerNote()` |
+| Bin ich Offizier? | `C_GuildInfo.IsGuildOfficer()` |
+
+**⭐ `SetNote` nimmt eine GUID, keinen Roster-Index.** Das entschärft den
+gefährlichsten Fallstrick von selbst: Indizes verschieben sich, wenn Leute
+online gehen — GUIDs sind stabil und dürfen zwischengespeichert werden.
+
+**Feldfolge von `GetGuildRosterInfo(i)`, an echten Daten abgelesen:**
+
+    name, rank, rankIndex, level, class, zone, note, officernote,
+    online, status, classFileName, achievementPoints, achievementRank,
+    isMobile, canSoR, repStanding, guid
+
+Also: **öffentliche Notiz = Feld 7, Offiziersnotiz = Feld 8, GUID = Feld 17.**
+
+**⚠️ Die öffentliche Notiz ist bei Resurrected belegt** — dort steht Spezialisierung
+und Beruf (`Ret - Schwertschmied`). **Nicht anfassen.** Sie wird für die
+Twink-zu-Main-Zuordnung gebraucht (§ 6: das Konto gehört dem Spieler, nicht dem
+Charakter). Die **Offiziersnotiz ist leer** und steht dem System zur Verfügung.
+Als Datenquelle für die Hauptrolle taugt die öffentliche Notiz übrigens nicht —
+Freitext ohne festes Format.
+
+❓ **Noch offen:** Ob das *Schreiben* tatsächlich durchgeht. Lesen ist bestätigt,
+der Schreibversuch stand bei Redaktionsschluss aus.
+
 ⚠️ **Erst messen, dann bauen** (siehe Memory `wow-forever-classic-plus`):
 
 - Gibt es in WoW Forever noch **Master Loot**? Ohne ML muss die Vergabe über
