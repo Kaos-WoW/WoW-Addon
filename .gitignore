@@ -1,0 +1,10 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Windows / OneDrive
+Thumbs.db
+desktop.ini
+*.tmp
+~$*
