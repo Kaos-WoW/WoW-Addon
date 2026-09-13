@@ -58,6 +58,8 @@ Paragrafen sind durchgearbeitet und abgenommen:
 | § 8 | Sonderfälle — legendäre Gegenstände stehen außerhalb |
 | § 9 | Pflichten vor dem Raid |
 | § 10 | Offenlegung |
+| Anhang A | Woher die Zahlen kommen — die drei Größen in Alltagssprache |
+| Anhang B | Ein Durchgang zum Mitrechnen |
 
 **Sieben offene Punkte** sind im Regelwerk selbst markiert, darunter zwei, die
 sich erst am laufenden Client entscheiden lassen (Eichwert K und

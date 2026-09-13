@@ -771,10 +771,84 @@
   </section>
 
   <section class="para">
-    <div class="para__num">Anhang</div>
+    <div class="para__num">Anhang A</div>
+    <div class="para__body">
+        <h2>Woher die Zahlen kommen</h2>
+        <p>Wer nur eines aus diesem Dokument mitnimmt, dann diesen Abschnitt. Die übrigen Paragrafen sind Feinheiten — das hier ist das ganze System.</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Größe</th><th>Was sie bedeutet</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><strong>Einsatz</strong></td><td>Was du beigetragen hast. Ein Zähler, der hochgeht, wenn du dabei bist.</td></tr>
+              <tr><td><strong>Rüstwert</strong></td><td>Was du bekommen hast. Ein Zähler, der hochgeht, wenn du Ausrüstung mitnimmst.</td></tr>
+              <tr><td><strong>Prio</strong></td><td>Der erste geteilt durch den zweiten.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Warum geteilt und nicht abgezogen</h3>
+        <p>Weil keine der beiden Zahlen für sich etwas aussagt. Wer seit Monaten jeden Abend da ist, hat viel Einsatz — aber vermutlich auch viel bekommen. Erst das Verhältnis beantwortet die Frage, um die es geht: <em>Hast du viel beigetragen, gemessen an dem, was du schon hast?</em></p>
+
+        <h3>So entstehen die Zahlen</h3>
+        <ul>
+          <li><strong>Einsatz:</strong> Nach jedem Raid werden die Punkte addiert — fünf je Boss, zehn wenn du den ganzen Abend dabei warst. Einmal pro Woche gehen zehn Prozent ab.</li>
+          <li><strong>Rüstwert:</strong> Bei jedem Gegenstand wird sein Wert addiert — Platzfaktor mal Gegenstandsstufe. Ebenfalls zehn Prozent Abzug pro Woche.</li>
+          <li><strong>Prio:</strong> Einsatz geteilt durch Rüstwert. Fertig.</li>
+        </ul>
+
+        <h3>Fünf Wochen zum Mitrechnen</h3>
+        <p>Ein Spieler vom Systemstart an. Das <span class="num">× 0,9</span> ist der Wochenverfall, die hervorgehobenen Zahlen sind der Zuwachs.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th class="rank">Wo</th><th>Einsatz</th><th>Rüstwert</th><th class="n">Prio</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="rank">1</td><td>0 → <strong>+50</strong> = 50</td><td>100 <em>(Grenze)</em> = 100</td><td class="n">0,50</td></tr>
+              <tr><td class="rank">2</td><td>50 → 45 → <strong>+50</strong> = 95</td><td>100 <em>(Grenze)</em> → <strong>+90</strong> = 190</td><td class="n">0,50</td></tr>
+              <tr><td class="rank">3</td><td>95 → 85 → <strong>+25</strong> = 110</td><td>190 → 171</td><td class="n">0,65</td></tr>
+              <tr><td class="rank">4</td><td>110 → 99 → <strong>+50</strong> = 149</td><td>171 → 154</td><td class="n">0,97</td></tr>
+              <tr><td class="rank">5</td><td>149 → 134 → <strong>+50</strong> = 185</td><td>154 → 138 → <strong>+180</strong> = 319</td><td class="n">0,58</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="tabnote">Woche 1 und 2 zeigen die <strong>Mindestgrenze</strong>: Der Rüstwert fällt nie unter 100, der Verfall greift dort also noch nicht. In Woche 3 ist abgemeldet (halber Satz), Woche 4 ist eine Pechsträhne ohne Gegenstand, in Woche 5 fällt eine Zweihandwaffe.</p>
+        <p>Jede Zeile zeigt einen anderen Mechanismus. <strong>Woche 4</strong> ist der Lohn für Pech: dabei gewesen, leer ausgegangen, die Prio springt auf 0,97 und man ist als Nächster dran. <strong>Woche 5</strong> löst das ein — die Waffe kostet 180, die Prio fällt auf 0,58, jetzt sind die anderen dran.</p>
+
+        <h3>Die Prio läuft mit, nicht nur wöchentlich</h3>
+        <p>Die Tabelle oben rechnet in Wochenschritten, damit man sie überblickt. Im Raid läuft es feiner: <strong>Einsatz und Rüstwert werden laufend gebucht</strong>, Boss für Boss und Gegenstand für Gegenstand. Nur der Verfall ist wöchentlich. So sieht ein erster Abend aus, zwei Spieler von null:</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th></th><th class="n">Spieler A</th><th class="n">Spieler B</th><th></th></tr>
+            </thead>
+            <tbody>
+              <tr><td>nach Boss 1</td><td class="n">5 ÷ 100 = 0,050</td><td class="n">5 ÷ 100 = 0,050</td><td>Gleichstand</td></tr>
+              <tr><td><strong>Gegenstand 1</strong></td><td class="n">—</td><td class="n">—</td><td class="win">Los, A gewinnt</td></tr>
+              <tr><td></td><td class="n">5 ÷ 190 = 0,026</td><td class="n">5 ÷ 100 = 0,050</td><td>B ist jetzt vorn</td></tr>
+              <tr><td>nach Boss 2</td><td class="n">10 ÷ 190 = 0,053</td><td class="n">10 ÷ 100 = 0,100</td><td></td></tr>
+              <tr><td><strong>Gegenstand 2</strong></td><td class="n">—</td><td class="n">—</td><td class="win">B bekommt ihn</td></tr>
+              <tr><td></td><td class="n">10 ÷ 190 = 0,053</td><td class="n">10 ÷ 190 = 0,053</td><td>wieder gleichauf</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><strong>Nur der erste Gegenstand eines Abends wird ausgelost.</strong> Ab dem zweiten entscheidet die Prio von selbst — und nach je einem Stück stehen beide exakt wieder gleich. Das ist die Selbstregulierung, sichtbar am allerersten Abend.</p>
+
+        <div class="note note--warn">
+          <p><strong>Die absolute Höhe bedeutet nichts.</strong> Eine 0,58 ist nicht „schlecht" — es zählt allein, wer an dem Abend die höchste Zahl hat. Am Anfang liegen alle Werte niedrig, weil der Rüstwert bei der Mindestgrenze startet und der Einsatz bei null; nach ein paar Monaten liegen sie höher. An der Rangfolge ändert das nichts.</p>
+          <p>Ein zweiter Anfangseffekt: Solange der Rüstwert klein ist, schlägt jeder Gegenstand hart durch — die ersten Stücke werfen weiter zurück als dieselben Stücke ein halbes Jahr später. Für den Start ist das gut so: Die Rotation läuft schnell, jeder bekommt etwas, bevor einer zwei bekommt.</p>
+        </div>
+      </div>
+  </section>
+
+  <section class="para">
+    <div class="para__num">Anhang B</div>
     <div class="para__body">
       <h2>Ein Durchgang zum Mitrechnen</h2>
-      <p>Es fällt eine Zweihandwaffe. Drei Spieler haben Bedarf für die Erstspec:</p>
+      <p>Es fällt eine Zweihandwaffe. Drei Spieler haben Bedarf für ihre Hauptrolle:</p>
       <div class="table-wrap">
         <table>
           <thead>

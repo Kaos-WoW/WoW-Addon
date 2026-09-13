@@ -257,16 +257,16 @@ Stehen auch im Dokument selbst, im Kasten am Ende:
 
 ## Nächste Schritte
 
-1. **Anhang ergänzen** (noch nicht im Dokument, steht nur im Sitzungsverlauf):
-   die drei Größen in Alltagssprache, die Fünf-Wochen-Tabelle **mit sichtbarer
-   Mindestgrenze** und der Abend-für-Abend-Ablauf. Der Nutzer hat beides
-   nachgefragt — wenn er als Autor danach fragt, braucht es die Gilde erst recht.
-   ⚠️ Die erste Fassung der Tabelle war irreführend: Sie zeigte
-   „100 × 0,9 + 90 = 190“, ohne dass der Mindest-Rüstwert dazwischen sichtbar war.
-   Verfall und Zuwachs als **getrennte Schritte** darstellen.
-2. **Der Gilde vorlegen** — der Entwurf ist vollständig genug.
+1. ✅ **Anhang A „Woher die Zahlen kommen“ ist drin** (13.09.2026): die drei
+   Größen in Alltagssprache, warum geteilt statt abgezogen wird, die
+   Fünf-Wochen-Tabelle **mit sichtbarer Mindestgrenze** und der
+   Abend-für-Abend-Ablauf mit dem ausgelosten ersten Gegenstand.
+   ⚠️ Die erste Fassung war irreführend: Sie zeigte „100 × 0,9 + 90 = 190“, ohne
+   dass die Mindestgrenze dazwischen sichtbar war — der Nutzer hat es gemerkt und
+   nachgefragt. Verfall und Zuwachs immer als **getrennte Schritte** zeigen.
+2. **Der Gilde vorlegen** — der Entwurf ist vollständig.
 3. **Am 17.09. messen** (Master Loot, Gildenlisten-API, Interface-Nummer), dann
-   das Addon planen.
+   das Addon bauen.
 
 ## Wie die Prio tatsächlich läuft
 
