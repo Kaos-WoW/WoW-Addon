@@ -457,8 +457,8 @@
             <tr><th>Abmeldung</th><th class="n">Einsatz</th></tr>
           </thead>
           <tbody>
-            <tr><td>Bis <strong>24 Stunden vor Raidstart</strong></td><td class="n">halber Satz</td></tr>
-            <tr><td>Später, aber vor Raidstart</td><td class="n">Viertelsatz</td></tr>
+            <tr><td><strong>Direkt abgesagt</strong>, bis 24 Stunden vor Raidstart</td><td class="n">halber Satz</td></tr>
+            <tr><td><strong>Zusage zurückgezogen</strong> — oder später abgesagt, vor Raidstart</td><td class="n">Viertelsatz</td></tr>
             <tr><td>Nicht gemeldet, nicht erschienen</td><td class="n">0</td></tr>
           </tbody>
         </table>
@@ -498,14 +498,33 @@
           <tbody>
             <tr><td class="rank">1</td><td><strong>Im Raid mitgegangen</strong> — unabhängig davon, was gemeldet war</td><td class="n">+5 je Boss, +10 voll dabei</td></tr>
             <tr><td class="rank">2</td><td><strong>Zugesagt, online, nicht gebraucht</strong> — die Bank</td><td class="n">voller Satz</td></tr>
-            <tr><td class="rank">3</td><td><strong>Rechtzeitig abgesagt</strong>, bis 24 h vor Raidstart</td><td class="n">halber Satz</td></tr>
-            <tr><td class="rank">4</td><td><strong>Spät abgesagt</strong>, aber vor Raidstart</td><td class="n">Viertelsatz</td></tr>
+            <tr><td class="rank">3</td><td><strong>Direkt abgesagt</strong> — nie zugesagt, bis 24 h vor Raidstart</td><td class="n">halber Satz</td></tr>
+            <tr><td class="rank">4</td><td><strong>Zusage zurückgezogen</strong>, oder spät abgesagt vor Raidstart</td><td class="n">Viertelsatz</td></tr>
             <tr><td class="rank">5</td><td>Alles andere</td><td class="n">0</td></tr>
           </tbody>
         </table>
       </div>
       <p>Zeile 5 fasst die drei Fälle zusammen, die für die Raidleitung gleich wertlos sind: zugesagt und nicht erschienen, bei „vielleicht" geblieben und nicht mitgegangen, gar nichts gemeldet. Online zu sein hilft dabei nicht — es zählt nur in Zeile 2, und die setzt eine Zusage voraus.</p>
       <p>Zwei Dinge stehen in dieser Rangfolge. <strong>Mitgehen ist immer die beste Option</strong> — wer im Raid steht, bekommt die Punkte des Abends, egal was er vorher angeklickt hat. Und wer nicht kann, fährt mit einer frühen, klaren Absage am besten. Wer absagt und dann doch kommt, landet in Zeile 1 statt in Zeile 3, nie in beiden.</p>
+
+      <h3>Warum eine zurückgezogene Zusage weniger bringt</h3>
+      <p>Das sieht nach Kleinkram aus, ist aber der Unterschied zwischen einer Anmeldung, auf die man bauen kann, und einer Wunschliste. Rechne nach, was sich lohnt, wenn <em>p</em> die Wahrscheinlichkeit ist, dass du wirklich kannst:</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th class="n">p</th><th class="n">Zusagen</th><th class="n">Absagen</th><th>rational</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="n">20 %</td><td class="n">30,0</td><td class="n">25,0</td><td>Zusage</td></tr>
+            <tr><td class="n">50 %</td><td class="n">37,5</td><td class="n">25,0</td><td>Zusage</td></tr>
+            <tr><td class="n">80 %</td><td class="n">45,0</td><td class="n">25,0</td><td>Zusage</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Bekäme die zurückgezogene Zusage denselben halben Satz wie eine direkte Absage, wäre <strong>Zusagen bei jeder Unsicherheit die bessere Wahl</strong> — auch wenn man nur zu zwanzig Prozent kann. Jeder sagt zu, viele ziehen zurück, und die Raidleitung plant mit Leuten, die nie kommen wollten. Mit dem Viertelsatz kippt die Rechnung bei einem Drittel: Wer sich nicht wenigstens halbwegs sicher ist, fährt mit einer ehrlichen Absage besser.</p>
+      <div class="note">
+        <p>Wer <em>zusagt und kommt</em>, verliert dadurch nichts — die zurückgezogene Zusage trifft nur den, der absagt. Und wer wirklich verhindert ist, bekommt immer noch den Viertelsatz statt null.</p>
+      </div>
 
       <h3>Warum abgestuft</h3>
       <p>Die drei Stufen lösen zwei verschiedene Probleme. Dass eine Absage überhaupt etwas bringt, sorgt dafür, dass sich alle von selbst melden — die Raidleitung muss niemandem hinterherlaufen. Dass eine späte Absage weniger bringt als eine frühe, verhindert, dass man sich alles offen hält und erst am Raidtag entscheidet: Wer 24 Stunden vorher Bescheid gibt, gibt der Raidleitung Zeit fürs Setup, und das soll mehr wert sein. Aus demselben Grund bringt ein stehengelassenes „vielleicht" nichts: Bekäme es den halben Satz, wäre es die beste Wahl für alle — risikofrei, hält alles offen, und niemand würde je wieder klar absagen.</p>
@@ -654,6 +673,11 @@
         </table>
       </div>
       <p><strong>Die Hauptrolle ist fest.</strong> Sie wird nicht von Woche zu Woche gewechselt — sonst könnte man sie danach aussuchen, was gerade fällt. Ein echter Wechsel geht nur mit Zustimmung der Raidleitung.</p>
+      <div class="note note--warn">
+        <p><strong>Wer in einer anderen Rolle erscheint als hinterlegt, hat an diesem Abend nur Zweitbedarf.</strong> Ein Druide, der als Gleichgewicht eingetragen ist und als Wilder Kampf mitkommt, spielt zwar weiter Schaden — braucht aber eine völlig andere Ausrüstung. Ohne diese Regel könnte man sich von Abend zu Abend aussuchen, welche Beutetabelle man bedient, und die Festlegung aus § 6 wäre wertlos.</p>
+        <p>Das ist keine Strafe, sondern die Regel konsequent angewendet: Hauptbedarf hat man für <em>seine</em> Hauptrolle. <strong>Sagt die Raidleitung den Wechsel vorher an</strong> — weil ein Tank fehlt oder die Aufstellung es verlangt —, gilt die neue Rolle für diesen Abend als Hauptrolle.</p>
+        <p>Geprüft wird das von Menschen, nicht vom Addon. Eine technische Erkennung müsste für jede Klasse und Spezialisierung Werte-Tabellen führen, und in Classic gibt es genug Gegenstände mit Stärke, Intelligenz und Willenskraft zugleich, bei denen auch die nichts entscheiden könnte. Im Raid fällt so etwas ohnehin auf.</p>
+      </div>
       <div class="note">
         <p><strong>Beim Wechsel bleibt der Rüstwert stehen.</strong> Wer die Rolle wechselt, hat für die neue zwar schlechtere Ausrüstung, arbeitet sich aber normal hoch — sonst wäre ein Rollenwechsel der bequemste Weg, die eigene Prio zurückzusetzen. Wechselt jemand, <em>weil die Gilde ihn darum bittet</em>, kann der Rat den Rüstwert anpassen.</p>
       </div>
@@ -880,14 +904,15 @@
 
   <section class="open">
     <p class="kicker">Vor dem Beschluss zu klären</p>
-    <h2>Sieben offene Punkte</h2>
+    <h2>Acht offene Punkte</h2>
     <ol>
       <li><strong>Der Eichwert K und der Mindest-Rüstwert</strong> — stehen erst fest, wenn wir die Gegenstandsstufen der ersten Raidstufe kennen. Beide gehören zusammen gesetzt, sonst ist der Mindestwert gegenüber den Platzfaktoren zu niedrig.</li>
       <li><strong>Verfallsrate.</strong> Zehn Prozent sind für den Anfang beschlossen. Nach der ersten Raidstufe prüfen: Fünfzehn Prozent ließen Neue schneller aufschließen, entwerten Treue aber stärker.</li>
       <li><strong>Übergeben wir die Rüstwert-Korrekturen später an einen benannten Kreis?</strong> Zunächst macht es die Raid- oder Gildenleitung. Ob ein Kreis zuverlässiger Spieler das übernimmt, entscheiden wir, wenn absehbar ist, wie viel Arbeit anfällt.</li>
-      <li><strong>Raids mit fremden Spielern sind noch nicht geregelt.</strong> Nach jetzigem Stand bekämen Gäste nur, was kein Gildenmitglied für die Hauptrolle braucht — wer das einmal mitmacht, füllt nie wieder auf. Im Gespräch ist ein zweiter Modus, in dem gewürfelt wird, damit auch ohne Addon jeder mitmachen kann. Die Frage dahinter ist unbequem: Entweder werden Gäste fair behandelt, oder die Stammgruppe behält ihren Vorrang — beides zugleich geht nicht.</li>
-      <li><strong>Kleine Verbesserungen kosten den vollen Preis.</strong> Ein Ring mit zwei Punkten mehr kostet so viel wie einer, der einen leeren Platz füllt — also lehnt man ihn ab, und er landet in der Bank. Leben wir damit, bis das Addon den Zuwachs statt des Vollwerts rechnen kann?</li>
+      <li><strong>Raids mit fremden Spielern sind noch nicht geregelt.</strong> Nach jetzigem Stand bekämen Gäste nur, was kein Gildenmitglied für die Hauptrolle braucht — wer das einmal mitmacht, füllt nie wieder auf. Im Gespräch ist ein zweiter Modus, in dem gewürfelt wird, damit auch ohne Addon jeder mitmachen kann. Die Frage dahinter ist unbequem: Entweder werden Gäste fair behandelt, oder die Stammgruppe behält ihren Vorrang — beides zugleich geht nicht. <strong>Die Lösung muss auch aus Sicht der Gäste gerecht sein</strong>, sonst hilft uns beim nächsten Mal niemand aus.</li>
+      <li><strong>Kleine Verbesserungen kosten den vollen Preis.</strong> Ein Ring mit zwei Punkten mehr kostet so viel wie einer, der einen leeren Platz füllt — also lehnt man ihn ab, und er landet in der Bank. Die Lösung ist bekannt: <em>Rüstwert = Platzfaktor × (Wert neu − Wert alt)</em>, dann kostet ein marginales Upgrade auch nur marginal und ein leerer Platz weiterhin den vollen Preis. Sie setzt allerdings voraus, dass das Addon die getragene Ausrüstung kennt — ein Inspect beim Raidstart. Starten wir ohne und rüsten nach?</li>
       <li><strong>Der Deckel bei drei Raidtagen in Folge.</strong> Drei hält die Verzerrung bei rund 15 %. Vier wären großzügiger, liegen aber schon bei 22 %.</li>
+      <li><strong>Zwei Raidgrößen, zwei Geschwindigkeiten.</strong> Zehner und Zwanziger sammeln unterschiedlich viel Einsatz, wer wechselt bringt einen Vorsprung mit, der aus der Raidgröße stammt. Ausgleichen lässt sich das — aber der Maßstab ist die <strong>Beute je Kopf</strong>, nicht die Kopfzahl: Fallen im Zehner halb so viele Gegenstände auf halb so viele Leute, ist es ohne jede Korrektur schon fair. Erst am laufenden Client messbar.</li>
       <li><strong>Die wichtigste Frage:</strong> Trägt die Gilde mit, dass niemand mehr entscheidet? Ein Regelsystem nimmt der Raidleitung Arbeit ab, aber auch die Möglichkeit, in einem einzelnen Fall das Richtige zu tun.</li>
     </ol>
   </section>

@@ -249,6 +249,91 @@ Vom Nutzer unverändert abgenommen („sind meiner Meinung nach okay so“).
 - **§ 10:** Prio-Tabelle jederzeit einsehbar, jede Vergabe protokolliert,
   Auswertung am Ende jeder Raidstufe.
 
+## ⭐ Review durch XQP (13.09.2026)
+
+Ein zweiter Entwickler hat den Entwurf durchgesehen. Sein Gesamturteil:
+*„diese sechs dinge sind eigentlich alles was mir aufgefallen ist, wenn man das
+fair löst isses extrem solid.“* Die Befunde, jeweils mit dem, was daraus wurde:
+
+### ✅ 1. Spieltheorie beim Anmelden — er hatte recht, ist gefixt
+
+Er rechnete vor: Sei *p* die Wahrscheinlichkeit mitzugehen, dann ist
+Zusage = `p×50 + (1-p)×25` gegen Absage = `25`. **Zusagen dominiert bei jedem
+p > 0** — ehrliche Unsicherheit wurde nie belohnt, die Anmeldung bläht sich auf.
+
+Ursache: Die alte Rangfolge fragte in Zeile 3 nicht, was vorher stand.
+**Fix: Eine zurückgezogene Zusage bringt nur den Viertelsatz**, eine direkte
+Absage weiter den halben. Kipppunkte: Viertelsatz → p = 33 %, null → p = 50 %.
+Bewusst der Viertelsatz, weil „null“ genau die träfe, die das System schützen soll.
+
+### ✅ 2. Rollenwechsel ohne Ansage — übernommen
+
+Sein Beispiel: eine Eule, die als Katze mitkommt. Weiter Schaden, aber völlig
+andere Beutetabelle. **Regel statt Technik:** Wer in einer anderen Rolle erscheint
+als hinterlegt, hat an diesem Abend nur Zweitbedarf; sagt die Raidleitung den
+Wechsel an, gilt die neue Rolle. Keine Erkennung nötig — eine Werte-Prüfung
+scheitert in Classic ohnehin an Gegenständen mit Stärke, Intelligenz und
+Willenskraft zugleich (Einwand des Nutzers, XQP hat zugestimmt).
+
+### ⚠️ 3. Raidgröße — richtige Diagnose, falsche Stellschraube
+
+Sein Vorschlag: `EP_PRO_BOSS × (20 / raid_size)`. **Normalisiert an der falschen
+Größe.** Die Prio pendelt im Gleichgewicht bei *Einsatz-Rate ÷ Loot-Rate*; fair
+ist es, wenn beide Gruppen dasselbe **Verhältnis** haben — und es zählt die
+**Beute je Kopf**, nicht die Kopfzahl. Gerechnet mit 20er/8 Bossen/5 Items gegen
+10er/5 Bossen/2,5 Items: Gleichgewicht 0,28 vs. 0,31, also fast von selbst fair.
+Sein Faktor trifft exakt zu, wenn beide Raidgrößen *absolut gleich viele*
+Gegenstände abwerfen. Steht als offener Punkt, am Client zu messen.
+
+### ❌ 4. Phasen-Reset (R auf min_R, EP behalten) — nicht übernommen
+
+Rechnung mit zwei gleich oft anwesenden Spielern am Phasenende:
+
+| | vorher | nach Reset |
+|---|---|---|
+| A, räumte ab (8 Items) | 0,71 | **5,00** |
+| B, Pech (2 Items) | 2,00 | **5,00** |
+
+**Bs Pech würde ersatzlos gelöscht.** Sein Anliegen — altes Gear soll nicht ewig
+belasten — erledigt der Verfall bereits: nach zwölf Wochen ist der Rüstwert auf
+28 % geschrumpft. **Der Verfall ist der weiche Phasenreset.** Sein Vorschlag wäre
+erst nötig, wenn Phasen kürzer werden als die Halbwertszeit von 6,6 Wochen.
+
+### ❌ 5. „Dreier-Deckel ist zu niedrig“ — Zahlen sagen etwas anderes
+
+Nach drei Wochen, Start 1,50: dabei und leer ausgegangen **1,96** · abgemeldet
+**1,73** · dabei mit Loot **1,39**. Der Pausierende landet **zwischen** den beiden
+Anwesenden — Vorrang nur gegenüber dem, der etwas bekommen hat. Das ist die
+gewollte Ordnung. Dass sich das als Burnout-Pause nutzen lässt, ist eher Feature
+als Fehler.
+
+### ⚠️ 6. Kleine Upgrades — richtig erkannt, Formel vereinfacht
+
+Sein Vorschlag: `RP = Platzfaktor × log₂(R_neu / R_alt)`. Algebraisch aufgelöst ist
+das `Platzfaktor × Δilvl / K`, also **linear in der Stufendifferenz**. Zwei Haken:
+bei leerem Platz **Division durch null**, und die Werte liegen bei 0,1–1,5, während
+der Einsatz um 50 pro Woche wächst — die Skalen passen nicht.
+
+**Die schlichte Differenz leistet dasselbe ohne beides:**
+
+    Rüstwert = Platzfaktor × (Wert_neu − Wert_alt)
+
+Leerer Platz ergibt automatisch den vollen Preis, die Skala bleibt. Inhaltlicher
+Unterschied: Derselbe Stufensprung kostet auf hohem Niveau mehr (55 statt 27,5),
+weil dort mehr Werte draufliegen — bei XQPs Formel wäre er preisgleich. Für ein
+Lootsystem ist die absolute Stärke der richtige Maßstab.
+
+⚠️ **Beide Formeln brauchen `Wert_alt`, also wieder die getragene Ausrüstung** —
+genau das, was oben als nicht nötig abgehakt wurde. Es käme über Inspect beim
+Raidstart zurück (ein Knopfdruck, ~30 s für 20 Leute, alle in Reichweite). Deshalb
+als **zweite Ausbaustufe** vorgesehen: erst ohne starten, dann nachrüsten.
+
+### Nicht übernommen, weil vernachlässigbar
+
+**Moral Hazard beim Zweitbedarf** (alle würfeln auf Zweitbedarf) — XQP relativiert
+selbst: braucht arglistige Absprachen. Zusätzlich abgefangen durch die Markierung
+im Addon und das öffentliche Protokoll.
+
 ## Offene Punkte
 
 Stehen auch im Dokument selbst, im Kasten am Ende:
