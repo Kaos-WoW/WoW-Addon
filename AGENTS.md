@@ -423,6 +423,29 @@ Entscheidung aus § 6 mit einem Klick umgangen. Zwei Gegenmittel, beide nötig:
 keines geben. Deshalb steht im Dokument ausdrücklich, dass die Raidleitung die
 Bank so lange von Hand vermerkt.
 
+## Zusammenarbeit über Git
+
+Repo: **`Kaos-WoW/loot-ordnung`** (privat), Branch `main`. Am Projekt arbeiten
+mehrere Personen — der Nutzer, ein zweiter Entwickler und Claude-Sitzungen.
+
+**⭐ Vor jedem Push `git fetch` und den Stand prüfen.** Dasselbe Problem wie bei
+[[tbc-loot-prio-p3]]: Mehrere Schreiber auf `main` bedeuten, dass `origin` mitten
+in der Arbeit vorausgelaufen sein kann.
+
+⚠️ **Zwei Dinge, die beim Mitarbeiten leicht schiefgehen:**
+
+1. **`loot-ordnung.html` ist zugleich die Quelle des veröffentlichten Artifacts.**
+   Wer sie ändert, ändert nur die Datei — die veröffentlichte Seite bleibt auf dem
+   alten Stand, bis jemand sie neu publiziert (mit der **URL** im Kopf dieser Datei,
+   sonst entsteht ein zweites Artifact).
+2. **Zahlen im Regelwerk und `berechnungen.py` müssen zusammenpassen.** Alle Werte
+   im HTML stammen aus dem Skript. Wer eine Stellschraube dreht, lässt das Skript
+   laufen und zieht die Zahlen im HTML nach — einschließlich der SVG-Koordinaten
+   im Diagramm von § 4. Das Dokument lebt davon, nachrechenbar zu sein.
+
+`.gitattributes` normalisiert Zeilenenden auf LF, damit Windows und Linux/Mac
+sich nicht gegenseitig ganze Dateien als geändert anzeigen.
+
 ## Verwandtes im selben Verzeichnisbaum
 
 - `../Loostliste/` — TBC-Loot-Sheet, Quelle der RCLootCouncil-Exportspalten

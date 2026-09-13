@@ -1,0 +1,3 @@
+# Zeilenenden im Repo immer LF, damit Windows und Linux/Mac sich nicht
+# gegenseitig ganze Dateien als geaendert anzeigen.
+* text=auto eol=lf
