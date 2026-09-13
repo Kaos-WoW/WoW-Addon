@@ -501,13 +501,23 @@ Twink-zu-Main-Zuordnung gebraucht (§ 6: das Konto gehört dem Spieler, nicht de
 Charakter). Als Datenquelle für die Hauptrolle taugt sie übrigens nicht — Freitext
 ohne festes Format.
 
-❗ **Die Offiziersnotiz ist NICHT durchgängig leer — hier lag ich falsch.** Kaosx'
-Feld war leer, andere Mitglieder haben dort Einträge (gesehen: `von Patric`,
-vermutlich wer wen eingeladen hat). **Vor dem ersten Schreiben klären, sonst
-überschreibt das Addon gepflegte Daten der Gilde.** Drei Wege stehen offen: den
-vorhandenen Text stehen lassen und den LO-Block anhängen (bei ~31 Zeichen wird das
-eng, `LO:4500,3800,52,0,3` braucht allein 19), das Feld gildenweit freiräumen, oder
-die Zähler doch über den Addon-Sync verteilen und die Notiz kurz halten.
+✅ **Die Offiziersnotiz gehört dem System — Entscheidung des Nutzers.** Sie war
+nicht durchgängig leer (gesehen: `von Patric`, vermutlich wer wen eingeladen hat);
+der Nutzer kommuniziert in der Gilde, dass das Feld freizuhalten ist, weil das
+Addon hineinschreibt.
+
+⚠️ **Trotzdem defensiv bauen — Ansagen erreichen nicht jeden:**
+
+1. **Beim ersten Lauf sichern.** Alle vorhandenen Notizen in die SavedVariables
+   kopieren, bevor irgendetwas geschrieben wird. Kostet nichts, macht alles
+   wiederherstellbar.
+2. **Fremdinhalt melden, nicht überschreiben.** Eine Notiz, die weder leer ist
+   noch mit `LO:` beginnt, löst eine Meldung aus („3 Mitglieder haben noch
+   Einträge“) statt still ersetzt zu werden.
+
+**✅ Volle Länge auch beim Lesen bestätigt:** `GetGuildRosterInfo` liefert
+`LO:99999,99999,52,XXXXXXXXXXXX` ungekürzt zurück. Was das Gildenfenster abschneidet,
+ist reine Anzeige.
 
 ❗ **Live vorgeführt: der Index-Fallstrick ist real.** Ein zweiter Lesetest auf
 `GetGuildRosterInfo(1)` lieferte einen anderen Spieler als beim ersten Mal, weil
