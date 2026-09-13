@@ -3,9 +3,15 @@
 Regelwerk für ein neues Lootsystem der Gilde **Resurrected**, gedacht für
 **World of Warcraft Forever** (Classic+, Beta ab 17.09.2026).
 Stand: **Entwurf, noch nicht beschlossen** — 13.09.2026.
-**Alle §§ 1–10 sind mit dem Nutzer durchgearbeitet und abgenommen.** Offen sind
-nur noch die sieben Punkte im Kasten am Dokumentende sowie zwei zurückgestellte
-Fragen (siehe unten).
+**Das Regelwerk ist fertig und vorlagefähig:** §§ 1–10 durchgearbeitet und
+abgenommen, dazu Anhang A („Woher die Zahlen kommen“, Alltagssprache) und
+Anhang B (Vergabe-Beispiel). Offen sind nur die sieben Punkte im Kasten am
+Dokumentende.
+
+**Die Addon-Architektur steht ebenfalls**, Code noch keine Zeile. Die
+Gildennotiz-API ist am Anniversary-Client verifiziert — lesen, schreiben, Länge,
+Rechte, Adressierung über GUID. Was noch fehlt, hängt am 17.09.: ob es Master
+Loot gibt und ob die API in Forever genauso heißt.
 
 | | |
 |---|---|
