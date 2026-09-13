@@ -335,6 +335,62 @@ Betrifft gleich mehrere Stellen: den Rüstwert eines Neulings (§ 5), den
 Zuwachs-Ansatz gegen abgelehnte Kleinverbesserungen (§ 6) und die Warnung des
 Bedarfsfensters bei falsch angemeldetem Zweitbedarf.
 
+### ⭐ Architektur — entschieden
+
+**Nur eine Handvoll Leute braucht das Addon: die Raidleiter.** Grund: Forever hat
+10er- und 20er-Raids, die Gilde fährt also **mehrere Gruppen**. Ein Addon, das
+jeder installieren muss, wäre ein Dauerproblem.
+
+Möglich wird das durch drei Entscheidungen, die zusammenhängen:
+
+1. **Bedarf wird gewürfelt, nicht geklickt.** `/rnd 100` = Hauptbedarf,
+   `/rnd 50` = Zweitbedarf. Jeder Client kann das von Haus aus, Fremde
+   eingeschlossen. Das Addon liest die Würfe aus dem Chat mit.
+   ⚠️ Die *Zahl* ist im Gildenmodus bedeutungslos — sie transportiert nur die
+   Kategorie. Sortiert wird nach Prio.
+2. **Ausgerüstete Gegenstände werden nicht ausgelesen.** Kein Inspect, keine
+   Reichweitenprobleme, kein „alle mal zusammenstehen“. **Der Rüstwert ist ein
+   Konto, keine Messung** — er wächst aus dem, was jemand im Raid bekommt.
+   Selbst der Startwert eines Neulings ist rein rechnerisch (§ 5). Damit hat sich
+   die früher zurückgestellte Frage nach der Ausrüstungserkennung **erledigt**;
+   sie käme nur zurück, wenn der Zuwachs-Ansatz aus § 6 umgesetzt wird.
+3. **Die Konten liegen in der Offiziersnotiz** (Format `LO:Einsatz,Rüstwert,Woche`).
+   Der Server synchronisiert sie, es gibt genau eine Wahrheit, und **kein Leiter
+   muss sich mit einem anderen verabreden oder gleichzeitig online sein**. Genau
+   das Verfahren, mit dem EPGP/CEPGP dasselbe Problem seit Jahren lösen.
+
+⚠️ **Der Wochenstempel ist nicht optional.** Bei mehreren Gruppen würde der
+Verfall sonst doppelt angewendet. Mit der Kalenderwoche im Datensatz wird die
+Rechnung **idempotent**: Wer einen alten Stempel liest, holt den Verfall nach und
+setzt ihn neu; wer einen aktuellen liest, lässt ihn stehen.
+
+**Optional obendrauf, beides nicht nötig zum Start:**
+
+- **Addon-Sync per Knopfdruck** über den Gildenkanal für das, was nicht in die
+  Notiz passt (Vergabehistorie, Deckel-Zähler). Muster wie
+  [[bt4profileshare-addon]]. Merge-Regel: pro Spieler gewinnt der neuere
+  Zeitstempel — echte Konflikte gibt es nicht, weil niemand in zwei Raids
+  gleichzeitig ist.
+- **Web-Schaufenster** über Export-String und Supabase (Infrastruktur steht beim
+  [[raidposter-tool]]). ⚠️ **Addons können nicht ins Internet** — es gibt keine
+  HTTP-Schnittstelle in der Lua-Umgebung. Eine Datenbank ist deshalb **kein
+  Sync-Weg**, sondern nur ein Schaufenster für § 10 (Offenlegung), und braucht
+  immer einen Schritt außerhalb des Spiels.
+
+**Was der Spieler ohne Addon trotzdem hat:** `!prio` per Flüsternachricht an den
+Raidleiter, dessen Addon automatisch antwortet; dazu ein Aushang der Rangfolge im
+Raidchat beim Invite. ⚠️ Antworten drosseln.
+
+### ❗ NEU OFFEN — 10er und 20er sammeln unterschiedlich
+
+Wer im 20er raidet, bekommt pro Abend mehr Einsatz, wenn dort mehr Bosse fallen.
+Wechselt jemand in die kleinere Gruppe, bringt er einen Vorsprung mit, der aus
+der Raidgröße stammt statt aus Verdienst. Zwei Auswäge: **fester Satz pro
+Raidabend** statt pro Boss (kostet aber die Eigenschaft, dass ein durchgebissener
+Wipe-Abend mehr bringt), oder **Punkte anteilig zur Bossanzahl der Instanz**
+(sauber, aber schwerer zu erklären). Erst entscheidbar, wenn die Bossanzahlen
+beider Raidgrößen bekannt sind.
+
 ### ❗ OFFEN — Raids mit fremden Spielern („offener Modus“)
 
 **Lücke im Regelwerk:** Fremde sind nirgends geregelt. Nach jetzigem Stand bekämen
@@ -446,8 +502,13 @@ Charakter). Die **Offiziersnotiz ist leer** und steht dem System zur Verfügung.
 Als Datenquelle für die Hauptrolle taugt die öffentliche Notiz übrigens nicht —
 Freitext ohne festes Format.
 
-❓ **Noch offen:** Ob das *Schreiben* tatsächlich durchgeht. Lesen ist bestätigt,
-der Schreibversuch stand bei Redaktionsschluss aus.
+**✅ Schreiben ist bestätigt.** Der Aufruf
+
+    /run C_GuildInfo.SetNote("Player-6409-044A1EDA", "LO:100,100,38", false)
+
+ist durchgegangen, der Text stand danach im Feld *Officer's Note*. Damit ist der
+gesamte Weg am lebenden Client belegt: lesen, schreiben, Rechte. Kein
+Sync-Protokoll nötig.
 
 ⚠️ **Erst messen, dann bauen** (siehe Memory `wow-forever-classic-plus`):
 
