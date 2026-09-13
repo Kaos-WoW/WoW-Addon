@@ -94,7 +94,7 @@ for name, ep in [("voller Satz (%g)" % VOLLER_SATZ, VOLLER_SATZ),
     p = lauf(4, ep)
     print("%-22s %7s %7s %7s %7s   %6.2f" % (
         name, *["%.2f" % v for v in p], gleichgewicht(ep, 0.0)))
-print("\nEntschieden: halber Satz, gedeckelt auf 3 Raidtage in Folge (+15 %).")
+print("\nEntschieden: halber Satz, gedeckelt auf 4 Raidtage in Folge (+22 %).")
 print("Zum Vergleich - ein aktiver Raider mit Loot landet bei Prio %.2f." %
       gleichgewicht(VOLLER_SATZ, LOOT_PRO_WOCHE))
 
