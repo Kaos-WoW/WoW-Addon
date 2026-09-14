@@ -27,6 +27,10 @@ local function hilfe()
     print("  |cffffff78/lo rang N|r  – Rang N ein-/ausschalten (mehrere möglich)")
     print("  |cffffff78/lo start|r   – Konten anlegen (zeigt erst an)")
     print("  |cffffff78/lo buchen|r  – Testbuchung auf das eigene Konto")
+    print("|cff1B6B57Raidabend:|r")
+    print("  |cffffff78/lo boss|r    – Bosskampf buchen (alle Anwesenden)")
+    print("  |cffffff78/lo abend|r   – Stand des Abends; |cffffff78jetzt|r schreibt, |cffffff78neu|r verwirft")
+    print("  |cffffff78/lo auto|r    – Bosskills automatisch erkennen")
 end
 
 --- Eigenen Roster-Eintrag suchen.
@@ -340,6 +344,75 @@ befehle["buchen"] = function(arg)
     sag(string.format("%+d Einsatz gebucht. Prio %.2f → |cff55ff55%.2f|r",
         punkte, vorher, ns.Kern.Prio(konto)))
     print("  |cff8E9A94" .. tostring(ns.Notiz.Schreiben(konto)) .. "|r")
+end
+
+befehle["boss"] = function(arg)
+    local name = (arg ~= "" and arg) or nil
+    local ok, was = ns.Raid.BossBuchen(name)
+    if not ok then
+        sag("|cffffff78" .. tostring(was) .. "|r")
+        return
+    end
+    local abend = ns.Raid.Abend()
+    sag(string.format("Bosskampf %d gebucht – |cff55ff55%d Teilnehmer|r.", abend.bosse, was))
+    print("  |cff8E9A94/lo abend zeigt den Stand, /lo abend jetzt schreibt ihn.|r")
+end
+
+befehle["abend"] = function(arg)
+    local abend = ns.Raid.Abend()
+
+    if arg == "neu" then
+        ns.Raid.AbendVerwerfen()
+        sag("|cffffff78Abend verworfen.|r")
+        return
+    end
+
+    if abend.bosse == 0 then
+        sag("Noch kein Bosskampf gebucht. |cffffff78/lo boss|r oder |cffffff78/lo auto|r.")
+        return
+    end
+
+    local auswertung = ns.Raid.Auswertung()
+
+    if arg ~= "jetzt" then
+        sag(string.format("Abend seit %s: |cff55ff55%d Bosse|r, %d Spieler",
+            date("%H:%M", abend.start), abend.bosse, #auswertung))
+        print("  |cff8E9A94" .. table.concat(abend.protokoll, ", ") .. "|r")
+        for i, a in ipairs(auswertung) do
+            if i <= 15 then
+                print(string.format("  %-14s %d/%d Bosse%s  → |cff55ff55+%d|r",
+                    a.kurz, a.bosse, abend.bosse,
+                    a.vollDabei and " |cff55ff55voll|r" or "      ", a.einsatz))
+            end
+        end
+        if #auswertung > 15 then print("  |cff8E9A94… und " .. (#auswertung - 15) .. " weitere|r") end
+        print("  |cffff5555Zum Schreiben: /lo abend jetzt|r")
+        return
+    end
+
+    if not IsInGuild() then sag("Du bist in keiner Gilde.") return end
+    ns.Gilde.RosterAnfordern()
+
+    local n, fehlend = ns.Raid.Buchen(function()
+        sag("|cff55ff55Abend geschrieben. /lo liste zeigt den Stand.|r")
+    end)
+    sag(string.format("%d Konten werden gebucht…", n))
+    if #fehlend > 0 then
+        print("  |cffffff78Ohne Konto übersprungen: " .. table.concat(fehlend, ", ") .. "|r")
+        print("  |cff8E9A94Das sind Gäste oder Ränge, die nicht teilnehmen.|r")
+    end
+    ns.Raid.AbendVerwerfen()
+end
+
+befehle["auto"] = function()
+    local an = ns.Raid.AutomatikUmschalten()
+    if an then
+        sag("|cff55ff55Bosskills werden automatisch gebucht.|r")
+        print("  |cff8E9A94Mehrere Versuche am selben Boss zählen einmal.|r")
+        print("  |cff8E9A94Falls der Client keine Encounter-Ereignisse liefert: /lo boss von Hand.|r")
+    else
+        sag("|cffffff78Automatik aus – Bosse per /lo boss buchen.|r")
+    end
 end
 
 SLASH_LOOTORDNUNG1 = "/lo"

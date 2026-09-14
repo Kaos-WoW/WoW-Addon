@@ -550,6 +550,31 @@ Freitext in der Sicherung und gehören später strukturiert erfasst.
 ❓ **Offen geblieben:** Die echte Längengrenze der Notiz. Gemessen sind 30 Zeichen
 (gingen durch), vermutet 31. Läge sie bei 63, hätte beides nebeneinander gepasst.
 
+### Raid.lua — den Abend erfassen
+
+**✅ `ENCOUNTER_END` funktioniert im Anniversary-Client** (gemessen 14.09.2026 im
+Schwarzen Tempel: *„Gurtogg Bloodboil gebucht (25 Teilnehmer)“*). Liefert
+encounterID und encounterName. `BOSS_KILL` ist zusätzlich registriert. Beide
+Registrierungen laufen in `pcall`, weil nicht jeder Client sie kennt — am 17. für
+Forever erneut prüfen.
+
+Der Abend wird lokal gesammelt und erst auf Befehl geschrieben:
+`/lo boss [name]` bucht von Hand, `/lo auto` schaltet die Erkennung ein,
+`/lo abend` zeigt den Stand, `/lo abend jetzt` schreibt, `/lo abend neu` verwirft.
+
+⚠️ **Regelentscheidung, die § 2 offenlässt: Gezählt wird pro Boss, nicht pro
+Versuch.** Im Regelwerk steht „je Bosskampf, auch bei Wipes“ — würden zehn
+Versuche an einem Progress-Boss zehnmal zählen, brächte ein einziger Wipe-Abend
+mehr als eine ganze Farmwoche. Die Automatik verhindert das über die encounterID
+(`abend.gesehen`), ein manueller `/lo boss` zählt dagegen immer. **Der Satz fehlt
+im Regelwerk und gehört dort ergänzt.**
+
+„Voll dabei“ heißt: bei *allen* Bosskaempfen des Abends anwesend. Wer später
+dazustoßt, bekommt nur die anteiligen Punkte — das regelt sich von selbst.
+
+⚠️ Der Abend liegt in den SavedVariables und überlebt `/reload` und Disconnect,
+aber **keinen Absturz vor dem nächsten Ausloggen** — WoW schreibt sie erst dann.
+
 ## Addon — weiterer Aufbau
 
 Der Nutzer wollte zuerst das Regelwerk. Was feststeht:

@@ -8,5 +8,6 @@
 Kern.lua
 Notiz.lua
 Gilde.lua
+Raid.lua
 Tests.lua
 Befehle.lua
