@@ -21,12 +21,37 @@ ersten Raidtag einer Erweiterung, über die noch niemand etwas weiß.
 
 | Datei | Inhalt |
 |---|---|
-| `loot-ordnung.html` | Das Regelwerk. Zehn Paragrafen, Rechenbeispiel, offene Punkte |
+| `loot-ordnung.html` | Das Regelwerk. Zehn Paragrafen, zwei Anhänge, offene Punkte |
 | `berechnungen.py` | Das Rechenmodell. Erzeugt alle Zahlen im Regelwerk |
-| `AGENTS.md` | Projektstand, getroffene Entscheidungen mit Begründung, Addon-Ausblick |
+| `AGENTS.md` | Projektstand, Entscheidungen mit Begründung, verworfene Alternativen |
+| `deploy-tbc.ps1` | Rollt das Addon in den Anniversary-Client aus |
+| `luacheck.py` | Grobe Strukturprüfung für Lua (Blöcke, Klammern, BOM) |
+
+### Das Addon — `LootOrdnung/`
+
+| Datei | Inhalt | braucht WoW |
+|---|---|---|
+| `Kern.lua` | Verfall, Prio, Platzfaktoren, Einsatz, Rangfolge | nein |
+| `Notiz.lua` | Kontenformat `LO:…` lesen und schreiben | nein |
+| `Tests.lua` | 72 Selbsttests, auch offline lauffähig | nein |
+| `Gilde.lua` | Offiziersnotizen lesen und gedrosselt schreiben | ja |
+| `Raid.lua` | Den Raidabend erfassen | ja |
+| `Befehle.lua` | Slash-Befehle unter `/lo` | ja |
+
+**Kern, Notiz und Tests fassen keine WoW-API an** — deshalb laufen sie auch in
+einem gewöhnlichen Lua-Interpreter, und der Prüfstand braucht keinen Client.
 
 Das Regelwerk ist als Seite veröffentlicht:
 https://claude.ai/code/artifact/82f64d38-0b63-4c4f-9fd7-1208bdb8bb97
+
+## Ausrollen und prüfen
+
+```
+powershell -ExecutionPolicy Bypass -File .\deploy-tbc.ps1
+```
+
+Danach im Spiel `/reload`, dann `/lo test` — erwartet werden 72 grüne Prüfungen.
+`/lo` allein listet alle Befehle.
 
 ## Modell nachrechnen
 
@@ -67,5 +92,16 @@ Mindest-Rüstwert). Dazu zwei zurückgestellte Fragen in `AGENTS.md`: wie das
 Addon die getragene Ausrüstung erkennt, und wie Raids mit fremden Spielern
 laufen sollen.
 
-Ein Addon ist geplant, aber nicht begonnen. Die Ordnung ist so geschrieben, dass
-sie auch von Hand anwendbar ist — wenn auch mühsam.
+## Stand des Addons
+
+**Version 0.1.0, im Anniversary-Client erprobt.** Was läuft:
+
+- Rechenkern mit 72 Selbsttests, deckungsgleich mit `berechnungen.py`
+- Konten in den Offiziersnotizen: lesen, schreiben, sichern, wiederherstellen
+- Rangauswahl, damit Twinks und Anwärter draußen bleiben
+- Raidabend erfassen — `ENCOUNTER_END` funktioniert, Bosse werden automatisch
+  gebucht, sobald Raidinstanz **und** Gildenmehrheit stimmen
+
+Was noch fehlt: die Vergabe. Würfe im Chat mitlesen, nach Kategorie und Prio
+sortieren, Rüstwert buchen. Das hängt an der Frage, ob es in Forever Master Loot
+gibt — ohne ihn läuft die Vergabe über Gruppenloot und Handeln.

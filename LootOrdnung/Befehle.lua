@@ -348,14 +348,13 @@ end
 
 befehle["boss"] = function(arg)
     local name = (arg ~= "" and arg) or nil
-    local ok, was = ns.Raid.BossBuchen(name)
-    if not ok then
-        sag("|cffffff78" .. tostring(was) .. "|r")
+    if not name then
+        sag("Welcher Boss? |cffffff78/lo boss Gurtogg|r")
+        print("  |cff8E9A94Der Name verhindert, dass derselbe Kampf doppelt zählt.|r")
         return
     end
-    local abend = ns.Raid.Abend()
-    sag(string.format("Bosskampf %d gebucht – |cff55ff55%d Teilnehmer|r.", abend.bosse, was))
-    print("  |cff8E9A94/lo abend zeigt den Stand, /lo abend jetzt schreibt ihn.|r")
+    ns.Raid.Melden(ns.Raid.BossBuchen(name, nil, true))
+    print("  |cff8E9A94/lo abend zeigt den Stand, /lo abend neu verwirft alles.|r")
 end
 
 befehle["abend"] = function(arg)
@@ -406,14 +405,86 @@ end
 
 befehle["auto"] = function()
     local an = ns.Raid.AutomatikUmschalten()
-    if an then
-        sag("|cff55ff55Bosskills werden automatisch gebucht.|r")
-        print("  |cff8E9A94Mehrere Versuche am selben Boss zählen einmal.|r")
-        print("  |cff8E9A94Falls der Client keine Encounter-Ereignisse liefert: /lo boss von Hand.|r")
-    else
+    if not an then
         sag("|cffffff78Automatik aus – Bosse per /lo boss buchen.|r")
+        return
+    end
+
+    sag("|cff55ff55Automatik an.|r")
+    local erlaubt, grund, gesamt = ns.Raid.IstGildenraid()
+    if erlaubt then
+        print(string.format("  |cff55ff55Hier wird gebucht: %d von %d aus der Gilde.|r", grund, gesamt))
+    else
+        print("  |cff8E9A94Hier würde nicht gebucht: " .. tostring(grund) .. ".|r")
+        print("  |cff8E9A94Gebucht wird nur in einer Raidinstanz mit Gildenmehrheit.|r")
+    end
+    print("  |cff8E9A94Mehrere Versuche am selben Boss zählen einmal. Von Hand: /lo boss|r")
+end
+
+-- =====================================================================
+--  Begruessung beim Laden
+-- =====================================================================
+
+local function version()
+    local hole = (rawget(_G, "C_AddOns") and C_AddOns.GetAddOnMetadata)
+                 or rawget(_G, "GetAddOnMetadata")
+    if hole then
+        local ok, v = pcall(hole, ADDON, "Version")
+        if ok and v then return v end
+    end
+    return "?"
+end
+
+local function begruessung()
+    local teile = {}
+
+    -- Automatik und laufender Abend
+    if ns.Raid.AutomatikAn() then
+        teile[#teile + 1] = "|cff55ff55Automatik an|r"
+    else
+        teile[#teile + 1] = "|cff8E9A94Automatik aus|r"
+    end
+
+    local abend = LootOrdnungDB and LootOrdnungDB.abend
+    if abend and abend.bosse and abend.bosse > 0 then
+        teile[#teile + 1] = string.format("|cffffff78Abend läuft: %d Bosse seit %s|r",
+            abend.bosse, date("%H:%M", abend.start))
+    end
+
+    sag(string.format("%s geladen – %s", version(), table.concat(teile, " · ")))
+
+    -- Warnungen nur, wenn sie zutreffen
+    if not IsInGuild() then return end
+
+    if ns.Gilde.DarfSchreiben() == false then
+        print("  |cffff5555Kein Schreibrecht für Offiziersnotizen – Konten lassen sich nicht führen.|r")
+    end
+    if ns.Gilde.AnzahlGewaehlt() == 0 then
+        print("  |cffffff78Noch kein Rang gewählt – /lo raenge|r")
+    end
+
+    local offen = 0
+    for _, e in ipairs((ns.Gilde.Lesen())) do
+        if ns.Gilde.RangAktiv(e.rangIndex) and not e.konto then offen = offen + 1 end
+    end
+    if offen > 0 then
+        print(string.format("  |cffffff78%d Mitglieder ohne Konto – /lo start|r", offen))
     end
 end
+
+local begruessungsRahmen = CreateFrame("Frame")
+begruessungsRahmen:RegisterEvent("PLAYER_ENTERING_WORLD")
+begruessungsRahmen:SetScript("OnEvent", function(selbst)
+    -- ⚠️ PLAYER_ENTERING_WORLD feuert auch bei jedem Instanzwechsel.
+    -- Nur einmal je Sitzung gruessen, sonst spammt es beim Raiden.
+    selbst:UnregisterEvent("PLAYER_ENTERING_WORLD")
+    C_Timer.After(4, function()
+        local ok, fehler = pcall(begruessung)
+        if not ok then
+            sag("|cffff5555Fehler beim Start: " .. tostring(fehler) .. "|r")
+        end
+    end)
+end)
 
 SLASH_LOOTORDNUNG1 = "/lo"
 SLASH_LOOTORDNUNG2 = "/lootordnung"

@@ -562,12 +562,36 @@ Der Abend wird lokal gesammelt und erst auf Befehl geschrieben:
 `/lo boss [name]` bucht von Hand, `/lo auto` schaltet die Erkennung ein,
 `/lo abend` zeigt den Stand, `/lo abend jetzt` schreibt, `/lo abend neu` verwirft.
 
-⚠️ **Regelentscheidung, die § 2 offenlässt: Gezählt wird pro Boss, nicht pro
-Versuch.** Im Regelwerk steht „je Bosskampf, auch bei Wipes“ — würden zehn
-Versuche an einem Progress-Boss zehnmal zählen, brächte ein einziger Wipe-Abend
-mehr als eine ganze Farmwoche. Die Automatik verhindert das über die encounterID
-(`abend.gesehen`), ein manueller `/lo boss` zählt dagegen immer. **Der Satz fehlt
-im Regelwerk und gehört dort ergänzt.**
+✅ **Gezählt wird pro Boss, nicht pro Versuch** — steht seit 14.09.2026 auch im
+Regelwerk (§ 2, Kasten). Zehn Anläufe brächten sonst das Zehnfache. Abgesichert
+über die encounterID **und** über den Bossnamen, damit auch ein manueller
+`/lo boss` nicht doppelt zählt.
+
+⭐ **Teilnehmer werden über alle Anläufe vereinigt.** Sonst entschiede allein der
+erste Pull, wer den Boss angerechnet bekommt — wer nach dem zweiten Wipe
+nachrückt und den Kill mitmacht, ginge leer aus.
+
+⚠️ **Ein kurzer Irrweg, der nicht wiederholt werden sollte:** Zwischendurch war
+umgebaut auf „nur besiegte Bosse zählen“. Der Nutzer hat zurückgerudert — es
+bleibt bei jedem gepullten Boss. Der Erfolg wird trotzdem mitgeführt, aber nur
+für die Anzeige („gelegt“ / „steht noch“).
+
+### Wann die Automatik bucht
+
+Zwei Bedingungen, sonst passiert nichts: **eine Raidinstanz** (`IsInInstance`)
+**und mehr als die Hälfte der Gruppe aus der Gilde**. Damit bleiben Questen,
+Fünfergruppen und Pugs draußen — letzteres war der Anlass: Die Automatik liegt in
+den SavedVariables und läuft auch über Sitzungen hinweg weiter.
+
+Wird nicht gebucht, sagt das Addon warum und erinnert an `/lo boss`.
+
+### Begrüßung beim Laden
+
+Eine Zeile nach dem Einloggen: Version, Automatik-Zustand, laufender Abend.
+Darunter nur, was fehlt — kein Schreibrecht, kein Rang gewählt, Mitglieder ohne
+Konto. ⚠️ `PLAYER_ENTERING_WORLD` feuert bei **jedem** Instanzwechsel; das
+Ereignis wird deshalb nach dem ersten Mal abgemeldet. Die Begrüßung läuft in
+`pcall`, sonst risse ein Fehler beim Start die Slash-Befehle mit ab.
 
 „Voll dabei“ heißt: bei *allen* Bosskaempfen des Abends anwesend. Wer später
 dazustoßt, bekommt nur die anteiligen Punkte — das regelt sich von selbst.
