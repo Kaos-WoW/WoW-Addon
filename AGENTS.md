@@ -497,11 +497,11 @@ Einzige Brücke zwischen Rechenkern und Client. Enthält:
 Befehle dazu: `/lo liste` (alle Konten nach Prio), `/lo fremd` (wer hat noch
 eigene Einträge), `/lo sichern`.
 
-### Befehle (Stand 14.09.2026, alle im Spiel erprobt)
+### Befehle (Stand 15.09.2026, alle im Spiel erprobt)
 
 | Befehl | Zweck |
 |---|---|
-| `/lo test` | Selbsttests, 72 Prüfungen |
+| `/lo test` | Selbsttests des Rechenkerns |
 | `/lo rechte` | darf ich Offiziersnotizen sehen und schreiben |
 | `/lo notiz` | eigene Notiz anzeigen und als Konto deuten |
 | `/lo raenge` | Ränge mit Auswahlkasten `[x]` / `[ ]` |
@@ -511,12 +511,22 @@ eigene Einträge), `/lo sichern`.
 | `/lo leeren` | Fremdinhalt leeren — zeigt erst an, `jetzt` führt aus |
 | `/lo zurueck` | gesicherte Notizen wiederherstellen |
 | `/lo start` | Konten für die gewählten Ränge anlegen |
+| `/lo nullen` | alle Konten auf den Anfangswert — zeigt erst an, `jetzt` führt aus |
 | `/lo buchen N` | Testbuchung auf das eigene Konto |
 | `/lo liste` | alle Konten nach Prio |
+| `/lo boss [name]` | Bosskampf von Hand buchen |
+| `/lo auto` | Bosse über `ENCOUNTER_END` erkennen |
+| `/lo abend` | Stand; `jetzt` schreibt, `neu` verwirft |
+| `/lo abend nachtragen` | die zuletzt übersprungenen Konten nachbuchen |
+| `/lo abend zwingend` | Doppelbuchungssperre umgehen |
+| `/lo wer` | Diagnose: wer zählt gerade als anwesend |
+| `/lo bausteine` | Diagnose: welche Dateien sind geladen |
 
 **⭐ Destruktive Befehle zeigen erst an und brauchen `jetzt`.** `/lo leeren`
 sichert außerdem zwingend vorher — schlägt das fehl, passiert nichts. Eigene
-Konten (`LO:…`) bleiben beim Leeren unangetastet.
+Konten (`LO:…`) bleiben beim Leeren unangetastet. ⚠️ `/lo nullen` ist etwas
+anderes als `/lo zurueck`: Es setzt die Konten auf Null, die Sicherung der
+ursprünglichen Notizen bleibt liegen.
 
 ### ⚠️ Die Rangauswahl ersetzt einen Schwellenwert
 
@@ -598,6 +608,94 @@ dazustoßt, bekommt nur die anteiligen Punkte — das regelt sich von selbst.
 
 ⚠️ Der Abend liegt in den SavedVariables und überlebt `/reload` und Disconnect,
 aber **keinen Absturz vor dem nächsten Ausloggen** — WoW schreibt sie erst dann.
+
+### Mehrere Raidleiter gleichzeitig (15.09.2026)
+
+Forever fährt 10er und 20er, die Gilde also mehrere Gruppen parallel. Drei
+Fragen, drei Antworten:
+
+**Wer wird getrackt?** Jeder Raidleiter liest nur **seine eigene
+Schlachtzugsliste** (`GetRaidRosterInfo`). Die andere Gruppe steht dort gar nicht
+erst drin — die Trennung ergibt sich von selbst, es braucht keinen Schalter.
+
+**Wer zählt als anwesend?** Im Schlachtzug zu stehen reicht nicht.
+`Kern.IstDabei(online, zone, hier)` siebt Offline und andere Zonen aus, sonst
+kassiert der Twink in Shattrath denselben Einsatz wie die Gruppe im Kampf.
+⚠️ **Unbekanntes schließt nicht aus** — fehlt die Zone, zählt der Spieler. Und
+eine **Notbremse**: Siebt der Filter *alle* aus, stimmt nicht der Raid, sondern
+meine Annahme über die Felder; dann zählt die ungefilterte Liste. *Ein Filter
+darf einen Abend verkleinern, niemals auslöschen.* `/lo wer` zeigt die Rohwerte.
+
+**Was, wenn alle buchen?** `ENCOUNTER_END` feuert bei jedem, und jeder führt
+seinen eigenen Abend — das ist harmlos. Buchen aber alle, addiert jeder auf das
+Ergebnis des Vorherigen: aus Einsatz 600 werden 750 statt 650. Deshalb trägt
+jedes Konto die **Stunde der letzten Buchung** (sechstes Notizfeld,
+`Kern.SchonGebucht`, Fenster 8 h).
+
+⭐ **Warum keine Gruppenkennung.** Naheliegend wäre, die Gruppe am Anführer, an
+einer Teilnehmerprüfsumme oder an der Instanz zu erkennen. Alle drei haben eine
+Lücke (Anführerwechsel; ein Leiter schaltet `auto` später ein; keine saubere
+API), und **ihr Fehlerfall ist die stille Doppelbuchung**. Die Zeitsperre irrt in
+die harmlose Richtung: Sie sperrt zu viel, nennt aber die Namen, und
+`/lo abend nachtragen` bucht genau die nach. *Falsch gesperrt fällt auf, falsch
+gebucht nicht.* — Preis: Wer erst im Zehner und danach im Zwanziger mitgeht,
+braucht den Nachtrag von Hand.
+
+### ⭐ SavedVariables sind eine Versionsgrenze
+
+**Der teuerste Fehler bisher.** In `Notiz.lua` lese ich drei Generationen des
+Notizformats, weil mir dort klar war, dass der Server Daten über Code-Versionen
+hinweg aufhebt. Bei den SavedVariables habe ich dieselbe Sorgfalt vergessen.
+
+Die erste Fassung führte den Abend als `namen = { Name → Zahl der Bosse }`, die
+Neufassung als `teilnahme = { BossNr → Menge }`. Der Abend aus dem Schwarzen
+Tempel überlebte den Umbau im alten Format, und `/lo abend` lief auf
+`attempt to index field 'teilnahme' (a nil value)`.
+
+`Raid.Nachziehen(abend, jetzt)` holt das nach — API-frei und in `Tests.lua`
+geprüft, auch gegen den Überlauf (mehr gemeldete Bosse als der Abend hat).
+⚠️ Die *Anzahl* Bosse je Spieler bleibt exakt, die Zuordnung zu einzelnen Bossen
+ist rekonstruiert; `Auswertung()` zählt ohnehin nur, das Protokoll wäre gelogen.
+Das Addon sagt es beim Laden.
+
+**Regel für künftige Umbauten:** Wer ein Feld in `LootOrdnungDB` umbenennt oder
+entfernt, schreibt im selben Zug den Nachzieh-Pfad. Alles, was `Raid.Abend()`
+zurückgibt, wird dort auch auf Vollständigkeit ergänzt statt vorausgesetzt.
+
+### ⭐ Kein Befehl darf still scheitern
+
+WoW verschluckt Laufzeitfehler in Addons, solange `scriptErrors` aus ist — und
+das ist die Voreinstellung. Der Befehl tut dann **scheinbar überhaupt nichts**,
+und man sucht an der falschen Stelle. Genau so ging ein Abend verloren.
+
+`SlashCmdList["LOOTORDNUNG"]` ruft jeden Unterbefehl über `pcall` und druckt die
+Fehlermeldung in den Chat. Dazu zwei Sonden: **`/lo bausteine`** zeigt, welche
+Dateien durchgelaufen sind (bricht eine ab, ist `ns.Raid` leer und `/lo abend`
+stirbt lautlos, während `/lo test` weiterläuft), **`/lo wer`** die Rohwerte der
+Schlachtzugsliste.
+
+### Was der erste echte Abend gekostet hat
+
+Die alte Fassung erfasste Teilnehmer nur für die **automatisch** erkannten Bosse.
+Vier manuelle `/lo boss teron` erhöhten den Bosszähler auf 6, trugen aber
+niemanden ein — alle 25 standen auf `2/6` und bekamen 10 statt 25 Einsatz.
+Beides ist repariert (Namensabgleich dedupliziert, der manuelle Pfad trägt
+dieselben Teilnehmer ein wie der automatische). Die Konten wurden danach mit
+`/lo nullen` zurückgesetzt: Erprobungszahlen sollen nicht in die erste echte
+Woche hineinragen.
+
+⚠️ `/lo nullen` ist **nicht** `/lo zurueck`. Es setzt die vom System
+geschriebenen Konten auf den Anfangswert; die Sicherung der *ursprünglichen*
+Notizen bleibt unangetastet.
+
+### luacheck.py zerlegt jetzt richtig
+
+Der alte Prüfer zählte Schlüsselwörter per Regex und übersah alles in
+Zeichenketten und Kommentaren — er hatte schon einmal eine korrekte Datei
+fälschlich bemängelt. Jetzt läuft ein echter Tokenizer (lange Klammern,
+Escapes, `repeat`/`until`, `elseif`/`else`) mit Zeilenangabe im Fehlerfall.
+⚠️ Er prüft **Blockstruktur, keine Semantik** — ein `nil`-Zugriff findet er nicht.
+Dafür ist `/lo test` da, und seit heute der `pcall` im Dispatcher.
 
 ## Addon — weiterer Aufbau
 

@@ -240,9 +240,10 @@ local function testNotiz()
     local k = Kern.NeuesKonto(2953)
     k.einsatz, k.ruestwert = 4500.4, 3800.6
     k.deckel, k.gegenstaende = 2, 7
+    k.gebucht = 87234
 
     local text = Notiz.Schreiben(k)
-    gleich("Notiztext", text, "LO:4500,3801,2953,2,7")
+    gleich("Notiztext", text, "LO:4500,3801,2953,2,7,87234")
     gleich("passt in die Notiz", #text <= Notiz.MAXLAENGE, true)
 
     local zurueck = Notiz.Rundlauf(k)
@@ -251,6 +252,7 @@ local function testNotiz()
     gleich("Rundlauf Woche",     zurueck.woche, 2953)
     gleich("Rundlauf Deckel",    zurueck.deckel, 2)
     gleich("Rundlauf Stuecke",   zurueck.gegenstaende, 7)
+    gleich("Rundlauf Buchung",   zurueck.gebucht, 87234)
 
     -- Fremdinhalt erkennen, damit das Addon nichts ueberschreibt, was
     -- die Gilde von Hand gepflegt hat ("von Patric")
@@ -265,18 +267,117 @@ local function testNotiz()
     local _, grund3 = Notiz.Lesen("LO:kaputt")
     gleich("Grund bei Schrott", grund3, "unlesbar")
 
-    -- Kurzfassung ohne Zaehler muss lesbar bleiben
+    -- Aeltere Fassungen muessen lesbar bleiben
     local kurz = Notiz.Lesen("LO:100,200,300")
     gleich("Kurzfassung Einsatz", kurz and kurz.einsatz, 100)
     gleich("Kurzfassung Deckel",  kurz and kurz.deckel, 0)
+    gleich("Kurzfassung Buchung", kurz and kurz.gebucht, 0)
+
+    local fuenf = Notiz.Lesen("LO:100,200,300,1,2")
+    gleich("Fassung ohne Buchung: Stuecke", fuenf and fuenf.gegenstaende, 2)
+    gleich("Fassung ohne Buchung: Stempel", fuenf and fuenf.gebucht, 0)
 
     -- Grenze: sehr grosse Werte duerfen nicht still abgeschnitten werden
     local gross = Kern.NeuesKonto(99999)
     gross.einsatz, gross.ruestwert = 99999, 99999
     gross.deckel, gross.gegenstaende = 99999, 99999
+    gross.gebucht = 99999
     local zuLang, grundLang = Notiz.Schreiben(gross)
     gleich("zu langer Text wird abgelehnt", zuLang, nil)
     gleich("mit Grund", grundLang, "zu lang")
+end
+
+local function testNachziehen()
+    -- Raid.lua ist nicht API-frei; offline gibt es sie nicht.
+    if not (ns.Raid and ns.Raid.Nachziehen) then return end
+    local Raid = ns.Raid
+
+    -- Fassung 1: namen = Name -> Zahl der Bosse
+    local alt = { start = 1, bosse = 3, namen = { Kaos = 3, Timo = 1 } }
+    local neu, umgezogen = Raid.Nachziehen(alt, 99)
+
+    gleich("alter Abend wird nachgezogen", umgezogen, true)
+    gleich("namen ist danach weg", neu.namen, nil)
+    gleich("voll Dabeier steht an Boss 3", neu.teilnahme[3].Kaos, true)
+    gleich("Nachrücker steht nur an Boss 1", neu.teilnahme[1].Timo, true)
+    gleich("Nachrücker steht nicht an Boss 2", neu.teilnahme[2].Timo, nil)
+
+    -- Mehr Bosse gemeldet als der Abend hat: darf nicht ueberlaufen
+    local krumm = Raid.Nachziehen({ bosse = 2, namen = { Kaos = 5 } }, 99)
+    gleich("Zahl wird auf die Bosse gedeckelt", krumm.teilnahme[2].Kaos, true)
+    gleich("kein Boss 3 erfunden", krumm.teilnahme[3], nil)
+
+    -- Ein neuer Abend darf nicht angefasst werden
+    local frisch = { start = 5, bosse = 0, teilnahme = {}, protokoll = {} }
+    local _, nochmal = Raid.Nachziehen(frisch, 99)
+    gleich("neuer Abend bleibt unberuehrt", nochmal, false)
+
+    -- Fehlende Felder werden ergaenzt, damit nichts auf nil laeuft
+    local nackt = Raid.Nachziehen({}, 99)
+    gleich("start ergänzt",     nackt.start, 99)
+    gleich("bosse ergänzt",     nackt.bosse, 0)
+    gleich("teilnahme ergänzt", type(nackt.teilnahme), "table")
+    gleich("erfolg ergänzt",    type(nackt.erfolg), "table")
+end
+
+local function testAnwesenheit()
+    -- Im Schlachtzug stehen und dabei sein ist nicht dasselbe.
+    local BT = "Der Schwarze Tempel"
+
+    gleich("in derselben Zone zählt",
+           Kern.IstDabei(true, BT, BT), true)
+    gleich("andere Zone zählt nicht",
+           Kern.IstDabei(true, "Shattrath", BT), false)
+    gleich("offline zählt nicht",
+           Kern.IstDabei(false, BT, BT), false)
+
+    -- Unbekanntes darf nicht ausschliessen: lieber einer zu viel als
+    -- einem Teilnehmer den Abend nehmen.
+    gleich("unbekannte Zone zählt",
+           Kern.IstDabei(true, nil, BT), true)
+    gleich("leere Zone zählt",
+           Kern.IstDabei(true, "", BT), true)
+    gleich("ausserhalb einer Instanz wird nicht gefiltert",
+           Kern.IstDabei(true, "Shattrath", nil), true)
+    gleich("unbekannter Onlinestatus zählt",
+           Kern.IstDabei(nil, BT, BT), true)
+end
+
+local function testDoppelbuchung()
+    -- Haben mehrere Raidleiter das Addon, wuerde jede weitere Buchung auf
+    -- das Ergebnis der vorherigen addieren. Der Stempel verhindert das.
+    local jetzt = 1789000000
+    local stunde = Kern.StundeAus(jetzt)
+
+    local frisch = Kern.NeuesKonto(0)
+    gleich("frisches Konto gilt als ungebucht",
+           Kern.SchonGebucht(frisch, stunde), false)
+
+    local eben = Kern.NeuesKonto(0)
+    eben.gebucht = stunde
+    gleich("gerade gebucht wird gesperrt",
+           Kern.SchonGebucht(eben, stunde), true)
+
+    local vorhin = Kern.NeuesKonto(0)
+    vorhin.gebucht = stunde - 3
+    gleich("vor drei Stunden gilt als derselbe Abend",
+           Kern.SchonGebucht(vorhin, stunde), true)
+
+    local gestern = Kern.NeuesKonto(0)
+    gestern.gebucht = stunde - 24
+    gleich("gestern ist ein anderer Abend",
+           Kern.SchonGebucht(gestern, stunde), false)
+
+    -- Der gekuerzte Stempel laeuft irgendwann ueber; das darf nicht
+    -- faelschlich sperren oder freigeben.
+    local ueberlauf = Kern.NeuesKonto(0)
+    ueberlauf.gebucht = 99999
+    gleich("Ueberlauf sperrt kurz danach",
+           Kern.SchonGebucht(ueberlauf, 2), true)
+    gleich("Ueberlauf gibt spaeter frei",
+           Kern.SchonGebucht(ueberlauf, 50), false)
+
+    gleich("Stunde ist fuenfstellig", Kern.StundeAus(jetzt) < 100000, true)
 end
 
 local function testGegenModell()
@@ -334,6 +435,9 @@ function Tests.Alle(ausgeben)
     testNeulinge()
     testRangfolge()
     testNotiz()
+    testNachziehen()
+    testAnwesenheit()
+    testDoppelbuchung()
     testGegenModell()
 
     if ausgeben ~= false then

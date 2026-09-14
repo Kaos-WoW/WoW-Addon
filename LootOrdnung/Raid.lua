@@ -26,6 +26,50 @@ local function db()
     return LootOrdnungDB
 end
 
+--- Zieht einen Abend aus einer aelteren Addon-Fassung nach.
+--
+--  ⭐ **SavedVariables sind eine Versionsgrenze, genau wie die Notiz.**
+--  Was dort liegt, hat eine fruehere Fassung geschrieben und kennt deren
+--  Felder, nicht meine. Die erste Fassung fuehrte `namen`
+--  (Name -> Zahl der Bosse), die Neufassung `teilnahme`
+--  (BossNr -> Menge der Namen). Der alte Abend ueberlebte den Umbau, und
+--  /lo abend lief auf ein nil. In Notiz.lua lese ich drei Fassungen —
+--  hier habe ich dieselbe Sorgfalt vergessen.
+--
+--  ⚠️ Beim Nachziehen bleibt die ANZAHL der Bosse je Spieler erhalten,
+--  die Zuordnung zu einzelnen Bossen ist erfunden. Auswertung() zaehlt
+--  ohnehin nur, das Ergebnis ist dasselbe — das Protokoll waere es nicht.
+--
+--  Ohne WoW-API, damit der Pruefstand sie testen kann.
+--  @return abend, true wenn etwas nachgezogen wurde
+function Raid.Nachziehen(a, jetzt)
+    if type(a) ~= "table" then return a, false end
+    local umgezogen = false
+
+    if a.namen and not a.teilnahme then
+        local bosse = a.bosse or 0
+        a.teilnahme = {}
+        for nr = 1, bosse do a.teilnahme[nr] = {} end
+        for name, anzahl in pairs(a.namen) do
+            local bis = anzahl or 0
+            if bis > bosse then bis = bosse end
+            for nr = 1, bis do a.teilnahme[nr][name] = true end
+        end
+        a.namen = nil
+        umgezogen = true
+    end
+
+    -- Fehlendes ergaenzen statt darauf vertrauen, dass es da ist.
+    a.start     = a.start     or jetzt or 0
+    a.bosse     = a.bosse     or 0
+    a.protokoll = a.protokoll or {}
+    a.teilnahme = a.teilnahme or {}
+    a.kennungen = a.kennungen or {}
+    a.versuche  = a.versuche  or {}
+    a.erfolg    = a.erfolg    or {}
+    return a, umgezogen
+end
+
 --- Der laufende Abend, oder ein frischer.
 function Raid.Abend(neu)
     local d = db()
@@ -39,8 +83,15 @@ function Raid.Abend(neu)
             versuche  = {},   -- bossNr -> Anzahl Anlaeufe
             erfolg    = {},   -- bossNr -> true, sobald gelegt
         }
+        return d.abend
     end
-    return d.abend
+
+    local abend, umgezogen = Raid.Nachziehen(d.abend, time())
+    if umgezogen then
+        print("|cff1B6B57Loot-Ordnung|r: |cffffff78Abend aus einer älteren Fassung übernommen.|r")
+        print("  |cff8E9A94Die Bosszahl je Spieler stimmt, das Protokoll ist lückenhaft.|r")
+    end
+    return abend
 end
 
 function Raid.AbendVerwerfen()
@@ -51,17 +102,47 @@ end
 --  Teilnehmer
 -- =====================================================================
 
---- Wer steht gerade in der Gruppe?
+--- Wer ist gerade dabei?
+--
+--  ⭐ **Im Schlachtzug zu stehen reicht nicht.** Gefiltert wird ueber
+--  Kern.IstDabei: offline faellt raus, und in einer Instanz auch, wer in
+--  einer anderen Zone steht. Sonst kassiert der Twink, der in Shattrath
+--  parkt, denselben Einsatz wie die Gruppe im Kampf.
+--
+--  Damit erledigt sich auch die Trennung zweier paralleler Gruppen von
+--  selbst: Jeder Raidleiter liest nur SEINE Schlachtzugsliste, und in der
+--  steht die andere Gruppe gar nicht erst.
+--
+--  ⚠️ **Notbremse:** Siebt der Filter ALLE aus, stimmt nicht der Raid,
+--  sondern meine Annahme ueber die Felder von GetRaidRosterInfo. Dann
+--  zaehlt die ungefilterte Liste. Ein Filter darf einen Abend verkleinern,
+--  niemals ausloeschen.
+--
+--  @return Liste der Namen, Zahl der ausgesiebten, Notbremse gezogen?
 function Raid.Anwesende()
-    local liste = {}
+    local alle, dabei = {}, {}
     local n = GetNumGroupMembers and GetNumGroupMembers() or 0
 
     if IsInRaid and IsInRaid() then
+        local _, typ = IsInInstance()
+        local hier = (typ == "raid" or typ == "party") and GetRealZoneText() or nil
         for i = 1, n do
-            local name = GetRaidRosterInfo(i)
-            if name then liste[#liste + 1] = name end
+            local name, _, _, _, _, _, zone, online = GetRaidRosterInfo(i)
+            if name then
+                alle[#alle + 1] = name
+                if ns.Kern.IstDabei(online, zone, hier) then
+                    dabei[#dabei + 1] = name
+                end
+            end
         end
-    elseif n > 0 then
+        if #dabei == 0 and #alle > 0 then
+            return alle, 0, true
+        end
+        return dabei, #alle - #dabei, false
+    end
+
+    local liste = {}
+    if n > 0 then
         liste[#liste + 1] = UnitName("player")
         for i = 1, n - 1 do
             local name = UnitName("party" .. i)
@@ -71,7 +152,7 @@ function Raid.Anwesende()
         liste[#liste + 1] = UnitName("player")
     end
 
-    return liste
+    return liste, 0, false
 end
 
 --- Namen wie im Gildenroster schreiben (mit Realm), damit beide Seiten
@@ -182,7 +263,7 @@ function Raid.BossBuchen(bezeichnung, kennung, erfolg)
     if erfolg then abend.erfolg[nr] = true end
 
     local menge = abend.teilnahme[nr]
-    local anwesende = Raid.Anwesende()
+    local anwesende, aussen, notbremse = Raid.Anwesende()
     local neu = 0
     for _, name in ipairs(anwesende) do
         local schluessel = vollerName(name)
@@ -192,7 +273,7 @@ function Raid.BossBuchen(bezeichnung, kennung, erfolg)
         end
     end
 
-    return true, (schonDa and neu or #anwesende), nr, schonDa
+    return true, (schonDa and neu or #anwesende), nr, schonDa, aussen, notbremse
 end
 
 --- Wie viele Bosse fielen, wie viele stehen noch.
@@ -206,7 +287,7 @@ function Raid.Bilanz()
 end
 
 --- Einheitliche Meldung fuer gebuchte Kaempfe.
-function Raid.Melden(ok, zahl, nr, schonDa)
+function Raid.Melden(ok, zahl, nr, schonDa, aussen, notbremse)
     if not ok or not nr then return end
     local abend = Raid.Abend()
     local name     = tostring(abend.protokoll[nr])
@@ -220,6 +301,13 @@ function Raid.Melden(ok, zahl, nr, schonDa)
     else
         print(string.format("|cff1B6B57Loot-Ordnung|r: %s gebucht – %s |cff8E9A94(%d Teilnehmer, Boss %d).|r",
             name, stand, zahl, nr))
+    end
+    if aussen and aussen > 0 then
+        print(string.format("  |cff8E9A94%d nicht mitgezählt – offline oder in einer anderen Zone.|r",
+            aussen))
+    end
+    if notbremse then
+        print("  |cffff5555Zonenfilter aus – er hätte den ganzen Raid ausgesiebt. /lo wer zeigt warum.|r")
     end
 end
 
@@ -257,32 +345,88 @@ function Raid.Auswertung()
 end
 
 --- Schreibt den Abend in die Konten.
+--
+--  ⭐ **Idempotent gegen mehrere Raidleiter.** Haben zwei oder drei Leute
+--  das Addon, feuert ENCOUNTER_END bei allen, und jeder fuehrt seinen
+--  eigenen Abend — das ist harmlos. Buchen aber alle, addiert jeder auf
+--  das Ergebnis des Vorherigen, und der Einsatz verdoppelt sich. Deshalb
+--  traegt jedes Konto die Stunde seiner letzten Buchung.
+--
+--  ⚠️ **Bei zwei parallelen Gruppen ist die Sperre zu grob.** Sie sieht
+--  nur, DASS heute gebucht wurde, nicht von wem. Wer erst im Zehner und
+--  danach im Zwanziger mitgeht, wird beim zweiten Mal faelschlich
+--  uebersprungen. Eine Gruppenkennung waere die naheliegende Loesung —
+--  aber jede (Anfuehrer, Teilnehmerpruefsumme, Instanz) hat eine Luecke,
+--  und ihr Fehlerfall ist die STILLE Doppelbuchung. Die Zeitsperre irrt in
+--  die harmlose Richtung: Sie meldet die Uebersprungenen namentlich, und
+--  die Leitung traegt sie mit /lo abend nachtragen nach. Falsch gesperrt
+--  faellt auf, falsch gebucht nicht.
+--
 --  ⚠️ Nur Teilnehmer, nicht die ganze Gilde: Wer nicht dabei war,
 --  aendert sich allein durch Verfall, und der wird beim naechsten Lesen
 --  ueber den Wochenstempel nachgeholt.
-function Raid.Buchen(beiFertig)
-    local woche = Kern.WocheAus(time())
+--
+--  @param modus  nil = normal · "zwingend" = Sperre ganz aus ·
+--                "nachtragen" = NUR die zuletzt Uebersprungenen
+--  @return Anzahl gebuchter, Liste ohne Konto, Liste der Uebersprungenen
+function Raid.Buchen(beiFertig, modus)
+    local jetzt  = time()
+    local woche  = Kern.WocheAus(jetzt)
+    local stunde = Kern.StundeAus(jetzt)
+    local abend  = Raid.Abend()
     local auswertung = Raid.Auswertung()
+
+    local nachtragen = (modus == "nachtragen") and (abend.uebersprungen or {}) or nil
+    local erzwingen  = (modus == "zwingend")
 
     local nachName = {}
     for _, e in ipairs((ns.Gilde.Lesen())) do
         nachName[e.name] = e
     end
 
-    local auftraege, fehlend = {}, {}
+    local auftraege, fehlend, spaeter = {}, {}, {}
     for _, a in ipairs(auswertung) do
         local e = nachName[a.name]
-        if e and e.konto then
+
+        local dran
+        if nachtragen then
+            dran = nachtragen[a.name] and true or false
+        elseif erzwingen then
+            dran = true
+        else
+            dran = not Kern.SchonGebucht(e and e.konto, stunde)
+        end
+
+        if not (e and e.konto) then
+            fehlend[#fehlend + 1] = a.kurz
+        elseif not dran then
+            -- Beim Nachtragen ist "nicht dran" kein Ueberspringen, sondern
+            -- der Normalfall: die wurden eben gerade gebucht.
+            if not nachtragen then spaeter[a.name] = a.kurz end
+        else
             Kern.VerfallNachholen(e.konto, woche)
             Kern.TeilnahmeBuchen(e.konto, a.bosse, a.vollDabei)
+            e.konto.gebucht = stunde
             auftraege[#auftraege + 1] = { guid = e.guid, konto = e.konto }
-        else
-            fehlend[#fehlend + 1] = a.kurz
         end
     end
 
+    local liste = {}
+    for _, kurz in pairs(spaeter) do liste[#liste + 1] = kurz end
+    table.sort(liste)
+
+    -- Fuer /lo abend nachtragen merken. Der Abend darf dafuer nicht
+    -- verworfen werden — darum kuemmert sich Befehle.lua.
+    abend.uebersprungen = (not nachtragen) and next(spaeter) and spaeter or nil
+
     local n = ns.Gilde.SchreibenViele(auftraege, beiFertig)
-    return n, fehlend
+    return n, fehlend, liste
+end
+
+--- Tragen noch Konten einen Nachtrag offen?
+function Raid.OffeneNachtraege()
+    local u = Raid.Abend().uebersprungen
+    return u and next(u) ~= nil
 end
 
 -- =====================================================================

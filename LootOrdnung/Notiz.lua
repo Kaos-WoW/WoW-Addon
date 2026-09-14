@@ -1,8 +1,12 @@
 --[[----------------------------------------------------------------------
     Notiz.lua  —  Das Kontenformat in der Offiziersnotiz
 
-    Format:  LO:Einsatz,Ruestwert,Woche,Deckel,Gegenstaende
-    Beispiel: LO:4500,3800,2953,0,3
+    Format:  LO:Einsatz,Ruestwert,Woche,Deckel,Gegenstaende,Gebucht
+    Beispiel: LO:4500,3800,2953,0,3,87234
+
+    Das letzte Feld ist die Stunde der letzten Abendbuchung (Stunden seit
+    der Unix-Epoche, gekuerzt). Es verhindert, dass mehrere Raidleiter
+    denselben Abend nacheinander buchen und der Einsatz sich verdoppelt.
 
     Warum dort: Der Server synchronisiert die Notizen von selbst. Damit
     braucht es kein eigenes Sync-Protokoll und keine Absprache zwischen
@@ -55,11 +59,18 @@ function Notiz.Lesen(text)
     end
 
     local rumpf = text:sub(#Notiz.PRAEFIX + 1)
-    local e, r, w, d, g = rumpf:match("^(%d+),(%d+),(%d+),(%d+),(%d+)$")
+
+    -- Vollstaendige Fassung mit Buchungsstempel
+    local e, r, w, d, g, b = rumpf:match("^(%d+),(%d+),(%d+),(%d+),(%d+),(%d+)$")
     if not e then
-        -- kuerzere Fassung ohne Zaehler zulassen
+        -- Fassung ohne Buchungsstempel
+        e, r, w, d, g = rumpf:match("^(%d+),(%d+),(%d+),(%d+),(%d+)$")
+        b = "0"
+    end
+    if not e then
+        -- Kurzfassung ohne Zaehler
         e, r, w = rumpf:match("^(%d+),(%d+),(%d+)$")
-        d, g = "0", "0"
+        d, g, b = "0", "0", "0"
     end
     if not e then
         return nil, "unlesbar"
@@ -71,6 +82,7 @@ function Notiz.Lesen(text)
         woche        = tonumber(w),
         deckel       = tonumber(d),
         gegenstaende = tonumber(g),
+        gebucht      = tonumber(b),
     }
 end
 
@@ -86,13 +98,14 @@ end
 function Notiz.Schreiben(konto)
     if type(konto) ~= "table" then return nil, "kein Konto" end
 
-    local text = string.format("%s%d,%d,%d,%d,%d",
+    local text = string.format("%s%d,%d,%d,%d,%d,%d",
         Notiz.PRAEFIX,
         max(floor((konto.einsatz      or 0) + 0.5), 0),
         max(floor((konto.ruestwert    or 0) + 0.5), 0),
         max(floor( konto.woche        or 0),        0),
         max(floor((konto.deckel       or 0)),       0),
-        max(floor((konto.gegenstaende or 0)),       0))
+        max(floor((konto.gegenstaende or 0)),       0),
+        max(floor((konto.gebucht      or 0)),       0))
 
     if #text > Notiz.MAXLAENGE then
         return nil, "zu lang"

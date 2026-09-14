@@ -30,6 +30,8 @@ Kern.regeln = {
     eichwertK         = 26,     -- Verdopplung je K Gegenstandsstufen (§ 3)
     grundstufe        = 0,      -- Bezugspunkt der Gegenstandsstufe
     deckelRaidtage    = 4,      -- Abmelde-Deckel in Folge (§ 2)
+    buchungsfenster   = 8,      -- Stunden; laenger als jeder Raid, siehe
+                                -- Kern.SchonGebucht
 }
 
 -- Anteil des Abendsatzes je Meldestatus (§ 2, Rangfolge)
@@ -128,6 +130,42 @@ end
 function Kern.WocheAus(zeitstempel, versatz)
     versatz = versatz or 0
     return floor((zeitstempel - versatz * 3600) / 604800)
+end
+
+--- Stunde seit der Unix-Epoche, gekuerzt auf fuenf Stellen.
+--  Dient als Stempel der letzten Abendbuchung: Er macht das Buchen
+--  idempotent, wenn mehrere Raidleiter dasselbe tun. Gekuerzt, weil der
+--  Platz in der Notiz knapp ist; die Kuerzung wiederholt sich erst nach
+--  gut elf Jahren.
+function Kern.StundeAus(zeitstempel)
+    return floor(zeitstempel / 3600) % 100000
+end
+
+--- Wurde in den letzten Stunden schon gebucht?
+--  @param abstand  Stunden, die als "derselbe Abend" gelten
+function Kern.SchonGebucht(konto, jetztStunde, abstand)
+    local letzte = konto and konto.gebucht or 0
+    if letzte == 0 then return false end
+    local differenz = jetztStunde - letzte
+    -- Beim Ueberlauf der gekuerzten Stunde nicht faelschlich sperren
+    if differenz < 0 then differenz = differenz + 100000 end
+    return differenz < (abstand or Kern.regeln.buchungsfenster)
+end
+
+--- Zaehlt dieser Schlachtzugsplatz als Teilnehmer?
+--  Im Schlachtzug zu stehen heisst nicht, dabei zu sein: Wer abgestuerzt
+--  ist oder in Shattrath wartet, bleibt in der Liste stehen. § 2 zaehlt
+--  aber Bosskaempfe, an denen man TEILNIMMT.
+--  ⚠️ Unbekanntes schliesst NICHT aus. Ein zu viel gebuchter Spieler
+--  faellt der Leitung auf; ein zu wenig gebuchter niemandem.
+--  @param online  false = nachweislich offline
+--  @param zone    Zone des Spielers laut Schlachtzugsliste
+--  @param hier    eigene Zone, oder nil ausserhalb einer Instanz
+function Kern.IstDabei(online, zone, hier)
+    if online == false then return false end
+    if not hier or hier == "" then return true end
+    if not zone or zone == "" then return true end
+    return zone == hier
 end
 
 -- =====================================================================

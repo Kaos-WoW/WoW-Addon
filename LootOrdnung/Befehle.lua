@@ -26,11 +26,15 @@ local function hilfe()
     print("  |cffffff78/lo raenge|r  – Ränge anzeigen und auswählen")
     print("  |cffffff78/lo rang N|r  – Rang N ein-/ausschalten (mehrere möglich)")
     print("  |cffffff78/lo start|r   – Konten anlegen (zeigt erst an)")
+    print("  |cffffff78/lo nullen|r  – alle Konten auf Anfang zurücksetzen (zeigt erst an)")
     print("  |cffffff78/lo buchen|r  – Testbuchung auf das eigene Konto")
     print("|cff1B6B57Raidabend:|r")
     print("  |cffffff78/lo boss|r    – Bosskampf buchen (alle Anwesenden)")
-    print("  |cffffff78/lo abend|r   – Stand des Abends; |cffffff78jetzt|r schreibt, |cffffff78neu|r verwirft")
+    print("  |cffffff78/lo abend|r   – Stand; |cffffff78jetzt|r schreibt, |cffffff78neu|r verwirft")
+    print("  |cff8E9A94              nachtragen|r – übersprungene nachbuchen, |cff8E9A94zwingend|r – Sperre aus")
     print("  |cffffff78/lo auto|r    – Bosskills automatisch erkennen")
+    print("  |cffffff78/lo wer|r     – wer zählt gerade als anwesend (Diagnose)")
+    print("  |cffffff78/lo bausteine|r – welche Dateien geladen sind (Diagnose)")
 end
 
 --- Eigenen Roster-Eintrag suchen.
@@ -321,6 +325,67 @@ befehle["start"] = function(arg)
     end
 end
 
+--- Setzt alle Konten auf den Anfangswert zurueck.
+--
+--  Fuer den Uebergang von Erprobung auf Echtbetrieb: Zahlen aus
+--  Testraids sollen nicht in die erste echte Woche hineinragen.
+--
+--  ⚠️ Das ist NICHT /lo zurueck. Die Sicherung der urspruenglichen
+--  Notizen bleibt unangetastet — /lo zurueck stellt weiterhin den Stand
+--  VOR dem System her, nicht den von eben. Genullt wird nur, was das
+--  System selbst geschrieben hat.
+befehle["nullen"] = function(arg)
+    if not IsInGuild() then sag("Du bist in keiner Gilde.") return end
+    ns.Gilde.RosterAnfordern()
+
+    local _, wirklich = argZahlJetzt(arg)
+    local woche = jetztWoche()
+
+    local betroffen = {}
+    for _, e in ipairs(ns.Gilde.Teilnehmer()) do
+        if e.konto then betroffen[#betroffen + 1] = e end
+    end
+
+    if #betroffen == 0 then
+        sag("Keine Konten vorhanden – |cffffff78/lo start|r legt welche an.")
+        return
+    end
+
+    if not wirklich then
+        sag(string.format("|cffffff78%d Konten würden auf Null gesetzt (Woche %d):|r",
+            #betroffen, woche))
+        for i, e in ipairs(betroffen) do
+            if i <= 10 then
+                print(string.format("  %-14s |cff8E9A94jetzt E %d, R %d, Stücke %d|r",
+                    e.kurz,
+                    math.floor((e.konto.einsatz or 0) + 0.5),
+                    math.floor((e.konto.ruestwert or 0) + 0.5),
+                    math.floor(e.konto.gegenstaende or 0)))
+            end
+        end
+        if #betroffen > 10 then
+            print("  |cff8E9A94… und " .. (#betroffen - 10) .. " weitere|r")
+        end
+        print("  |cffff5555Zum Ausführen: /lo nullen jetzt|r")
+        print("  |cff8E9A94Setzt Einsatz, Rüstwert, Stücke und den Buchungsstempel zurück.|r")
+        return
+    end
+
+    local auftraege = {}
+    for _, e in ipairs(betroffen) do
+        auftraege[#auftraege + 1] = { guid = e.guid, konto = ns.Kern.NeuesKonto(woche) }
+    end
+
+    -- Ein stehengebliebener Abend wuerde die frischen Konten sofort
+    -- wieder bebuchen.
+    ns.Raid.AbendVerwerfen()
+
+    local n = ns.Gilde.SchreibenViele(auftraege, function()
+        sag("|cff55ff55Alle Konten stehen wieder am Anfang.|r")
+    end)
+    sag(string.format("%d Konten werden genullt…", n))
+end
+
 befehle["buchen"] = function(arg)
     if not IsInGuild() then sag("Du bist in keiner Gilde.") return end
     ns.Gilde.RosterAnfordern()
@@ -357,6 +422,47 @@ befehle["boss"] = function(arg)
     print("  |cff8E9A94/lo abend zeigt den Stand, /lo abend neu verwirft alles.|r")
 end
 
+--- Diagnose: was liefert GetRaidRosterInfo wirklich?
+--  Gebaut, weil der Zonenfilter auf einer ungepruefte Annahme sitzt —
+--  welches Feld die Zone ist und wie sie geschrieben wird.
+befehle["bausteine"] = function()
+    sag("Geladene Bausteine:")
+    for _, name in ipairs({"Kern", "Notiz", "Gilde", "Raid", "Tests"}) do
+        local da = ns[name] ~= nil
+        print(string.format("  %-8s %s", name,
+            da and "|cff55ff55da|r" or "|cffff5555FEHLT – Datei mit Fehler abgebrochen|r"))
+    end
+end
+
+befehle["wer"] = function()
+    local _, typ = IsInInstance()
+    local hier = GetRealZoneText()
+    sag(string.format("Eigene Zone: |cffffff78%s|r (Instanztyp: %s)",
+        tostring(hier), tostring(typ)))
+
+    if not (IsInRaid and IsInRaid()) then
+        print("  |cff8E9A94Kein Schlachtzug – nichts zu filtern.|r")
+        return
+    end
+
+    local n = GetNumGroupMembers()
+    local drin, raus = 0, 0
+    for i = 1, n do
+        local name, _, _, _, _, _, zone, online = GetRaidRosterInfo(i)
+        if name then
+            local ok = ns.Kern.IstDabei(online, zone, (typ == "raid" or typ == "party") and hier or nil)
+            if ok then drin = drin + 1 else raus = raus + 1 end
+            if i <= 12 or not ok then
+                print(string.format("  %-14s online=%-5s zone=|cffffff78%s|r  %s",
+                    name, tostring(online), tostring(zone),
+                    ok and "|cff55ff55zählt|r" or "|cffff5555raus|r"))
+            end
+        end
+    end
+    sag(string.format("%d von %d zählen. |cff8E9A94Stimmt das nicht, ist das Zonenfeld schuld.|r",
+        drin, n))
+end
+
 befehle["abend"] = function(arg)
     local abend = ns.Raid.Abend()
 
@@ -373,7 +479,15 @@ befehle["abend"] = function(arg)
 
     local auswertung = ns.Raid.Auswertung()
 
-    if arg ~= "jetzt" then
+    -- Bosse ohne Teilnehmer: Der Abend ist Schrott, meist ein Rest aus
+    -- einer aelteren Fassung. Lieber sagen als stumm nichts buchen.
+    if #auswertung == 0 then
+        sag(string.format("|cffff5555%d Bosse, aber kein Teilnehmer erfasst.|r", abend.bosse))
+        print("  |cff8E9A94Der Abend ist unbrauchbar – /lo abend neu, dann /lo boss von Hand.|r")
+        return
+    end
+
+    if arg ~= "jetzt" and arg ~= "zwingend" and arg ~= "nachtragen" then
         sag(string.format("Abend seit %s: |cff55ff55%d Bosse|r, %d Spieler",
             date("%H:%M", abend.start), abend.bosse, #auswertung))
         print("  |cff8E9A94" .. table.concat(abend.protokoll, ", ") .. "|r")
@@ -392,13 +506,36 @@ befehle["abend"] = function(arg)
     if not IsInGuild() then sag("Du bist in keiner Gilde.") return end
     ns.Gilde.RosterAnfordern()
 
-    local n, fehlend = ns.Raid.Buchen(function()
+    local n, fehlend, spaeter = ns.Raid.Buchen(function()
         sag("|cff55ff55Abend geschrieben. /lo liste zeigt den Stand.|r")
-    end)
+    end, arg ~= "jetzt" and arg or nil)
+
+    -- Mehrere Raidleiter mit Addon. Zwei Faelle, die auseinandergehalten
+    -- werden muessen: ALLE gesperrt heisst, jemand hat denselben Abend
+    -- schon geschrieben. EINZELNE gesperrt heisst meist, die waren vorher
+    -- in der anderen Gruppe — und gehören nachgetragen.
+    if n == 0 and #spaeter > 0 then
+        sag(string.format("|cffffff78Nichts gebucht – alle %d sind schon bebucht.|r", #spaeter))
+        print("  |cff8E9A94Sehr wahrscheinlich hat ein anderer Raidleiter denselben Abend geschrieben.|r")
+        print("  |cff8E9A94Stimmt das nicht: /lo abend zwingend|r")
+        return
+    end
+
     sag(string.format("%d Konten werden gebucht…", n))
+    if #spaeter > 0 then
+        print(string.format("  |cffffff78%d übersprungen – heute schon bebucht: %s|r",
+            #spaeter, table.concat(spaeter, ", ")))
+        print("  |cff8E9A94Waren die vorher in der anderen Gruppe? Dann: /lo abend nachtragen|r")
+    end
     if #fehlend > 0 then
         print("  |cffffff78Ohne Konto übersprungen: " .. table.concat(fehlend, ", ") .. "|r")
         print("  |cff8E9A94Das sind Gäste oder Ränge, die nicht teilnehmen.|r")
+    end
+
+    -- Der Abend bleibt stehen, solange ein Nachtrag offen ist.
+    if #spaeter > 0 then
+        print("  |cff8E9A94Der Abend bleibt erhalten – /lo abend neu wirft ihn weg.|r")
+        return
     end
     ns.Raid.AbendVerwerfen()
 end
@@ -488,8 +625,24 @@ end)
 
 SLASH_LOOTORDNUNG1 = "/lo"
 SLASH_LOOTORDNUNG2 = "/lootordnung"
+--- ⭐ **Kein Befehl darf still scheitern.**
+--  WoW verschluckt Laufzeitfehler in Addons, solange scriptErrors aus ist
+--  — und das ist die Voreinstellung. Der Befehl tut dann scheinbar
+--  ueberhaupt nichts, und man sucht an der falschen Stelle. Mit pcall
+--  landet stattdessen die Fehlermeldung im Chat.
 SlashCmdList["LOOTORDNUNG"] = function(eingabe)
     local wort, rest = (eingabe or ""):match("^%s*(%S*)%s*(.-)%s*$")
     local fn = befehle[(wort or ""):lower()]
-    if fn then fn((rest or ""):lower()) else hilfe() end
+    if not fn then hilfe() return end
+
+    local ok, fehler = pcall(fn, (rest or ""):lower())
+    if not ok then
+        print(PRAEFIX .. "|cffff5555Fehler in /lo " .. tostring(wort) .. "|r")
+        print("|cffff5555" .. tostring(fehler) .. "|r")
+        print("|cff8E9A94Bitte diese zwei Zeilen weitergeben.|r")
+    end
 end
+
+-- Beweis, dass die Datei bis zum Ende durchgelaufen ist. Faellt eine der
+-- vorherigen Dateien aus, fehlt hier der Eintrag und /lo laedt gar nicht.
+ns.geladen = true
