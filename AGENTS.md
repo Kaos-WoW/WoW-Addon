@@ -401,7 +401,61 @@ Tabellenblatt, das die Formel rechnet. Die diskutierte Sparversion — gewichtet
 Strichliste ohne Verfall und ohne Teilen — liegt als Notausgang bereit, ist aber
 nicht gewählt worden.
 
-## Addon — noch nicht gebaut
+## Der Rechenkern (seit 14.09.2026)
+
+Ordner `LootOrdnung/`, Addon-Name **LootOrdnung** (passt zum Notiz-Präfix `LO:`).
+
+| Datei | Inhalt | WoW-API? |
+|---|---|---|
+| `Kern.lua` | Verfall, Prio, Platzfaktoren, Einsatz, Rangfolge | **nein** |
+| `Notiz.lua` | Format `LO:…` lesen und schreiben | **nein** |
+| `Tests.lua` | Selbsttests, ~70 Prüfungen | **nein** |
+| `Befehle.lua` | `/lo test`, `/lo rechte`, `/lo notiz` | ja |
+
+⭐ **Kern, Notiz und Tests fassen keine WoW-API an.** Dadurch laufen sie
+im Spiel *und* in einem gewöhnlichen Lua-Interpreter. Das Namespace-Muster
+`local _, ns = ...` funktioniert in beiden Welten; offline lädt `Tests.lua`
+die anderen Dateien selbst über `loadfile`.
+
+⚠️ **Auf diesem Rechner ist kein Lua installiert** — die Tests laufen deshalb
+bisher nur im Spiel (`/lo test`). Wer Lua hat, kann `lua Tests.lua` im Ordner
+`LootOrdnung/` aufrufen; der Prozess endet mit Code 1, wenn etwas fehlschlägt.
+Für eine grobe Strukturprüfung ohne Interpreter liegt `luacheck.py` im
+Scratchpad-Muster (Blöcke und Klammern balanciert, BOM) — findet die fatalen
+Fehler, ersetzt aber keinen Interpreter.
+
+### Was die Tests absichern
+
+**Die Erwartungswerte in `testGegenModell` stammen aus `berechnungen.py`.**
+Weichen sie ab, rechnet das Addon anders als das Regelwerk, an dem die Gilde
+nachrechnet — das ist der wichtigste Test der Sammlung. Dazu:
+
+- **Verfall ist idempotent.** Der kritischste Einzeltest: Bei mehreren
+  Raidgruppen lässt sonst jeder Raidleiter den Verfall erneut laufen.
+- **Abwesenheit kostet keine Prio** — der Kernbefund, gegen Regression gesichert.
+- Deckel bei vier Raidtagen, Teilnahme setzt ihn zurück.
+- Zweitbedarf kostet keinen Rüstwert, wird aber gezählt.
+- Hauptbedarf schlägt Zweitbedarf unabhängig von der Prio.
+- Notiz-Rundlauf, Fremdinhalt-Erkennung, Längengrenze.
+
+### Zwei Entscheidungen im Kern, die nicht offensichtlich sind
+
+1. **Die Wochennummer ist NICHT die Kalenderwoche.** Die springt zum
+   Jahreswechsel von 52 auf 1 zurück und macht die Differenz negativ — der
+   Verfall würde stillschweigend aussetzen. `Kern.WocheAus` rechnet fortlaufende
+   Wochen aus einem Unix-Zeitstempel, mit Versatz für den Raid-Reset.
+2. **`Kern.Grundwert` liefert 1,0 an der Grundstufe**, nicht 60 wie
+   `berechnungen.py`. Die Skala hängt an `grundstufe` und `eichwertK`, die beide
+   erst am Client geeicht werden. Die Tests prüfen deshalb die *Eigenschaft*
+   (Verdopplung nach K Stufen) und die Modellzahlen getrennt.
+
+### Ausrollen
+
+`deploy-tbc.ps1` kopiert nach `_anniversary_`, nach dem Muster deiner anderen
+Projekte. ⚠️ Die **Interface-Nummer in der TOC ist geraten** (20504) — am
+laufenden Client mit `/run print((select(4, GetBuildInfo())))` prüfen.
+
+## Addon — weiterer Aufbau
 
 Der Nutzer wollte zuerst das Regelwerk. Was feststeht:
 
