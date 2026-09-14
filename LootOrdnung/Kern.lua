@@ -135,9 +135,14 @@ end
 -- =====================================================================
 
 --- Voller Satz eines Abends: je Boss plus Bonus fuer volle Anwesenheit.
+--  ⚠️ Ohne Bosskampf gibt es NICHTS, auch nicht den Bonus: Faellt der
+--  Raid aus, bekommt niemand etwas (§ 2) — sonst haetten ausgerechnet die
+--  Absagen Punkte gebracht, die den Abend haben platzen lassen.
 function Kern.Abendsatz(bosse)
+    bosse = bosse or 0
+    if bosse <= 0 then return 0 end
     local r = Kern.regeln
-    return (bosse or 0) * r.einsatzProBoss + r.bonusVollDabei
+    return bosse * r.einsatzProBoss + r.bonusVollDabei
 end
 
 --- Einsatz fuer einen Abend nach Meldestatus.

@@ -124,9 +124,12 @@ local function testEinsatz()
     nahe("nichts gemeldet", Kern.EinsatzFuerStatus("nichts", 8), 0)
     nahe("Bank zaehlt voll", Kern.EinsatzFuerStatus("bank", 8), 50)
 
-    -- Faellt der Raid aus, bekommt niemand etwas (§ 2)
-    nahe("Raid ausgefallen", Kern.EinsatzFuerStatus("abgesagt", 0),
-         Kern.regeln.bonusVollDabei * 0.5)
+    -- Faellt der Raid aus, bekommt niemand etwas (§ 2).
+    -- Dieser Test war zuerst gegen die Implementierung geschrieben statt
+    -- gegen die Regel und hat den Fehler deshalb durchgelassen.
+    nahe("Raid ausgefallen, Absage", Kern.EinsatzFuerStatus("abgesagt", 0), 0)
+    nahe("Raid ausgefallen, Bank",   Kern.EinsatzFuerStatus("bank", 0), 0)
+    gleich("Abendsatz ohne Boss",    Kern.Abendsatz(0), 0)
 
     nahe("Teilnahme an 6 von 8 Bossen",
          Kern.EinsatzFuerTeilnahme(6, false), 30)
@@ -269,8 +272,8 @@ local function testNotiz()
 
     -- Grenze: sehr grosse Werte duerfen nicht still abgeschnitten werden
     local gross = Kern.NeuesKonto(99999)
-    gross.einsatz, gross.ruestwert = 999999, 999999
-    gross.deckel, gross.gegenstaende = 99, 999
+    gross.einsatz, gross.ruestwert = 99999, 99999
+    gross.deckel, gross.gegenstaende = 99999, 99999
     local zuLang, grundLang = Notiz.Schreiben(gross)
     gleich("zu langer Text wird abgelehnt", zuLang, nil)
     gleich("mit Grund", grundLang, "zu lang")

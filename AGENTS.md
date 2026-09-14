@@ -438,6 +438,32 @@ nachrechnet — das ist der wichtigste Test der Sammlung. Dazu:
 - Hauptbedarf schlägt Zweitbedarf unabhängig von der Prio.
 - Notiz-Rundlauf, Fremdinhalt-Erkennung, Längengrenze.
 
+### ✅ Erster Lauf im Spiel: 72 von 72
+
+Zwei Fehlschläge im ersten Durchgang, beide lehrreich:
+
+1. **Mein Testfall war zu klein.** Der Fall für „Notiz zu lang“ kam auf 29
+   Zeichen und passte damit in die Grenze von 31 — der Test verlangte eine
+   Ablehnung, die zu Recht ausblieb.
+2. **⚠️ Ein echter Regelverstoß im Kern:** `Abendsatz(0)` gab **10** zurück,
+   den Bonus für volle Anwesenheit, obwohl gar kein Boss lag. Bei
+   ausgefallenem Raid hätte eine Absage also den halben Satz von 10 gebracht,
+   während § 2 ausdrücklich sagt, dass dann **niemand** etwas bekommt.
+
+**⭐ Die Lehre aus dem zweiten Fall:** Der Test hatte ihn durchgelassen, weil
+ich als Sollwert `bonusVollDabei * 0.5` eingesetzt hatte — also genau das, was
+der Code ohnehin lieferte. **Ein Test, der gegen die Implementierung geschrieben
+ist, bestätigt die Zahl und ignoriert die Regel.** Erwartungswerte immer aus dem
+Regelwerktext ableiten, nie aus der Funktion daneben.
+
+### ⚠️ `luacheck.py` ist grob und war selbst schon falsch
+
+Prueft Blöcke, Klammern und BOM — findet also die Fehler, die eine Datei
+unbrauchbar machen, ersetzt aber keinen Interpreter. Er hatte anfangs einen
+eigenen Bug: Er zog `elseif` von den Blockoeffnern ab, obwohl `if` in
+„elseif“ gar nicht matcht. Ergebnis war eine Falschmeldung an einer korrekten
+Datei. Wer ihn erweitert: erst am Bestand gegenprüfen.
+
 ### Zwei Entscheidungen im Kern, die nicht offensichtlich sind
 
 1. **Die Wochennummer ist NICHT die Kalenderwoche.** Die springt zum
@@ -454,6 +480,22 @@ nachrechnet — das ist der wichtigste Test der Sammlung. Dazu:
 `deploy-tbc.ps1` kopiert nach `_anniversary_`, nach dem Muster deiner anderen
 Projekte. ⚠️ Die **Interface-Nummer in der TOC ist geraten** (20504) — am
 laufenden Client mit `/run print((select(4, GetBuildInfo())))` prüfen.
+
+### Gilde.lua — die Anbindung
+
+Einzige Brücke zwischen Rechenkern und Client. Enthält:
+
+- `Lesen()` — alle Mitglieder samt Konto und GUID; liefert zweitens eine Liste
+  derer, die **Fremdinhalt** in der Notiz haben
+- `Konten(woche)` — Konten mit nachgeholtem Verfall
+- `Sichern()` — legt einmalig alle vorhandenen Notizen in die SavedVariables,
+  bevor je etwas überschrieben wird
+- `Schreiben(guid, konto)` / `SchreibenViele(…)` — **gedrosselt** über eine
+  Warteschlange, 0,35 s Abstand; zwanzig Aufrufe in einem Frame quittiert der
+  Server nicht freundlich
+
+Befehle dazu: `/lo liste` (alle Konten nach Prio), `/lo fremd` (wer hat noch
+eigene Einträge), `/lo sichern`.
 
 ## Addon — weiterer Aufbau
 

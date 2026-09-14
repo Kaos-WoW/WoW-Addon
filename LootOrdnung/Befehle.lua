@@ -17,7 +17,10 @@ local function hilfe()
     sag("Befehle:")
     print("  |cffffff78/lo test|r   – Selbsttests des Rechenkerns")
     print("  |cffffff78/lo rechte|r – prüfen, ob ich Notizen schreiben darf")
-    print("  |cffffff78/lo notiz|r  – meine eigene Offiziersnotiz anzeigen")
+    print("  |cffffff78/lo notiz|r   – meine eigene Offiziersnotiz anzeigen")
+    print("  |cffffff78/lo liste|r   – alle Konten nach Prio")
+    print("  |cffffff78/lo fremd|r   – wer hat noch Fremdinhalt in der Notiz")
+    print("  |cffffff78/lo sichern|r – alle Notizen sichern, bevor geschrieben wird")
 end
 
 --- Eigenen Roster-Eintrag suchen.
@@ -92,6 +95,71 @@ befehle["notiz"] = function()
         print("  Kein Konto hinterlegt (" .. tostring(grund) .. ")")
     end
 end
+
+--- Aktuelle fortlaufende Wochennummer.
+local function jetztWoche()
+    return ns.Kern.WocheAus(time())
+end
+
+befehle["liste"] = function()
+    if not IsInGuild() then sag("Du bist in keiner Gilde.") return end
+    ns.Gilde.RosterAnfordern()
+
+    local woche = jetztWoche()
+    local eintraege = ns.Gilde.Lesen()
+    local mit = {}
+    for _, e in ipairs(eintraege) do
+        if e.konto then
+            ns.Kern.VerfallNachholen(e.konto, woche)
+            mit[#mit + 1] = e
+        end
+    end
+
+    if #mit == 0 then
+        sag("Noch kein Konto hinterlegt – " .. #eintraege .. " Mitglieder gelesen.")
+        return
+    end
+
+    table.sort(mit, function(a, b)
+        return ns.Kern.Prio(a.konto) > ns.Kern.Prio(b.konto)
+    end)
+
+    sag(string.format("%d Konten, Woche %d:", #mit, woche))
+    for i, e in ipairs(mit) do
+        print(string.format("  %2d. |cffffff78%-14s|r Prio |cff55ff55%5.2f|r   E %-6d R %-6d Stücke %d",
+            i, e.kurz, ns.Kern.Prio(e.konto),
+            e.konto.einsatz, e.konto.ruestwert, e.konto.gegenstaende))
+    end
+end
+
+befehle["fremd"] = function()
+    if not IsInGuild() then sag("Du bist in keiner Gilde.") return end
+    ns.Gilde.RosterAnfordern()
+
+    local _, fremd = ns.Gilde.Lesen()
+    if #fremd == 0 then
+        sag("|cff55ff55Keine fremden Einträge – das Feld gehört dem System.|r")
+        return
+    end
+    sag(string.format("|cffffff78%d Mitglieder haben noch eigene Einträge:|r", #fremd))
+    for _, e in ipairs(fremd) do
+        print(string.format("  %-14s |cff8E9A94%s|r", e.kurz, e.notiz))
+    end
+    print("  |cff8E9A94Vor dem ersten Schreiben ansagen oder /lo sichern nutzen.|r")
+end
+
+befehle["sichern"] = function()
+    if not IsInGuild() then sag("Du bist in keiner Gilde.") return end
+    ns.Gilde.RosterAnfordern()
+
+    local neu, zeit, anzahl = ns.Gilde.Sichern()
+    if neu then
+        sag(string.format("|cff55ff55%d Notizen gesichert.|r", anzahl or 0))
+    else
+        sag("Sicherung besteht bereits vom " .. date("%d.%m.%Y %H:%M", zeit) .. ".")
+    end
+end
+
 
 SLASH_LOOTORDNUNG1 = "/lo"
 SLASH_LOOTORDNUNG2 = "/lootordnung"

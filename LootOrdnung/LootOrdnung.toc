@@ -7,5 +7,6 @@
 
 Kern.lua
 Notiz.lua
+Gilde.lua
 Tests.lua
 Befehle.lua
