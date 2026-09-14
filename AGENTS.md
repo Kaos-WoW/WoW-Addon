@@ -497,6 +497,59 @@ Einzige Brücke zwischen Rechenkern und Client. Enthält:
 Befehle dazu: `/lo liste` (alle Konten nach Prio), `/lo fremd` (wer hat noch
 eigene Einträge), `/lo sichern`.
 
+### Befehle (Stand 14.09.2026, alle im Spiel erprobt)
+
+| Befehl | Zweck |
+|---|---|
+| `/lo test` | Selbsttests, 72 Prüfungen |
+| `/lo rechte` | darf ich Offiziersnotizen sehen und schreiben |
+| `/lo notiz` | eigene Notiz anzeigen und als Konto deuten |
+| `/lo raenge` | Ränge mit Auswahlkasten `[x]` / `[ ]` |
+| `/lo rang N` | Rang ein- oder ausschalten, mehrere möglich |
+| `/lo fremd` | wer hat noch Fremdinhalt in der Notiz |
+| `/lo sichern` | alle Notizen in die SavedVariables |
+| `/lo leeren` | Fremdinhalt leeren — zeigt erst an, `jetzt` führt aus |
+| `/lo zurueck` | gesicherte Notizen wiederherstellen |
+| `/lo start` | Konten für die gewählten Ränge anlegen |
+| `/lo buchen N` | Testbuchung auf das eigene Konto |
+| `/lo liste` | alle Konten nach Prio |
+
+**⭐ Destruktive Befehle zeigen erst an und brauchen `jetzt`.** `/lo leeren`
+sichert außerdem zwingend vorher — schlägt das fehl, passiert nichts. Eigene
+Konten (`LO:…`) bleiben beim Leeren unangetastet.
+
+### ⚠️ Die Rangauswahl ersetzt einen Schwellenwert
+
+Erste Fassung nahm „alle Ränge bis Index N“. **Das reicht nicht: Offizierstwinks
+tragen einen hohen Rang** und wären mitgezogen worden. Jetzt eine echte Auswahl
+je Rang, gespeichert in den SavedVariables.
+
+⚠️ Damit ist sie **pro Raidleiter** — bei mehreren Raidgruppen muss jeder sie
+einmal setzen. Vertretbar, weil es Konfiguration ist und keine Kontodaten; die
+stehen weiter in der Notiz und synchronisieren sich über den Server. Falls es
+stört, könnte die Auswahl später in die Gildeninfo wandern.
+
+### Was der Altbestand über die Gilde verriet
+
+`/lo fremd` förderte **24 gepflegte Notizen** zutage — nicht eine, wie ich
+zweimal angenommen hatte. Inhaltlich:
+
+| Art | Anzahl | Beispiele |
+|---|---|---|
+| Herkunft / Freundschaft | 15 | „von Patric“, „Friend Woidelf“ |
+| **Rolle** | 5 | „Eule“, „Bär / Katze“, „Healschamie ab Prepatch“ |
+| Klarname | 2 | „Niclas“ |
+| **Twink-Zuordnung** | 1 | „aka Packers“ |
+| **Mitgliedsstatus** | 1 | „Nur Social“ |
+
+Nebeneinander passte das nicht: LO-Block 21 Zeichen, längste Notiz 23, Grenze 31.
+Der Nutzer hat das Feld nach `/lo sichern` geleert. **Sieben der Einträge waren
+inhaltlich für § 6 relevant** (Rolle, Twink, Status) — die liegen jetzt nur als
+Freitext in der Sicherung und gehören später strukturiert erfasst.
+
+❓ **Offen geblieben:** Die echte Längengrenze der Notiz. Gemessen sind 30 Zeichen
+(gingen durch), vermutet 31. Läge sie bei 63, hätte beides nebeneinander gepasst.
+
 ## Addon — weiterer Aufbau
 
 Der Nutzer wollte zuerst das Regelwerk. Was feststeht:

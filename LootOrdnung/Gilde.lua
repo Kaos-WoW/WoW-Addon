@@ -163,23 +163,27 @@ local function naechsterSchreibvorgang()
     C_Timer.After(Gilde.SCHREIBPAUSE, naechsterSchreibvorgang)
 end
 
---- Stellt ein Konto zum Schreiben in die Warteschlange.
+--- Stellt rohen Text zum Schreiben in die Warteschlange.
 --  Gedrosselt, weil zwanzig Aufrufe in einem Frame der Server nicht
 --  freundlich quittiert.
 --  @return true, oder false und ein Grund
-function Gilde.Schreiben(guid, konto)
+function Gilde.TextSchreiben(guid, text)
     if not guid then return false, "keine GUID" end
     if Gilde.DarfSchreiben() == false then return false, "kein Schreibrecht" end
 
-    local text, grund = Notiz.Schreiben(konto)
-    if not text then return false, grund end
-
-    warteschlange[#warteschlange + 1] = { guid = guid, text = text }
+    warteschlange[#warteschlange + 1] = { guid = guid, text = text or "" }
     if not laeuft then
         laeuft = true
         C_Timer.After(0, naechsterSchreibvorgang)
     end
     return true
+end
+
+--- Stellt ein Konto zum Schreiben in die Warteschlange.
+function Gilde.Schreiben(guid, konto)
+    local text, grund = Notiz.Schreiben(konto)
+    if not text then return false, grund end
+    return Gilde.TextSchreiben(guid, text)
 end
 
 --- Schreibt mehrere Konten.
@@ -199,6 +203,130 @@ end
 
 function Gilde.Wartend()
     return #warteschlange
+end
+
+-- =====================================================================
+--  Rangauswahl
+-- =====================================================================
+
+--  Welche Gildenraenge am System teilnehmen. Ein blosser Schwellenwert
+--  reicht nicht: Offizierstwinks tragen einen hohen Rang, wuerden also
+--  bei "alle bis Index 3" mitgezogen. Deshalb eine echte Auswahl.
+--
+--  ⚠️ Liegt in den SavedVariables und ist damit PRO RAIDLEITER. Bei
+--  mehreren Raidgruppen muss jeder sie einmal setzen. Das ist
+--  Konfiguration, keine Kontodaten — die stehen weiter in der Notiz.
+
+function Gilde.Rangauswahl()
+    LootOrdnungDB = LootOrdnungDB or {}
+    LootOrdnungDB.raenge = LootOrdnungDB.raenge or {}
+    return LootOrdnungDB.raenge
+end
+
+function Gilde.RangAktiv(index)
+    return Gilde.Rangauswahl()[index] == true
+end
+
+--- Schaltet einen Rang um. @return neuer Zustand
+function Gilde.RangUmschalten(index)
+    local auswahl = Gilde.Rangauswahl()
+    if auswahl[index] then
+        auswahl[index] = nil
+    else
+        auswahl[index] = true
+    end
+    return auswahl[index] == true
+end
+
+function Gilde.AnzahlGewaehlt()
+    local n = 0
+    for _, an in pairs(Gilde.Rangauswahl()) do
+        if an then n = n + 1 end
+    end
+    return n
+end
+
+--- Alle Mitglieder der gewaehlten Raenge.
+function Gilde.Teilnehmer()
+    local liste = {}
+    for _, e in ipairs((Gilde.Lesen())) do
+        if Gilde.RangAktiv(e.rangIndex) then
+            liste[#liste + 1] = e
+        end
+    end
+    return liste
+end
+
+--- Raenge des Rosters mit Namen, Anzahl und Auswahlstatus.
+function Gilde.Rangliste()
+    local zaehler, namen = {}, {}
+    for _, e in ipairs((Gilde.Lesen())) do
+        local i = e.rangIndex or 99
+        zaehler[i] = (zaehler[i] or 0) + 1
+        namen[i] = e.rang
+    end
+    local liste = {}
+    for i = 0, 20 do
+        if zaehler[i] then
+            liste[#liste + 1] = {
+                index = i, name = namen[i], anzahl = zaehler[i],
+                aktiv = Gilde.RangAktiv(i),
+            }
+        end
+    end
+    return liste
+end
+
+-- =====================================================================
+--  Altbestand raeumen
+-- =====================================================================
+
+--- Leert Notizen, die NICHT dem System gehoeren.
+--  Eigene Konten (LO:...) bleiben unangetastet, damit der Befehl auch
+--  spaeter gefahrlos ist. Ohne Sicherung passiert gar nichts.
+--  @param wirklich  false/nil = nur anzeigen, was betroffen waere
+--  @return liste der betroffenen Eintraege, oder nil und ein Grund
+function Gilde.FremdeLeeren(wirklich)
+    local _, fremd = Gilde.Lesen()
+    if #fremd == 0 then return fremd end
+
+    if wirklich then
+        if Gilde.DarfSchreiben() == false then
+            return nil, "kein Schreibrecht"
+        end
+        -- Sicherung ist Pflicht: erst sichern, dann loeschen.
+        Gilde.Sichern()
+        if not (LootOrdnungDB and LootOrdnungDB.sicherung) then
+            return nil, "Sicherung fehlgeschlagen"
+        end
+        for _, e in ipairs(fremd) do
+            Gilde.TextSchreiben(e.guid, "")
+        end
+    end
+
+    return fremd
+end
+
+--- Stellt die gesicherten Notizen wieder her.
+--  @return Anzahl, oder nil und ein Grund
+function Gilde.Wiederherstellen()
+    local sicherung = LootOrdnungDB and LootOrdnungDB.sicherung
+    if not sicherung or not sicherung.notizen then
+        return nil, "keine Sicherung vorhanden"
+    end
+    if Gilde.DarfSchreiben() == false then
+        return nil, "kein Schreibrecht"
+    end
+
+    local n = 0
+    for _, e in ipairs((Gilde.Lesen())) do
+        local alt = sicherung.notizen[e.name]
+        if alt and alt ~= e.notiz then
+            Gilde.TextSchreiben(e.guid, alt)
+            n = n + 1
+        end
+    end
+    return n
 end
 
 -- =====================================================================

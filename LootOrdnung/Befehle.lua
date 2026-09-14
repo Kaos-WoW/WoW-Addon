@@ -21,6 +21,12 @@ local function hilfe()
     print("  |cffffff78/lo liste|r   – alle Konten nach Prio")
     print("  |cffffff78/lo fremd|r   – wer hat noch Fremdinhalt in der Notiz")
     print("  |cffffff78/lo sichern|r – alle Notizen sichern, bevor geschrieben wird")
+    print("  |cffffff78/lo leeren|r  – fremde Notizen leeren (zeigt erst an)")
+    print("  |cffffff78/lo zurueck|r – gesicherte Notizen wiederherstellen")
+    print("  |cffffff78/lo raenge|r  – Ränge anzeigen und auswählen")
+    print("  |cffffff78/lo rang N|r  – Rang N ein-/ausschalten (mehrere möglich)")
+    print("  |cffffff78/lo start|r   – Konten anlegen (zeigt erst an)")
+    print("  |cffffff78/lo buchen|r  – Testbuchung auf das eigene Konto")
 end
 
 --- Eigenen Roster-Eintrag suchen.
@@ -161,10 +167,185 @@ befehle["sichern"] = function()
 end
 
 
+befehle["leeren"] = function(arg)
+    if not IsInGuild() then sag("Du bist in keiner Gilde.") return end
+    ns.Gilde.RosterAnfordern()
+
+    local wirklich = (arg == "jetzt")
+    local fremd, grund = ns.Gilde.FremdeLeeren(wirklich)
+
+    if not fremd then
+        sag("|cffff5555" .. tostring(grund) .. "|r")
+        return
+    end
+    if #fremd == 0 then
+        sag("|cff55ff55Nichts zu leeren – keine fremden Einträge.|r")
+        return
+    end
+
+    if wirklich then
+        sag(string.format("|cff55ff55%d Notizen werden geleert.|r", #fremd))
+        print("  |cff8E9A94Gesichert. Mit /lo zurueck wiederherstellbar.|r")
+    else
+        sag(string.format("|cffffff78%d Notizen würden geleert:|r", #fremd))
+        for _, e in ipairs(fremd) do
+            print(string.format("  %-14s |cff8E9A94%s|r", e.kurz, e.notiz))
+        end
+        print("  |cffff5555Zum Ausführen: /lo leeren jetzt|r")
+        print("  |cff8E9A94Vorher wird automatisch gesichert.|r")
+    end
+end
+
+befehle["zurueck"] = function()
+    if not IsInGuild() then sag("Du bist in keiner Gilde.") return end
+    ns.Gilde.RosterAnfordern()
+
+    local n, grund = ns.Gilde.Wiederherstellen()
+    if not n then
+        sag("|cffff5555" .. tostring(grund) .. "|r")
+        return
+    end
+    if n == 0 then
+        sag("Nichts wiederherzustellen – alles steht schon so da.")
+    else
+        sag(string.format("|cff55ff55%d Notizen werden wiederhergestellt.|r", n))
+    end
+end
+befehle["zurück"] = befehle["zurueck"]
+
+befehle["raenge"] = function()
+    if not IsInGuild() then sag("Du bist in keiner Gilde.") return end
+    ns.Gilde.RosterAnfordern()
+
+    local liste = ns.Gilde.Rangliste()
+    local gewaehlt, teilnehmer = 0, 0
+    sag("Gildenränge – |cff55ff55[x]|r nimmt am System teil:")
+    for _, r in ipairs(liste) do
+        local kasten = r.aktiv and "|cff55ff55[x]|r" or "|cff8E9A94[ ]|r"
+        print(string.format("  %s |cffffff78%2d|r  %-22s %3d Mitglieder",
+            kasten, r.index, tostring(r.name), r.anzahl))
+        if r.aktiv then
+            gewaehlt = gewaehlt + 1
+            teilnehmer = teilnehmer + r.anzahl
+        end
+    end
+
+    if gewaehlt == 0 then
+        print("  |cffff5555Noch kein Rang gewählt – /lo rang <index> schaltet einen ein.|r")
+    else
+        print(string.format("  |cff8E9A94%d Ränge gewählt, %d Mitglieder. Umschalten: /lo rang <index>|r",
+            gewaehlt, teilnehmer))
+    end
+end
+
+befehle["rang"] = function(arg)
+    if not IsInGuild() then sag("Du bist in keiner Gilde.") return end
+
+    local indizes = {}
+    for zahl in (arg or ""):gmatch("%d+") do
+        indizes[#indizes + 1] = tonumber(zahl)
+    end
+    if #indizes == 0 then
+        sag("Welcher Rang? Beispiel: |cffffff78/lo rang 2|r oder |cffffff78/lo rang 1 2 4|r")
+        return
+    end
+
+    ns.Gilde.RosterAnfordern()
+    local namen = {}
+    for _, r in ipairs(ns.Gilde.Rangliste()) do namen[r.index] = r.name end
+
+    for _, i in ipairs(indizes) do
+        local an = ns.Gilde.RangUmschalten(i)
+        sag(string.format("Rang %d (%s): %s", i, tostring(namen[i] or "?"),
+            an and "|cff55ff55nimmt teil|r" or "|cff8E9A94außen vor|r"))
+    end
+end
+
+--- Trennt Zahl und Schlüsselwort aus dem Argument: "3 jetzt" -> 3, true
+local function argZahlJetzt(arg)
+    local zahl = tonumber((arg or ""):match("%d+"))
+    local jetzt = (arg or ""):find("jetzt") ~= nil
+    return zahl, jetzt
+end
+
+befehle["start"] = function(arg)
+    if not IsInGuild() then sag("Du bist in keiner Gilde.") return end
+    ns.Gilde.RosterAnfordern()
+
+    if ns.Gilde.AnzahlGewaehlt() == 0 then
+        sag("|cffff5555Kein Rang ausgewählt.|r Erst |cffffff78/lo raenge|r ansehen, dann |cffffff78/lo rang <index>|r.")
+        return
+    end
+
+    local _, wirklich = argZahlJetzt(arg)
+    local woche = jetztWoche()
+    local offen = {}
+
+    for _, e in ipairs(ns.Gilde.Teilnehmer()) do
+        if not e.konto then
+            offen[#offen + 1] = e
+        end
+    end
+
+    if #offen == 0 then
+        sag("|cff55ff55Alle betroffenen Mitglieder haben bereits ein Konto.|r")
+        return
+    end
+
+    if not wirklich then
+        sag(string.format("|cffffff78%d Mitglieder bekämen ein Konto (Woche %d):|r", #offen, woche))
+        for i, e in ipairs(offen) do
+            if i <= 12 then
+                print(string.format("  %-14s |cff8E9A94Rang %d, %s|r", e.kurz, e.rangIndex or -1, tostring(e.rang)))
+            end
+        end
+        if #offen > 12 then print("  |cff8E9A94… und " .. (#offen - 12) .. " weitere|r") end
+        print("  |cffff5555Zum Ausführen: /lo start jetzt|r")
+        return
+    end
+
+    local auftraege = {}
+    for _, e in ipairs(offen) do
+        auftraege[#auftraege + 1] = { guid = e.guid, konto = ns.Kern.NeuesKonto(woche) }
+    end
+    local n, fehler = ns.Gilde.SchreibenViele(auftraege, function()
+        sag("|cff55ff55Fertig. /lo liste zeigt den Stand.|r")
+    end)
+    sag(string.format("%d Konten werden angelegt…", n))
+    if #fehler > 0 then
+        print("  |cffff5555" .. #fehler .. " abgelehnt: " .. tostring(fehler[1]) .. "|r")
+    end
+end
+
+befehle["buchen"] = function(arg)
+    if not IsInGuild() then sag("Du bist in keiner Gilde.") return end
+    ns.Gilde.RosterAnfordern()
+
+    local punkte = tonumber((arg or ""):match("%-?%d+")) or ns.Kern.Abendsatz(8)
+    local name, notiz, guid = meinEintrag()
+    if not name then sag("Eigenen Eintrag nicht gefunden.") return end
+
+    local woche = jetztWoche()
+    local konto = ns.Notiz.Lesen(notiz) or ns.Kern.NeuesKonto(woche)
+    ns.Kern.VerfallNachholen(konto, woche)
+
+    local vorher = ns.Kern.Prio(konto)
+    konto.einsatz = konto.einsatz + punkte
+
+    local ok, grund = ns.Gilde.Schreiben(guid, konto)
+    if not ok then
+        sag("|cffff5555Schreiben abgelehnt: " .. tostring(grund) .. "|r")
+        return
+    end
+    sag(string.format("%+d Einsatz gebucht. Prio %.2f → |cff55ff55%.2f|r",
+        punkte, vorher, ns.Kern.Prio(konto)))
+    print("  |cff8E9A94" .. tostring(ns.Notiz.Schreiben(konto)) .. "|r")
+end
+
 SLASH_LOOTORDNUNG1 = "/lo"
 SLASH_LOOTORDNUNG2 = "/lootordnung"
 SlashCmdList["LOOTORDNUNG"] = function(eingabe)
-    local wort = (eingabe or ""):match("^%s*(%S*)"):lower()
-    local fn = befehle[wort]
-    if fn then fn() else hilfe() end
+    local wort, rest = (eingabe or ""):match("^%s*(%S*)%s*(.-)%s*$")
+    local fn = befehle[(wort or ""):lower()]
+    if fn then fn((rest or ""):lower()) else hilfe() end
 end
