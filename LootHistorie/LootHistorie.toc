@@ -11,6 +11,7 @@ Kern.lua
 Quelle.lua
 Erfassung.lua
 Blizzbeute.lua
+Einstellungen.lua
 Fenster.lua
 Befehle.lua
 Tests.lua

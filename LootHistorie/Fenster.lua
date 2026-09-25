@@ -35,10 +35,11 @@ local GRAU  = "|cff8E9A94"
 local ROT   = "|cffff5555"
 local HELL  = "|cffffffff"
 
-local rahmen, Zeile, kopf, fuss, titel, unterzeile, zurueckBtn, demoBtn
+local rahmen, Zeile, kopf, fuss, titel, unterzeile, zurueckBtn, demoBtn, einstellBtn
 local Zeitraum = {}
 
-local zustand = { wochen = 0, beispiel = false, spieler = nil, versatz = 0, maxVersatz = 0 }
+local zustand = { wochen = 0, beispiel = false, spieler = nil, versatz = 0, maxVersatz = 0,
+                  einstellungen = false }
 
 -- =====================================================================
 --  Einstellungen
@@ -58,6 +59,10 @@ function Fenster.AutoUmschalten()
     local d = db()
     d.autoOeffnen = not d.autoOeffnen
     return d.autoOeffnen
+end
+
+function Fenster.AutoSetzen(an)
+    db().autoOeffnen = an and true or false
 end
 
 -- =====================================================================
@@ -187,6 +192,16 @@ local function baueFenster()
         Fenster.Aktualisieren()
     end)
 
+    einstellBtn = CreateFrame("Button", nil, rahmen, "UIPanelButtonTemplate")
+    einstellBtn:SetSize(104, 22)
+    einstellBtn:SetPoint("TOPRIGHT", rahmen, "TOPRIGHT", -124, -46)
+    einstellBtn:SetText("Einstellungen")
+    einstellBtn:SetScript("OnClick", function()
+        zustand.einstellungen = not zustand.einstellungen
+        zustand.spieler = nil
+        Fenster.Aktualisieren()
+    end)
+
     zurueckBtn = CreateFrame("Button", nil, rahmen, "UIPanelButtonTemplate")
     zurueckBtn:SetSize(84, 22)
     zurueckBtn:SetPoint("TOPLEFT", rahmen, "TOPLEFT", 16, -72)
@@ -214,6 +229,8 @@ local function baueFenster()
 
     Zeile = {}
     for i = 1, ZEILEN do Zeile[i] = baueZeile(i) end
+
+    if ns.Einstellungen then ns.Einstellungen.Bauen(rahmen, BREITE) end
 
     fuss = groesser(rahmen:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"))
     fuss:SetPoint("BOTTOMLEFT", rahmen, "BOTTOMLEFT", 16, 18)
@@ -355,8 +372,34 @@ local function zeigeSpieler(H)
     unterzeile:SetText("")
 end
 
+--- Liste samt Kopfzeile zeigen oder verbergen.
+local function inhaltZeigen(an)
+    kopf:SetShown(an)
+    for i = 1, ZEILEN do Zeile[i]:SetShown(an) end
+    unterzeile:SetShown(an)
+end
+
 function Fenster.Aktualisieren()
     if not rahmen then return end
+
+    einstellBtn:SetText(zustand.einstellungen and "Zur Liste" or "Einstellungen")
+
+    -- Einstellungsansicht: die Liste tritt beiseite
+    if zustand.einstellungen then
+        titel:SetText(GRUEN .. "Loot-Historie|r   " .. GRAU .. "Einstellungen|r")
+        inhaltZeigen(false)
+        zurueckBtn:Hide()
+        for _, b in ipairs(Zeitraum) do b:Hide() end
+        demoBtn:Hide()
+        fuss:SetText("")
+        if ns.Einstellungen then ns.Einstellungen.Zeigen() end
+        return
+    end
+
+    if ns.Einstellungen then ns.Einstellungen.Verstecken() end
+    inhaltZeigen(true)
+    for _, b in ipairs(Zeitraum) do b:Show() end
+    demoBtn:Show()
 
     for _, b in ipairs(Zeitraum) do b:SetEnabled(b.wochen ~= zustand.wochen) end
     demoBtn:SetText(zustand.beispiel and "Beispiel aus" or "Beispiel")
@@ -394,6 +437,7 @@ function Fenster.Zeigen(beispiel)
     if beispiel ~= nil then zustand.beispiel = beispiel and true or false end
     zustand.spieler = nil
     zustand.versatz = 0
+    zustand.einstellungen = false
     rahmen:Show()
     Fenster.Aktualisieren()
 end
