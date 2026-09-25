@@ -57,16 +57,23 @@ befehle["filter"] = function(arg)
         d.mindestQualitaet = stufe
     elseif arg == "raid" then
         d.nurRaid = not d.nurRaid
+    elseif arg == "wurf" then
+        d.nurGewuerfelt = not d.nurGewuerfelt
     elseif arg ~= "" then
-        sag("Nutzung: " .. GELB .. "/lh filter 0-5|r (Qualität) oder " .. GELB .. "/lh filter raid|r")
+        sag("Nutzung: " .. GELB .. "/lh filter 0-5|r (Qualität), " ..
+            GELB .. "raid|r (nur Schlachtzug) oder " .. GELB .. "wurf|r (nur Ausgewürfeltes)")
         return
     end
 
     local Namen = { [0]="Schlecht", [1]="Gewöhnlich", [2]="Ungewöhnlich",
                     [3]="Selten", [4]="Episch", [5]="Legendär" }
-    sag(string.format("Erfasst ab |cffffff78%s|r%s.",
+    sag(string.format("Erfasst ab |cffffff78%s|r%s%s.",
         Namen[d.mindestQualitaet] or d.mindestQualitaet,
-        d.nurRaid and ", nur in Schlachtzugsinstanzen" or ", überall"))
+        d.nurRaid and ", nur in Schlachtzugsinstanzen" or ", überall",
+        d.nurGewuerfelt and ", nur Ausgewürfeltes" or ""))
+    if d.nurGewuerfelt then
+        print("  " .. GRAU .. "⚠ Ohne Bedarfswurf zugeteilte Stücke fallen dabei heraus.|r")
+    end
 end
 
 befehle["stand"] = function()

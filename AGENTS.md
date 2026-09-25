@@ -104,6 +104,19 @@ steht unter jemandem, der zweimal da war und nichts bekam. Für ein Werkzeug,
 das einem *Menschen* zuarbeitet, ist das in Ordnung — die Leitung weiß, wer
 da ist. Als automatische Rangfolge wäre es das nicht.
 
+### Erfasst wird ab Selten, nicht ab Episch
+
+Auf Stufe 60 ist offen, ob in den Raids überhaupt Episches fällt — in
+Zul'Gurub etwa ist das meiste blau. Die Asymmetrie entscheidet: **ein
+verpasster Drop ist unwiederbringlich, eine Zeile zu viel nur lästig.**
+`/lh filter 4` hebt die Schwelle, wenn sich zeigt, dass die Raids episch
+abwerfen.
+
+Dazu zwei weitere Riegel: `filter raid` beschränkt auf
+Schlachtzugsinstanzen (Standard an), `filter wurf` zählt nur, was auch
+ausgewürfelt wurde (Standard **aus** — ohne Bedarfswurf zugeteilte Stücke
+gingen sonst verloren).
+
 ### Das Fenster kommt ohne Bibliotheken aus
 
 Fester Satz Zeilen plus Mausrad-Versatz statt Bildlaufleiste. Ein Teil

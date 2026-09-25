@@ -42,9 +42,14 @@ local function db()
     LootHistorieDB = LootHistorieDB or {}
     local d = LootHistorieDB
     d.vergaben = d.vergaben or {}
-    if d.erfassen        == nil then d.erfassen = true end
-    if d.nurRaid         == nil then d.nurRaid = true end
-    if d.mindestQualitaet == nil then d.mindestQualitaet = 4 end   -- episch
+    if d.erfassen         == nil then d.erfassen = true end
+    if d.nurRaid          == nil then d.nurRaid = true end
+    if d.nurGewuerfelt    == nil then d.nurGewuerfelt = false end
+    -- ⭐ Standard ist SELTEN, nicht Episch. Auf Stufe 60 ist unklar, ob in
+    -- den Raids ueberhaupt episch faellt — in Zul'Gurub etwa ist das meiste
+    -- blau. Und die Asymmetrie ist eindeutig: ein verpasster Drop ist
+    -- unwiederbringlich, eine Zeile zu viel nur laestig.
+    if d.mindestQualitaet == nil then d.mindestQualitaet = 3 end
     return d
 end
 
@@ -146,9 +151,18 @@ end
 -- =====================================================================
 
 --- Soll dieser Gegenstand in die Historie?
+--  @param name  Empfaenger, fuer die Pruefung auf einen Bedarfswurf
 --  @return true, oder false und der Grund
-function Erfassung.Zaehlenswert(link)
+function Erfassung.Zaehlenswert(link, name)
     local d = db()
+
+    -- Strengste Einstellung: nur, was auch ausgewuerfelt wurde. Damit
+    -- faellt jeder Trash-Aufsammler heraus, unabhaengig von der Qualitaet.
+    -- ⚠️ Aus gutem Grund nicht Standard: Teilt die Leitung ohne Wurf zu,
+    -- ginge die Vergabe verloren.
+    if d.nurGewuerfelt and name and not Erfassung.BedarfVon(name) then
+        return false, "kein Bedarfswurf"
+    end
 
     if d.nurRaid then
         local _, typ = IsInInstance()
@@ -235,15 +249,18 @@ function Erfassung.Beutemeldung(text)
         if M.mitName then
             local wer, was = text:match(M.muster)
             if wer and was then
-                local ok = Erfassung.Zaehlenswert(was)
-                if ok then Erfassung.Eintragen(wer, was) end
+                if Erfassung.Zaehlenswert(was, wer) then
+                    Erfassung.Eintragen(wer, was)
+                end
                 return
             end
         else
             local was = text:match(M.muster)
             if was then
-                local ok = Erfassung.Zaehlenswert(was)
-                if ok then Erfassung.Eintragen(eigenerName(), was) end
+                local ich = eigenerName()
+                if Erfassung.Zaehlenswert(was, ich) then
+                    Erfassung.Eintragen(ich, was)
+                end
                 return
             end
         end
