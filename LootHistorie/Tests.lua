@@ -62,6 +62,20 @@ local function testNamen()
 
     gleich("Anzeigename ohne Realm", Kern.Anzeigename("kaos-Thunderstrike"), "Kaos")
     gleich("Anzeigename gross", Kern.Anzeigename("timo"), "Timo")
+
+    -- ⚠️ Forever kennt Nachnamen: „Yondaime Kaos" ist EIN Charakter. Der
+    -- Realm haengt weiterhin mit Bindestrich an, das Leerzeichen gehoert
+    -- zum Namen und darf nicht abgeschnitten werden.
+    gleich("Nachname bleibt erhalten",
+           Kern.Schluessel("Yondaime Kaos"), "yondaime kaos")
+    gleich("Nachname mit Realm",
+           Kern.Schluessel("Yondaime Kaos-ClassicBetaPvE2"), "yondaime kaos")
+    gleich("Nachname wird angezeigt",
+           Kern.Anzeigename("yondaime Kaos-ClassicBetaPvE2"), "Yondaime Kaos")
+
+    -- Und zwei Charaktere mit gleichem Vornamen bleiben getrennt
+    gleich("Vorname allein ist ein anderer Spieler",
+           Kern.Schluessel("Yondaime") == Kern.Schluessel("Yondaime Kaos"), false)
 end
 
 local function testBilanz()
