@@ -10,6 +10,7 @@
 Kern.lua
 Quelle.lua
 Erfassung.lua
+Blizzbeute.lua
 Fenster.lua
 Befehle.lua
 Tests.lua

@@ -89,6 +89,16 @@ befehle["stand"] = function()
     sag(string.format("Eigene Historie: |cff55ff55%d Einträge|r, davon %d auswertbar an %d Spieler.",
         n, gesamt, #liste))
 
+    -- Woher stammen die Eintraege?
+    local ausBlizz, ausChat = 0, 0
+    for _, e in pairs(eigen) do
+        if e.herkunft == "blizzard" then ausBlizz = ausBlizz + 1
+        elseif e.herkunft == "chat" then ausChat = ausChat + 1 end
+    end
+    local kann, grund = ns.Blizzbeute.Verfuegbar()
+    print(string.format("  " .. GRAU .. "Beute-Historie des Clients: %s – %d Einträge daher, %d aus dem Chat.|r",
+        kann and "nutzbar" or ("|cffff5555" .. tostring(grund) .. "|r" .. GRAU), ausBlizz, ausChat))
+
     local beute, wurf = ns.Erfassung.MusterBauen()
     print(string.format("  " .. GRAU .. "Mitschreiben: %d Beutemuster, Wurfmuster %s, %d Würfe gemerkt.|r",
         beute, wurf and "da" or "FEHLT", ns.Erfassung.OffeneWuerfe()))

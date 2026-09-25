@@ -117,8 +117,9 @@ end
 local Wuerfe = {}   -- Schluessel -> { art, zeit, wert }
 
 --- Merkt sich einen Bedarfswurf.
-function Erfassung.WurfMerken(name, wert, min, max)
-    local art = Kern.Bedarfsart(min, max)
+--  @param art  bereits bekannte Bedarfsart; sonst aus dem Bereich
+function Erfassung.WurfMerken(name, wert, min, max, art)
+    art = art or Kern.Bedarfsart(min, max)
     if not art then return false end
 
     local k = Kern.Schluessel(name)
@@ -252,29 +253,58 @@ function Erfassung.Kennung(name, gegenstand, zeit)
         Kern.Schluessel(name) or "?", tostring(gegenstand or "?"), zeit or 0)
 end
 
+--- Liegt dieselbe Vergabe schon vor?
+--
+--  ⚠️ Zwei Wege schreiben in dieselbe Historie: Blizzards Beute-Historie
+--  (genau, mit Bedarfsart) und die Chat-Mitschrift (deckt auch
+--  Meisterpluenderer ab). Fuer dasselbe Stueck kaemen sonst zwei Zeilen
+--  mit verschiedenen Schluesseln heraus.
+--
+--  ⚠️ Der Preis: Gewinnt jemand zweimal denselben Gegenstand innerhalb
+--  des Fensters, faellt der zweite weg. Das ist selten — systematisches
+--  Doppelzaehlen waere schlimmer.
+function Erfassung.SchonErfasst(name, id, zeit, fenster)
+    if not id then return false end
+    fenster = fenster or 180
+    local k = Kern.Schluessel(name)
+    if not k then return false end
+
+    for _, e in pairs(Erfassung.Historie()) do
+        if e.itemID == id and Kern.Schluessel(e.awardedTo or "") == k
+           and math.abs((e.timestamp or 0) - zeit) <= fenster then
+            return true
+        end
+    end
+    return false
+end
+
 --- Traegt eine Vergabe ein.
+--  @param art      "haupt" | "zweit" | nil (dann aus dem gemerkten Wurf)
+--  @param kennung  eigener Schluessel; sonst aus Spieler, Stueck und Zeit
 --  @return true wenn neu
-function Erfassung.Eintragen(name, link, zeit)
+function Erfassung.Eintragen(name, link, zeit, art, kennung)
     if not name or not link then return false end
 
-    local id = tonumber(link:match("item:(%d+)"))
+    local id = tonumber(tostring(link):match("item:(%d+)"))
     local jetzt = zeit or (GetServerTime and GetServerTime()) or time()
-    local kennung = Erfassung.Kennung(name, id or link, jetzt)
+    kennung = kennung or Erfassung.Kennung(name, id or link, jetzt)
 
     local V = Erfassung.Historie()
     if V[kennung] then return false end
+    if Erfassung.SchonErfasst(name, id, jetzt) then return false end
 
-    local art = Erfassung.BedarfVon(name)
+    art = art or Erfassung.BedarfVon(name)
 
     V[kennung] = {
         awardedTo = name,
         itemID    = id,
         itemLink  = link,
         timestamp = jetzt,
-        -- Ohne erkannten Wurf gilt Hauptbedarf. Das ist die Annahme, die
-        -- zulasten des Empfaengers geht — und damit die sichere.
+        -- Ohne erkannte Bedarfsart gilt Hauptbedarf. Das ist die Annahme,
+        -- die zulasten des Empfaengers geht — und damit die sichere.
         OS        = (art == "zweit") or nil,
         selbstErfasst = true,
+        herkunft  = kennung:find("^blizz:") and "blizzard" or "chat",
     }
     return true, art
 end
