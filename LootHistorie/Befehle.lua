@@ -28,31 +28,68 @@ local function hilfe()
     print("  " .. GELB .. "/lh liste|r  – dieselbe Auswertung im Chat, " .. GELB .. "liste 4|r für 4 Wochen")
     print("  " .. GELB .. "/lh <Name>|r – Einzelvergaben eines Spielers im Chat")
     print("  " .. GELB .. "/lh auto|r   – Fenster bei Wurfbeginn automatisch öffnen (an/aus)")
-    print("  " .. GELB .. "/lh stand|r  – Diagnose: liegt Garguls Historie vor")
+    print("  " .. GELB .. "/lh import|r – Garguls bisherige Aufzeichnungen übernehmen")
+    print("  " .. GELB .. "/lh filter|r – ab welcher Qualität mitgeschrieben wird")
+    print("  " .. GELB .. "/lh stand|r  – Diagnose: eigene Historie und Mitschrift")
     print("  " .. GELB .. "/lh muster|r – Diagnose: Textvorlagen für eigene Erkennung")
     print("  " .. GELB .. "/lh test|r   – Selbsttests der Auswertung")
 end
 
 -- =====================================================================
 
+befehle["import"] = function()
+    local neu, doppelt = Quelle.GargulImport()
+    if not neu then
+        sag(ROT .. tostring(doppelt) .. "|r")
+        return
+    end
+    sag(string.format("|cff55ff55%d Vergaben|r aus Gargul übernommen.", neu))
+    if doppelt > 0 then
+        print(string.format("  " .. GRAU .. "%d übersprungen – die hatte die Eigenerfassung schon.|r", doppelt))
+    end
+    print("  " .. GRAU .. "Wiederholtes Einführen ändert nichts mehr.|r")
+end
+
+befehle["filter"] = function(arg)
+    local d = ns.Erfassung.Einstellungen()
+    local stufe = tonumber(arg)
+    if stufe and stufe >= 0 and stufe <= 5 then
+        d.mindestQualitaet = stufe
+    elseif arg == "raid" then
+        d.nurRaid = not d.nurRaid
+    elseif arg ~= "" then
+        sag("Nutzung: " .. GELB .. "/lh filter 0-5|r (Qualität) oder " .. GELB .. "/lh filter raid|r")
+        return
+    end
+
+    local Namen = { [0]="Schlecht", [1]="Gewöhnlich", [2]="Ungewöhnlich",
+                    [3]="Selten", [4]="Episch", [5]="Legendär" }
+    sag(string.format("Erfasst ab |cffffff78%s|r%s.",
+        Namen[d.mindestQualitaet] or d.mindestQualitaet,
+        d.nurRaid and ", nur in Schlachtzugsinstanzen" or ", überall"))
+end
+
 befehle["stand"] = function()
+    local eigen = ns.Erfassung.Historie()
+    local n = 0
+    for _ in pairs(eigen) do n = n + 1 end
+    local liste, gesamt = Kern.Bilanz(eigen, 0)
+    sag(string.format("Eigene Historie: |cff55ff55%d Einträge|r, davon %d auswertbar an %d Spieler.",
+        n, gesamt, #liste))
+
+    local beute, wurf = ns.Erfassung.MusterBauen()
+    print(string.format("  " .. GRAU .. "Mitschreiben: %d Beutemuster, Wurfmuster %s, %d Würfe gemerkt.|r",
+        beute, wurf and "da" or "FEHLT", ns.Erfassung.OffeneWuerfe()))
+
     local ok, wert = Quelle.Stand()
     if not ok then
-        sag(ROT .. tostring(wert) .. "|r")
-        print("  " .. GRAU .. "Ohne Gargul gibt es nichts zu lesen. " .. GELB .. "/lh demo|r " ..
-              GRAU .. "zeigt die Anzeige mit Beispieldaten.|r")
+        print("  " .. GRAU .. tostring(wert) .. " – nichts zu übernehmen. Das Addon schreibt selbst mit.|r")
         return
     end
     sag(string.format("Garguls Historie liegt vor: |cff55ff55%d Einträge|r.", wert))
 
-    local H = Quelle.Gargul()
-    local liste, gesamt = Kern.Bilanz(H, 0)
-    print(string.format("  " .. GRAU .. "Davon auswertbar: %d Vergaben an %d Spieler.|r",
-        gesamt, #liste))
-    if wert > gesamt then
-        print(string.format("  " .. GRAU .. "%d fallen heraus – entzaubert, Bonus-Beute oder unvollständig.|r",
-            wert - gesamt))
-    end
+    print("  " .. GRAU .. "Das ist Garguls Bestand – " .. GELB .. "/lh import|r" ..
+          GRAU .. " übernimmt ihn in die eigene Historie.|r")
 end
 
 --- Diagnose: welche Textvorlagen und Namens-APIs gibt es hier?

@@ -66,7 +66,7 @@ end
 
 local function historie()
     if zustand.beispiel then return Quelle.Beispiel() end
-    return Quelle.Gargul()
+    return Quelle.Historie()
 end
 
 local function wurf()

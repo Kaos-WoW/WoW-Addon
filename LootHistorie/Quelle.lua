@@ -53,6 +53,78 @@ function Quelle.Stand()
     return true, n
 end
 
+--- Die Historie, aus der ausgewertet wird: die EIGENE.
+--  Gargul ist nur noch Einfuhrquelle, nicht Datenhalter.
+function Quelle.Historie()
+    if not ns.Erfassung then return nil, "Erfassung nicht geladen" end
+    return ns.Erfassung.Historie()
+end
+
+--- Uebernimmt Garguls Aufzeichnungen einmalig in die eigene Historie.
+--
+--  Schluessel bleibt Garguls Pruefsumme — dadurch ist der Import
+--  beliebig oft wiederholbar, ohne dass sich etwas doppelt.
+--
+--  ⚠️ **Der eigentliche Doppelgaenger sind aber unsere eigenen
+--  Eintraege:** Lief die Eigenerfassung mit, waehrend Gargul dieselbe
+--  Vergabe aufzeichnete, liegen zwei Eintraege mit verschiedenen
+--  Schluesseln fuer dasselbe Stueck vor. Darum wird jeder Gargul-Eintrag
+--  gegen die eigenen geprueft: gleicher Spieler, gleicher Gegenstand,
+--  nah beieinander in der Zeit — dann uebersprungen.
+--
+--  @return uebernommen, uebersprungen  oder nil und ein Grund
+function Quelle.GargulImport(fenster)
+    fenster = fenster or 300
+
+    local G, grund = Quelle.Gargul()
+    if not G then return nil, grund end
+    if not ns.Erfassung then return nil, "Erfassung nicht geladen" end
+
+    local eigen = ns.Erfassung.Historie()
+    local Kern = ns.Kern
+
+    -- Eigene Eintraege nach Spieler und Gegenstand vorsortieren
+    local Bekannt = {}
+    for _, e in pairs(eigen) do
+        if e.awardedTo and e.itemID then
+            local k = (Kern.Schluessel(e.awardedTo) or "?") .. ":" .. tostring(e.itemID)
+            Bekannt[k] = Bekannt[k] or {}
+            table.insert(Bekannt[k], e.timestamp or 0)
+        end
+    end
+
+    local neu, doppelt = 0, 0
+    for pruefsumme, e in pairs(G) do
+        if eigen[pruefsumme] then
+            -- schon eingefuehrt
+        elseif not Kern.Zaehlt(e) then
+            -- entzaubert, Bonus oder unvollstaendig: nicht uebernehmen
+        else
+            local k = (Kern.Schluessel(e.awardedTo) or "?") .. ":" .. tostring(e.itemID)
+            local schonDa = false
+            for _, zeit in ipairs(Bekannt[k] or {}) do
+                if math.abs(zeit - e.timestamp) <= fenster then schonDa = true break end
+            end
+
+            if schonDa then
+                doppelt = doppelt + 1
+            else
+                eigen[pruefsumme] = {
+                    awardedTo = e.awardedTo,
+                    itemID    = e.itemID,
+                    itemLink  = e.itemLink,
+                    timestamp = e.timestamp,
+                    OS        = e.OS or nil,
+                    ausGargul = true,
+                }
+                neu = neu + 1
+            end
+        end
+    end
+
+    return neu, doppelt
+end
+
 -- =====================================================================
 --  Der laufende Wurf
 -- =====================================================================
