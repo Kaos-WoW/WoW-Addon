@@ -315,9 +315,10 @@ local function zeigeListe(H)
     fuss:SetText(text)
 
     if W then
+        local was = W.link or W.name
         unterzeile:SetText(GELB .. "Wurf läuft|r  " ..
-            (W.link or W.name or "") ..
-            GRAU .. "   —   Würfelnde oben, wenigste Stücke zuerst|r")
+            (was and (was .. "  ") or "") ..
+            GRAU .. "—   Würfelnde oben, wenigste Stücke zuerst|r")
     else
         unterzeile:SetText("")
     end

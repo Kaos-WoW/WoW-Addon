@@ -143,13 +143,14 @@ end
 --            namen = { Name, ... } }  oder nil
 function Quelle.Wurf()
     local GL = rawget(_G, "Gargul")
-    if not GL then return nil end
+    local R = GL and GL.RollOff
+    local Aktuell = (type(R) == "table" and R.inProgress) and R.CurrentRollOff or nil
 
-    local R = GL.RollOff
-    if type(R) ~= "table" or not R.inProgress then return nil end
-
-    local Aktuell = R.CurrentRollOff
-    if type(Aktuell) ~= "table" then return nil end
+    -- Ohne Gargul: die eigene Mitschrift. Sie kennt den Gegenstand nicht,
+    -- aber wer gewuerfelt hat — und genau das ordnet die Liste.
+    if type(Aktuell) ~= "table" then
+        return ns.Erfassung and ns.Erfassung.AktuelleWuerfe() or nil
+    end
 
     local Wuerfe, namen = {}, {}
     for _, W in pairs(Aktuell.Rolls or {}) do

@@ -118,9 +118,23 @@ function Erfassung.WurfMerken(name, wert, min, max)
     local k = Kern.Schluessel(name)
     if not k then return false end
 
+    -- Beginnt hier eine neue Wurfrunde? Dann darf sich das Fenster oeffnen.
+    local ersterDerRunde = Erfassung.AktuelleWuerfe() == nil
+
     -- Der juengste Wurf gilt: Wer nachtraeglich fuer Zweitbedarf wuerfelt,
     -- meint das auch so.
     Wuerfe[k] = { art = art, zeit = time(), wert = tonumber(wert) or 0, name = name }
+
+    -- ⚠️ Ohne Gargul gibt es kein ROLLOFF_STARTED. Der erste Bedarfswurf
+    -- einer Runde ist der beste Ersatz dafuer.
+    if ns.Fenster then
+        if ersterDerRunde and ns.Fenster.AutoOeffnen() then
+            ns.Fenster.Zeigen(false)
+        else
+            ns.Fenster.Aktualisieren()
+        end
+    end
+
     return true, art
 end
 
@@ -132,6 +146,31 @@ function Erfassung.BedarfVon(name)
     if not W then return nil end
     if (time() - W.zeit) > WURFGEDAECHTNIS then return nil end
     return W.art
+end
+
+--- Die Wuerfe der letzten Minuten, in der Form, die das Fenster erwartet.
+--
+--  ⭐ Damit braucht die Wurf-Ansicht kein Gargul mehr. Was Gargul voraus
+--  hat, ist der Gegenstand: Es weiss, WOFUER gewuerfelt wird. Aus dem
+--  Chat allein laesst sich das nicht ablesen — die Reihenfolge und die
+--  Hervorhebung stimmen trotzdem, und darum geht es.
+--
+--  @param fenster  Sekunden; was aelter ist, gilt als vorbei
+--  @return { Wuerfe = { Schluessel -> Wert }, namen = { ... } } oder nil
+function Erfassung.AktuelleWuerfe(fenster)
+    fenster = fenster or 120
+    local jetzt = time()
+
+    local Werte, namen = {}, {}
+    for k, W in pairs(Wuerfe) do
+        if (jetzt - W.zeit) <= fenster then
+            Werte[k] = W.wert
+            namen[#namen + 1] = W.name
+        end
+    end
+
+    if #namen == 0 then return nil end
+    return { Wuerfe = Werte, namen = namen }
 end
 
 function Erfassung.OffeneWuerfe()
