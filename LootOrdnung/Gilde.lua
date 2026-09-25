@@ -73,29 +73,69 @@ end
 --          fremd      Liste der Namen mit nicht-eigenem Notizinhalt
 function Gilde.Lesen()
     local eintraege, fremd = {}, {}
-    local anzahl = GetNumGuildMembers and GetNumGuildMembers() or 0
 
-    for i = 1, anzahl do
-        local name, rang, rangIndex, _, _, _, _, offiziersnotiz,
-              _, _, _, _, _, _, _, _, guid = GetGuildRosterInfo(i)
-
-        if name then
-            local konto, grund = Notiz.Lesen(offiziersnotiz)
-            local eintrag = {
-                name      = name,
-                kurz      = name:match("^([^%-]+)") or name,
-                guid      = guid,
-                rang      = rang,
-                rangIndex = rangIndex,
-                notiz     = offiziersnotiz or "",
-                konto     = konto,
-                grund     = grund,
-            }
-            eintraege[#eintraege + 1] = eintrag
-            if Notiz.IstFremd(offiziersnotiz) then
-                fremd[#fremd + 1] = eintrag
+    -- 1. Versuch: C_Club-API (WoW Forever / Mainline)
+    local C_Club = rawget(_G, "C_Club")
+    if C_Club and C_Club.GetGuildClubId and C_Club.GetClubMembers and C_Club.GetMemberInfo then
+        local clubId = C_Club.GetGuildClubId()
+        if clubId then
+            local memberIds = C_Club.GetClubMembers(clubId) or {}
+            if #memberIds > 0 then
+                for _, memberId in ipairs(memberIds) do
+                    local info = C_Club.GetMemberInfo(clubId, memberId)
+                    if info and info.name then
+                        local offiziersnotiz = info.officerNote or ""
+                        local konto, grund = Notiz.Lesen(offiziersnotiz)
+                        local eintrag = {
+                            name      = info.name,
+                            kurz      = info.name:match("^([^%-]+)") or info.name,
+                            guid      = info.guid,
+                            rang      = info.guildRank,
+                            rangIndex = info.guildRankOrder,
+                            notiz     = offiziersnotiz,
+                            konto     = konto,
+                            grund     = grund,
+                        }
+                        eintraege[#eintraege + 1] = eintrag
+                        if Notiz.IstFremd(offiziersnotiz) then
+                            fremd[#fremd + 1] = eintrag
+                        end
+                    end
+                end
+                return eintraege, fremd
             end
         end
+    end
+
+    -- 2. Fallback: Legacy GetGuildRosterInfo (Anniversary / Classic)
+    local getRosterInfo = rawget(_G, "GetGuildRosterInfo")
+    local getNumMembers = rawget(_G, "GetNumGuildMembers")
+
+    if getRosterInfo and getNumMembers then
+        local anzahl = getNumMembers() or 0
+        for i = 1, anzahl do
+            local name, rang, rangIndex, _, _, _, _, offiziersnotiz,
+                  _, _, _, _, _, _, _, _, guid = getRosterInfo(i)
+
+            if name then
+                local konto, grund = Notiz.Lesen(offiziersnotiz)
+                local eintrag = {
+                    name      = name,
+                    kurz      = name:match("^([^%-]+)") or name,
+                    guid      = guid,
+                    rang      = rang,
+                    rangIndex = rangIndex,
+                    notiz     = offiziersnotiz or "",
+                    konto     = konto,
+                    grund     = grund,
+                }
+                eintraege[#eintraege + 1] = eintrag
+                if Notiz.IstFremd(offiziersnotiz) then
+                    fremd[#fremd + 1] = eintrag
+                end
+            end
+        end
+        return eintraege, fremd
     end
 
     return eintraege, fremd
@@ -145,58 +185,46 @@ end
 --  Schreiben
 -- =====================================================================
 
-local warteschlange, laeuft = {}, false
+Gilde.offeneNotizen = {}
 
-local function naechsterSchreibvorgang()
-    local auftrag = table.remove(warteschlange, 1)
-    if not auftrag then
-        laeuft = false
-        if Gilde.beiFertig then
-            local fn = Gilde.beiFertig
-            Gilde.beiFertig = nil
-            fn()
-        end
-        return
-    end
-
-    notizSetzen(auftrag.guid, auftrag.text)
-    C_Timer.After(Gilde.SCHREIBPAUSE, naechsterSchreibvorgang)
-end
-
---- Stellt rohen Text zum Schreiben in die Warteschlange.
---  Gedrosselt, weil zwanzig Aufrufe in einem Frame der Server nicht
---  freundlich quittiert.
+--- Fügt eine Notiz für den Assistenten hinzu (Option 1).
 --  @return true, oder false und ein Grund
-function Gilde.TextSchreiben(guid, text)
+function Gilde.TextSchreiben(guid, text, name, kurz)
     if not guid then return false, "keine GUID" end
     if Gilde.DarfSchreiben() == false then return false, "kein Schreibrecht" end
 
-    warteschlange[#warteschlange + 1] = { guid = guid, text = text or "" }
-    if not laeuft then
-        laeuft = true
-        C_Timer.After(0, naechsterSchreibvorgang)
-    end
+    Gilde.offeneNotizen[#Gilde.offeneNotizen + 1] = {
+        guid = guid,
+        name = name or guid,
+        kurz = kurz or (type(name) == "string" and name:match("^([^%-]+)")) or guid,
+        text = text or "",
+    }
     return true
 end
 
---- Stellt ein Konto zum Schreiben in die Warteschlange.
-function Gilde.Schreiben(guid, konto)
+--- Stellt ein Konto für den Notiz-Assistenten bereit.
+function Gilde.Schreiben(guid, konto, name, kurz)
     local text, grund = Notiz.Schreiben(konto)
     if not text then return false, grund end
-    return Gilde.TextSchreiben(guid, text)
+    return Gilde.TextSchreiben(guid, text, name, kurz)
 end
 
---- Schreibt mehrere Konten.
---  ⚠️ Nur Raidteilnehmer uebergeben, nicht die ganze Gilde: Wer nicht
---  dabei war, aendert sich ausschliesslich durch Verfall — und der wird
---  beim naechsten Lesen ueber den Wochenstempel nachgeholt.
---  @param aenderungen  Liste aus { guid=, konto= }
+--- Bereitet mehrere Konten für den Notiz-Assistenten vor.
+--  @param aenderungen  Liste aus { guid=, konto=, name=, kurz= }
 function Gilde.SchreibenViele(aenderungen, beiFertig)
     local n, fehler = 0, {}
     Gilde.beiFertig = beiFertig
     for _, a in ipairs(aenderungen) do
-        local ok, grund = Gilde.Schreiben(a.guid, a.konto)
+        local ok, grund = Gilde.Schreiben(a.guid, a.konto, a.name, a.kurz)
         if ok then n = n + 1 else fehler[#fehler + 1] = grund end
+    end
+    if beiFertig then
+        local fn = Gilde.beiFertig
+        Gilde.beiFertig = nil
+        fn()
+    end
+    if ns.Fenster then
+        ns.Fenster.Zeigen()
     end
     return n, fehler
 end

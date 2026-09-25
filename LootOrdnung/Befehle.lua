@@ -15,10 +15,15 @@ end
 
 local function hilfe()
     sag("Befehle:")
+    print("  |cffffff78/lo fenster|r– UI-Fenster öffnen (Buchen per Klick)")
     print("  |cffffff78/lo test|r   – Selbsttests des Rechenkerns")
     print("  |cffffff78/lo rechte|r – prüfen, ob ich Notizen schreiben darf")
     print("  |cffffff78/lo notiz|r   – meine eigene Offiziersnotiz anzeigen")
     print("  |cffffff78/lo liste|r   – alle Konten nach Prio")
+    print("  |cffffff78/lo historie|r – wer über Wochen wie viel bekommen hat (aus Gargul)")
+    print("  |cff8E9A94              demo|r – Beispieldaten zur Ansicht, nichts wird gespeichert")
+    print("  |cffffff78/lo vergaben|r – laufendes Register dieser Sitzung")
+    print("  |cffffff78/lo abgleich|r – Register mit den anderen Raidleitern abgleichen")
     print("  |cffffff78/lo fremd|r   – wer hat noch Fremdinhalt in der Notiz")
     print("  |cffffff78/lo sichern|r – alle Notizen sichern, bevor geschrieben wird")
     print("  |cffffff78/lo leeren|r  – fremde Notizen leeren (zeigt erst an)")
@@ -42,11 +47,9 @@ end
 --  jemand online geht. Immer über den Namen suchen und die GUID nehmen.
 local function meinEintrag()
     local ich = UnitName("player")
-    for i = 1, (GetNumGuildMembers() or 0) do
-        local name, _, _, _, _, _, _, offiziersnotiz,
-              _, _, _, _, _, _, _, _, guid = GetGuildRosterInfo(i)
-        if name and name:match("^[^%-]+") == ich then
-            return name, offiziersnotiz, guid
+    for _, e in ipairs(ns.Gilde.Lesen()) do
+        if e.kurz == ich or e.name:match("^[^%-]+") == ich then
+            return e.name, e.notiz, e.guid
         end
     end
 end
@@ -90,7 +93,7 @@ befehle["notiz"] = function()
         sag("Du bist in keiner Gilde.")
         return
     end
-    if C_GuildInfo and C_GuildInfo.GuildRoster then C_GuildInfo.GuildRoster() end
+    ns.Gilde.RosterAnfordern()
 
     local name, notiz, guid = meinEintrag()
     if not name then
@@ -425,9 +428,137 @@ end
 --- Diagnose: was liefert GetRaidRosterInfo wirklich?
 --  Gebaut, weil der Zonenfilter auf einer ungepruefte Annahme sitzt —
 --  welches Feld die Zone ist und wie sie geschrieben wird.
+befehle["fenster"] = function()
+    if ns.Fenster then
+        ns.Fenster.Umschalten()
+    else
+        sag("|cffff5555Fenster.lua ist nicht geladen.|r")
+    end
+end
+befehle["gui"] = befehle["fenster"]
+
+befehle["historie"] = function(arg)
+    -- Beispieldaten: leben nur im Speicher, landen nirgends.
+    local beispiel, rest = nil, arg
+    local ohneDemo = arg:match("^demo%s*(.*)$")
+    if ohneDemo then
+        beispiel = ns.Historie.Beispiel()
+        rest = ohneDemo
+        sag("|cffffff78Beispieldaten|r – nichts davon wird gespeichert.")
+    end
+
+    local wochen = tonumber(rest)
+    local name = (not wochen) and rest ~= "" and rest or nil
+
+    -- Einzelner Spieler
+    if name then
+        local liste, grund = ns.Historie.Spieler(name, nil, beispiel)
+        if not liste then sag("|cffff5555" .. tostring(grund) .. "|r") return end
+        if #liste == 0 then
+            sag(string.format("Für |cffffff78%s|r ist keine Vergabe verzeichnet.", name))
+            return
+        end
+        sag(string.format("%s: |cff55ff55%d Vergaben|r", name, #liste))
+        for i, e in ipairs(liste) do
+            if i <= 25 then
+                print(string.format("  %s  %s%s", date("%d.%m.%y", e.zeit),
+                    tostring(e.stueck), e.zweit and "  |cff8E9A94Zweitbedarf|r" or ""))
+            end
+        end
+        if #liste > 25 then print("  |cff8E9A94… und " .. (#liste - 25) .. " weitere|r") end
+        return
+    end
+
+    local liste, gesamt, aeltester = ns.Historie.Bilanz(wochen, beispiel)
+    if not liste then sag("|cffff5555" .. tostring(gesamt) .. "|r") return end
+    if #liste == 0 then
+        sag("Keine Vergaben im Zeitraum.")
+        return
+    end
+
+    local tage = ns.Historie.Raidtage(wochen, beispiel)
+    sag(string.format("%s: |cff55ff55%d Vergaben|r an %d Spieler, %d Raidtage",
+        wochen and wochen > 0 and (wochen .. " Wochen") or "Gesamte Historie",
+        gesamt, #liste, tage))
+    if aeltester then
+        print(string.format("  |cff8E9A94Älteste Aufzeichnung: %s|r", date("%d.%m.%Y", aeltester)))
+    end
+
+    for i, z in ipairs(liste) do
+        if i <= 30 then
+            local seit = ""
+            if z.letzte > 0 then
+                local d = math.floor((time() - z.letzte) / 86400)
+                seit = string.format("  |cff8E9A94zuletzt vor %d Tagen|r", d)
+            end
+            print(string.format("  %-14s |cffffff78%2d|r Haupt%s%s",
+                z.name, z.haupt,
+                z.zweit > 0 and string.format("  |cff8E9A94%d Zweit|r", z.zweit) or "        ",
+                seit))
+        end
+    end
+    if #liste > 30 then print("  |cff8E9A94… und " .. (#liste - 30) .. " weitere|r") end
+    print("  |cff8E9A94/lo historie 4 begrenzt auf 4 Wochen, /lo historie <Name> zeigt einen Spieler.|r")
+    if beispiel then print("  |cff8E9A94/lo historie demo Xalessa zeigt einen Beispielspieler.|r") end
+end
+
+befehle["vergaben"] = function()
+    local liste = ns.Vergabe.Bilanz()
+    local gesamt, weg = ns.Vergabe.Zahlen()
+
+    if gesamt == 0 then
+        sag("Noch keine Vergabe erfasst.")
+        if not ns.Vergabe.gargulAngebunden then
+            local _, grund = ns.Vergabe.GargulAnbinden()
+            if grund then
+                print("  |cffffff78" .. tostring(grund) .. "|r – ohne Gargul trägt nur /lo abgleich etwas ein.")
+            end
+        end
+        return
+    end
+
+    sag(string.format("%d Vergaben auf %d Spieler%s:", gesamt, #liste,
+        weg > 0 and string.format(" |cff8E9A94(%d zurückgenommen)|r", weg) or ""))
+
+    local ungeklaert = 0
+    for i, z in ipairs(liste) do
+        if i <= 20 then
+            print(string.format("  %-14s %2d Stück   Rüstwert |cffffff78%d|r%s",
+                z.kurz, z.anzahl, math.floor(z.ruestwert + 0.5),
+                z.offen > 0 and string.format("  |cffff5555+%d unbekannt|r", z.offen) or ""))
+        end
+        ungeklaert = ungeklaert + z.offen
+    end
+    if #liste > 20 then print("  |cff8E9A94… und " .. (#liste - 20) .. " weitere|r") end
+
+    if ungeklaert > 0 then
+        print("  |cff8E9A94Unbekannt heißt: der Client kennt den Gegenstand noch nicht.|r")
+        print("  |cff8E9A94Nach einem Blick ins Auktionshaus oder einem /reload steht er da.|r")
+    end
+end
+
+befehle["abgleich"] = function(arg)
+    if not IsInGuild() then sag("Du bist in keiner Gilde.") return end
+
+    if ns.Gilde.AnzahlGewaehlt() == 0 then
+        sag("|cffff5555Kein Rang ausgewählt.|r Abgeglichen wird nur mit gewählten Rängen – |cffffff78/lo raenge|r.")
+        return
+    end
+
+    if arg == "senden" then
+        local n = ns.Abgleich.Senden()
+        sag(string.format("Register verschickt |cff8E9A94(%d Nachrichten).|r", n))
+        return
+    end
+
+    ns.Abgleich.Anfordern()
+    sag("Abgleich angefordert – |cff8E9A94Antworten laufen die nächsten Sekunden ein.|r")
+    print("  |cff8E9A94Es antworten nur Spieler mit Addon auf einem gewählten Rang.|r")
+end
+
 befehle["bausteine"] = function()
     sag("Geladene Bausteine:")
-    for _, name in ipairs({"Kern", "Notiz", "Gilde", "Raid", "Tests"}) do
+    for _, name in ipairs({"Kern", "Notiz", "Gilde", "Raid", "Tests", "Fenster"}) do
         local da = ns[name] ~= nil
         print(string.format("  %-8s %s", name,
             da and "|cff55ff55da|r" or "|cffff5555FEHLT – Datei mit Fehler abgebrochen|r"))

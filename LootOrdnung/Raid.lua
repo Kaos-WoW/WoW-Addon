@@ -369,7 +369,7 @@ end
 --  @param modus  nil = normal · "zwingend" = Sperre ganz aus ·
 --                "nachtragen" = NUR die zuletzt Uebersprungenen
 --  @return Anzahl gebuchter, Liste ohne Konto, Liste der Uebersprungenen
-function Raid.Buchen(beiFertig, modus)
+function Raid.Buchen(beiFertig, modus, direkt)
     local jetzt  = time()
     local woche  = Kern.WocheAus(jetzt)
     local stunde = Kern.StundeAus(jetzt)
@@ -407,7 +407,7 @@ function Raid.Buchen(beiFertig, modus)
             Kern.VerfallNachholen(e.konto, woche)
             Kern.TeilnahmeBuchen(e.konto, a.bosse, a.vollDabei)
             e.konto.gebucht = stunde
-            auftraege[#auftraege + 1] = { guid = e.guid, konto = e.konto }
+            auftraege[#auftraege + 1] = { guid = e.guid, konto = e.konto, name = e.name, kurz = e.kurz }
         end
     end
 

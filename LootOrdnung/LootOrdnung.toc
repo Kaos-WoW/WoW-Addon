@@ -1,4 +1,4 @@
-## Interface: 20504
+## Interface: 16001, 120100, 120105, 20504
 ## Title: Loot-Ordnung
 ## Notes: Prio = Einsatz / Ruestwert. Kontenfuehrung fuer die Gilde Resurrected.
 ## Author: Kaos, xqp
@@ -9,5 +9,9 @@ Kern.lua
 Notiz.lua
 Gilde.lua
 Raid.lua
+Vergabe.lua
+Abgleich.lua
+Historie.lua
 Tests.lua
+Fenster.lua
 Befehle.lua

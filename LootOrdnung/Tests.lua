@@ -287,6 +287,67 @@ local function testNotiz()
     gleich("mit Grund", grundLang, "zu lang")
 end
 
+local function testVergabe()
+    -- Vergabe.lua und Abgleich.lua sind nicht API-frei; offline fehlen sie.
+    if not (ns.Vergabe and ns.Abgleich) then return end
+    local V, A = ns.Vergabe, ns.Abgleich
+
+    -- Zusammenfuehren: aus Einzelvergaben, nicht aus Summen
+    local eigen = { a = { spieler = "Kaos", gegenstand = 1, zeit = 10 } }
+    local fremd = {
+        a = { spieler = "Kaos", gegenstand = 1, zeit = 10 },
+        b = { spieler = "Timo", gegenstand = 2, zeit = 20 },
+    }
+
+    local neu, weg = V.Vereinen(eigen, fremd)
+    gleich("nur das Unbekannte kommt dazu", neu, 1)
+    gleich("nichts zurueckgenommen", weg, 0)
+    gleich("fremde Vergabe ist da", eigen.b and eigen.b.spieler, "Timo")
+
+    -- Nochmal dasselbe darf nichts mehr aendern
+    local neu2 = V.Vereinen(eigen, fremd)
+    gleich("zweiter Durchlauf ist wirkungslos", neu2, 0)
+
+    -- Ein Grabstein gewinnt, egal von welcher Seite
+    local mitGrab = { b = { weg = true, zeit = 30 } }
+    local _, weg2 = V.Vereinen(eigen, mitGrab)
+    gleich("Ruecknahme setzt sich durch", weg2, 1)
+    gleich("Eintrag ist als weg markiert", eigen.b.weg, true)
+
+    -- und sie darf nicht wieder auferstehen
+    local _, weg3 = V.Vereinen(eigen, fremd)
+    gleich("zurueckgenommen bleibt zurueckgenommen", eigen.b.weg, true)
+    gleich("keine neue Ruecknahme gezaehlt", weg3, 0)
+
+    -- Grabstein zuerst, Angaben spaeter: die Angaben werden ergaenzt
+    local nurGrab = { c = { weg = true, zeit = 5 } }
+    V.Vereinen(nurGrab, { c = { spieler = "Lina", gegenstand = 7, zeit = 5 } })
+    gleich("Grabstein bekommt den Spieler nachgereicht", nurGrab.c.spieler, "Lina")
+    gleich("Grabstein bleibt ein Grabstein", nurGrab.c.weg, true)
+
+    -- Packen und Auspacken muessen sich aufheben
+    local register = {
+        x = { spieler = "Kaos-Thunderstrike", gegenstand = 12345, zeit = 99 },
+        y = { spieler = "Timo-Thunderstrike", gegenstand = 222, zeit = 100, weg = true },
+    }
+    local zurueck = A.Auspacken(A.Packen(register))
+    gleich("Rundlauf Spieler",    zurueck.x and zurueck.x.spieler, "Kaos-Thunderstrike")
+    gleich("Rundlauf Gegenstand", zurueck.x and zurueck.x.gegenstand, 12345)
+    gleich("Rundlauf Zeit",       zurueck.x and zurueck.x.zeit, 99)
+    gleich("Rundlauf Grabstein",  zurueck.y and zurueck.y.weg, true)
+    gleich("kein Grabstein erfunden", zurueck.x and zurueck.x.weg, nil)
+
+    -- Zerlegen: nichts darf verlorengehen, auch nicht am Rand
+    local lang = string.rep("z", 501)
+    local stuecke = A.Stuecke(lang, 100)
+    gleich("Zahl der Stuecke", #stuecke, 6)
+    gleich("wieder zusammengesetzt", table.concat(stuecke), lang)
+    gleich("leerer Text ergibt kein Stueck", #A.Stuecke("", 100), 0)
+
+    -- Ein genau passender Text darf kein leeres Reststueck erzeugen
+    gleich("glatte Teilung", #A.Stuecke(string.rep("z", 200), 100), 2)
+end
+
 local function testNachziehen()
     -- Raid.lua ist nicht API-frei; offline gibt es sie nicht.
     if not (ns.Raid and ns.Raid.Nachziehen) then return end
@@ -435,6 +496,7 @@ function Tests.Alle(ausgeben)
     testNeulinge()
     testRangfolge()
     testNotiz()
+    testVergabe()
     testNachziehen()
     testAnwesenheit()
     testDoppelbuchung()
