@@ -55,21 +55,26 @@ befehle["filter"] = function(arg)
     local stufe = tonumber(arg)
     if stufe and stufe >= 0 and stufe <= 5 then
         d.mindestQualitaet = stufe
-    elseif arg == "raid" then
-        d.nurRaid = not d.nurRaid
+    elseif arg == "raid" or arg == "instanz" or arg == "ueberall" or arg == "überall" then
+        d.ort = (arg == "überall") and "ueberall" or arg
     elseif arg == "wurf" then
         d.nurGewuerfelt = not d.nurGewuerfelt
     elseif arg ~= "" then
         sag("Nutzung: " .. GELB .. "/lh filter 0-5|r (Qualität), " ..
-            GELB .. "raid|r (nur Schlachtzug) oder " .. GELB .. "wurf|r (nur Ausgewürfeltes)")
+            GELB .. "raid|instanz|überall|r (Ort) oder " .. GELB .. "wurf|r (nur Ausgewürfeltes)")
         return
     end
 
     local Namen = { [0]="Schlecht", [1]="Gewöhnlich", [2]="Ungewöhnlich",
                     [3]="Selten", [4]="Episch", [5]="Legendär" }
-    sag(string.format("Erfasst ab |cffffff78%s|r%s%s.",
+    local Orte = {
+        raid     = "nur in Schlachtzugsinstanzen",
+        instanz  = "in Instanzen, auch Fünfergruppen",
+        ueberall = "überall",
+    }
+    sag(string.format("Erfasst ab |cffffff78%s|r, %s%s.",
         Namen[d.mindestQualitaet] or d.mindestQualitaet,
-        d.nurRaid and ", nur in Schlachtzugsinstanzen" or ", überall",
+        Orte[d.ort] or d.ort,
         d.nurGewuerfelt and ", nur Ausgewürfeltes" or ""))
     if d.nurGewuerfelt then
         print("  " .. GRAU .. "⚠ Ohne Bedarfswurf zugeteilte Stücke fallen dabei heraus.|r")

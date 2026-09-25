@@ -43,8 +43,14 @@ local function db()
     local d = LootHistorieDB
     d.vergaben = d.vergaben or {}
     if d.erfassen         == nil then d.erfassen = true end
-    if d.nurRaid          == nil then d.nurRaid = true end
     if d.nurGewuerfelt    == nil then d.nurGewuerfelt = false end
+
+    -- ⚠️ SavedVariables sind eine Versionsgrenze. Frueher gab es nur den
+    -- Schalter `nurRaid`; wer ihn gesetzt hat, soll seine Wahl behalten.
+    if d.ort == nil then
+        if d.nurRaid == false then d.ort = "ueberall" else d.ort = "raid" end
+        d.nurRaid = nil
+    end
     -- ⭐ Standard ist SELTEN, nicht Episch. Auf Stufe 60 ist unklar, ob in
     -- den Raids ueberhaupt episch faellt — in Zul'Gurub etwa ist das meiste
     -- blau. Und die Asymmetrie ist eindeutig: ein verpasster Drop ist
@@ -203,9 +209,17 @@ function Erfassung.Zaehlenswert(link, name)
         return false, "kein Bedarfswurf"
     end
 
-    if d.nurRaid then
+    -- Wo darf mitgeschrieben werden?
+    --   raid     nur Schlachtzugsinstanzen (Echtbetrieb)
+    --   instanz  auch Fuenfergruppen — zum Erproben des Ablaufs
+    --   ueberall keine Einschraenkung; dann landen auch Weltdrops darin
+    if d.ort ~= "ueberall" then
         local _, typ = IsInInstance()
-        if typ ~= "raid" then return false, "kein Schlachtzug" end
+        if d.ort == "raid" and typ ~= "raid" then
+            return false, "kein Schlachtzug"
+        elseif d.ort == "instanz" and typ ~= "raid" and typ ~= "party" then
+            return false, "keine Instanz"
+        end
     end
 
     local CI = rawget(_G, "C_Item")

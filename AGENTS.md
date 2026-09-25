@@ -112,10 +112,17 @@ verpasster Drop ist unwiederbringlich, eine Zeile zu viel nur lästig.**
 `/lh filter 4` hebt die Schwelle, wenn sich zeigt, dass die Raids episch
 abwerfen.
 
-Dazu zwei weitere Riegel: `filter raid` beschränkt auf
-Schlachtzugsinstanzen (Standard an), `filter wurf` zählt nur, was auch
-ausgewürfelt wurde (Standard **aus** — ohne Bedarfswurf zugeteilte Stücke
-gingen sonst verloren).
+Dazu zwei weitere Riegel. **Der Ort** kennt drei Stufen:
+`filter raid` (Standard, nur Schlachtzüge), `filter instanz` (auch
+Fünfergruppen — zum Erproben des Ablaufs in einer Gildengruppe) und
+`filter überall` (ohne Einschränkung; dann zählen auch Weltdrops und
+Questbelohnungen mit). **`filter wurf`** zählt nur, was auch ausgewürfelt
+wurde — Standard **aus**, weil ohne Bedarfswurf zugeteilte Stücke sonst
+verlorengingen.
+
+⚠️ Die Ortsangabe löste den früheren Schalter `nurRaid` ab. `db()` zieht
+gespeicherte Altbestände nach — siehe die allgemeine Regel zu
+SavedVariables als Versionsgrenze.
 
 ### Das Fenster kommt ohne Bibliotheken aus
 
