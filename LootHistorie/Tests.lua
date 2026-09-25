@@ -177,6 +177,53 @@ local function testSpieler()
     gleich("unbekannter Spieler", #Kern.Spieler(H, "Niemand", 0), 0)
 end
 
+local function testMuster()
+    -- Die echten Vorlagen aus dem Forever-Client (gemessen 25.09.2026).
+    local rollen = Kern.Muster("%s rolls %d (%d-%d)")
+    local name, wurf, min, max = ("Yondaime Kaos rolls 42 (1-100)"):match(rollen)
+
+    -- ⭐ Der entscheidende Fall: Nachnamen enthalten ein Leerzeichen.
+    gleich("Wurf: voller Name", name, "Yondaime Kaos")
+    gleich("Wurf: Zahl",        wurf, "42")
+    gleich("Wurf: Untergrenze", min, "1")
+    gleich("Wurf: Obergrenze",  max, "100")
+
+    local beute = Kern.Muster("%s receives loot: %s.")
+    local wer, was = ("Yondaime Kaos receives loot: [Warglaive]."):match(beute)
+    gleich("Beute: Empfaenger", wer, "Yondaime Kaos")
+    gleich("Beute: Gegenstand", was, "[Warglaive]")
+
+    -- Ein Punkt im Gegenstandsnamen darf das Muster nicht zerlegen
+    local _, punkt = ("Kaos receives loot: [Dr. Boom]."):match(beute)
+    gleich("Punkt im Namen", punkt, "[Dr. Boom]")
+
+    -- Mehrfach-Beute traegt zusaetzlich die Anzahl
+    local viele = Kern.Muster("%s receives loot: %sx%d.")
+    local w2, g2, anzahl = ("Kaos receives loot: [Stoff]x5."):match(viele)
+    gleich("Mehrfach: Empfaenger", w2, "Kaos")
+    gleich("Mehrfach: Gegenstand", g2, "[Stoff]")
+    gleich("Mehrfach: Anzahl",     anzahl, "5")
+
+    -- Eigene Beute nennt keinen Namen
+    local selbst = Kern.Muster("You receive loot: %s")
+    gleich("Eigene Beute", ("You receive loot: [Madness]"):match(selbst), "[Madness]")
+
+    gleich("Unfug ergibt kein Muster", Kern.Muster(nil), nil)
+end
+
+local function testBedarfsart()
+    -- Die Gilde wuerfelt 100 fuer Haupt-, 50 fuer Zweitbedarf.
+    gleich("1-100 ist Hauptbedarf", Kern.Bedarfsart(1, 100), "haupt")
+    gleich("1-50 ist Zweitbedarf",  Kern.Bedarfsart(1, 50), "zweit")
+
+    -- ⚠️ Alles andere ist kein Bedarfswurf. Lieber nichts erfassen als
+    -- etwas Falsches erfassen.
+    gleich("normaler Wurf zaehlt nicht", Kern.Bedarfsart(1, 1000), nil)
+    gleich("Spasswurf zaehlt nicht",     Kern.Bedarfsart(1, 20), nil)
+    gleich("verschobener Bereich",       Kern.Bedarfsart(50, 100), nil)
+    gleich("Text statt Zahl",            Kern.Bedarfsart("eins", "hundert"), nil)
+end
+
 local function testRaidtage()
     -- Zwei Vergaben am selben Tag sind ein Raidtag.
     local tagOf = function(t) return math.floor(t / Kern.TAG) end
@@ -206,6 +253,8 @@ function Tests.Alle(ausgeben)
     testPflichtnamen()
     testWurfReihenfolge()
     testSpieler()
+    testMuster()
+    testBedarfsart()
     testRaidtage()
     testSeit()
 

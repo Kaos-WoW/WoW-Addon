@@ -218,6 +218,62 @@ function Kern.WurfReihenfolge(liste, istWuerfler)
     return liste
 end
 
+-- =====================================================================
+--  Textvorlagen
+-- =====================================================================
+
+--- Baut aus einer Blizzard-Textvorlage ein Lua-Suchmuster.
+--
+--  Aus `"%s receives loot: %s."` wird `"^(.-) receives loot: (.-)%.$"`.
+--
+--  ⭐ **`%s` wird zu `(.-)`, nicht zu `(%S+)`.** Das ist der Unterschied,
+--  an dem Gargul in Forever scheitert: Charakternamen duerfen dort ein
+--  Leerzeichen enthalten („Yondaime Kaos"). Ein Muster, das am ersten
+--  Leerzeichen abbricht, verliert den Nachnamen.
+--
+--  ⚠️ Verankert mit ^ und $. Dadurch funktioniert auch das traege `(.-)`
+--  am Ende: es muss bis zum Zeilenende reichen.
+--
+--  @return Muster, Zahl der Fundstellen
+function Kern.Muster(vorlage)
+    if type(vorlage) ~= "string" then return nil, 0 end
+
+    -- 1. Platzhalter sichern, damit das Escapen sie nicht zerlegt
+    local Platzhalter, n = {}, 0
+    local roh = vorlage:gsub("%%%d?%$?[sd]", function(p)
+        n = n + 1
+        Platzhalter[n] = p
+        return "\1" .. n .. "\2"
+    end)
+
+    -- 2. Alles Magische entschaerfen
+    roh = roh:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%0")
+
+    -- 3. Platzhalter durch Fundstellen ersetzen
+    roh = roh:gsub("\1(%d+)\2", function(i)
+        local p = Platzhalter[tonumber(i)]
+        -- ⚠️ Der Rueckgabewert einer gsub-Funktion wird WOERTLICH eingesetzt;
+        -- Lua verarbeitet darin keine %-Escapes. Also einfaches %, nicht %%.
+        if p:sub(-1) == "d" then return "(%d+)" end
+        return "(.-)"
+    end)
+
+    return "^" .. roh .. "$", n
+end
+
+--- Der Wurfbereich sagt, wofuer gewuerfelt wurde.
+--  Die Gilde wuerfelt `/rnd 100` fuer Hauptbedarf und `/rnd 50` fuer
+--  Zweitbedarf. ⚠️ Alles andere ist kein Bedarfswurf und zaehlt nicht —
+--  lieber nichts erfassen als etwas Falsches.
+--  @return "haupt", "zweit" oder nil
+function Kern.Bedarfsart(min, max)
+    min, max = tonumber(min), tonumber(max)
+    if min ~= 1 or not max then return nil end
+    if max == 100 then return "haupt" end
+    if max == 50  then return "zweit" end
+    return nil
+end
+
 --- Zeitstempel, ab dem gezaehlt wird.
 --  @param wochen  nil oder 0 = alles
 function Kern.Seit(jetzt, wochen)
