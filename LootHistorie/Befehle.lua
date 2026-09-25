@@ -29,6 +29,7 @@ local function hilfe()
     print("  " .. GELB .. "/lh <Name>|r – Einzelvergaben eines Spielers im Chat")
     print("  " .. GELB .. "/lh auto|r   – Fenster bei Wurfbeginn automatisch öffnen (an/aus)")
     print("  " .. GELB .. "/lh stand|r  – Diagnose: liegt Garguls Historie vor")
+    print("  " .. GELB .. "/lh muster|r – Diagnose: Textvorlagen für eigene Erkennung")
     print("  " .. GELB .. "/lh test|r   – Selbsttests der Auswertung")
 end
 
@@ -51,6 +52,45 @@ befehle["stand"] = function()
     if wert > gesamt then
         print(string.format("  " .. GRAU .. "%d fallen heraus – entzaubert, Bonus-Beute oder unvollständig.|r",
             wert - gesamt))
+    end
+end
+
+--- Diagnose: welche Textvorlagen und Namens-APIs gibt es hier?
+--  Gebraucht fuer die Frage, ob das Addon Wuerfe und Vergaben SELBST
+--  erkennen kann, ohne Gargul. Die Vorlagen sind GlobalStrings — sie
+--  stehen nicht im Quellbaum, nur zur Laufzeit.
+befehle["muster"] = function()
+    sag("Textvorlagen für eigene Erkennung:")
+    for _, name in ipairs({
+        "RANDOM_ROLL_RESULT",
+        "LOOT_ITEM", "LOOT_ITEM_SELF",
+        "LOOT_ITEM_MULTIPLE", "LOOT_ITEM_SELF_MULTIPLE",
+        "LOOT_ITEM_PUSHED", "LOOT_ITEM_PUSHED_SELF",
+    }) do
+        local wert = rawget(_G, name)
+        if type(wert) == "string" then
+            print(string.format("  |cff55ff55%s|r  %s", name, wert))
+        else
+            print(string.format("  " .. ROT .. "%s fehlt|r", name))
+        end
+    end
+
+    sag("Namens-APIs (Nachnamen in Forever):")
+    local NU = rawget(_G, "NameUtil")
+    print("  NameUtil: " .. (NU and "|cff55ff55da|r" or ROT .. "fehlt|r"))
+    if NU then
+        for _, f in ipairs({ "FormatUnitNameForDisplay", "SplitPlayerNameIntoParts",
+                             "GetFullNameWithoutRealm", "GetUnitFirstName" }) do
+            print("    " .. f .. ": " .. (type(NU[f]) == "function" and "|cff55ff55da|r" or GRAU .. "fehlt|r"))
+        end
+    end
+
+    local name, zweites = UnitName("player")
+    print(string.format("  UnitName: |cffffff78%s|r  zweiter Wert: |cffffff78%s|r",
+        tostring(name), tostring(zweites)))
+    if GetUnitName then
+        print(string.format("  GetUnitName(player, true): |cffffff78%s|r",
+            tostring(GetUnitName("player", true))))
     end
 end
 
