@@ -54,6 +54,54 @@ function Quelle.Stand()
 end
 
 -- =====================================================================
+--  Der laufende Wurf
+-- =====================================================================
+
+--- Wird gerade um einen Gegenstand gewuerfelt?
+--
+--  Gargul fuehrt den laufenden Wurf in `RollOff.CurrentRollOff` und setzt
+--  `RollOff.inProgress`. Ein Wurf ist { player, class, amount, min, max,
+--  time, classification, priority }.
+--
+--  ⚠️ Ein Spieler kann mehrfach wuerfeln (Haupt- und Zweitbedarf, oder
+--  versehentlich). Gezaehlt wird der HOECHSTE Wurf — alles andere waere
+--  willkuerlich.
+--
+--  @return { link, name, Wuerfe = { Schluessel -> hoechster Wurf },
+--            namen = { Name, ... } }  oder nil
+function Quelle.Wurf()
+    local GL = rawget(_G, "Gargul")
+    if not GL then return nil end
+
+    local R = GL.RollOff
+    if type(R) ~= "table" or not R.inProgress then return nil end
+
+    local Aktuell = R.CurrentRollOff
+    if type(Aktuell) ~= "table" then return nil end
+
+    local Wuerfe, namen = {}, {}
+    for _, W in pairs(Aktuell.Rolls or {}) do
+        local k = W and W.player and ns.Kern.Schluessel(W.player)
+        if k then
+            local wert = tonumber(W.amount) or 0
+            if Wuerfe[k] == nil then
+                namen[#namen + 1] = W.player
+                Wuerfe[k] = wert
+            elseif wert > Wuerfe[k] then
+                Wuerfe[k] = wert
+            end
+        end
+    end
+
+    return {
+        link  = Aktuell.itemLink,
+        name  = Aktuell.itemName,
+        Wuerfe = Wuerfe,
+        namen = namen,
+    }
+end
+
+-- =====================================================================
 --  Gegenstaende
 -- =====================================================================
 
@@ -138,6 +186,26 @@ function Quelle.Beispiel()
     end
 
     return H
+end
+
+--- Ein Beispiel-Wurf zum Ansehen der Hervorhebung.
+--  Bewusst gemischt: zwei mit vielen Stuecken, zwei mit wenigen, und
+--  einer, der in der Historie gar nicht vorkommt — der Fall, der sonst
+--  durchs Raster fiele.
+function Quelle.BeispielWurf()
+    local Wuerfe, namen = {}, {}
+    local gewuerfelt = {
+        { "Xalessa", 87 },
+        { "Renbi",   64 },
+        { "Deters",  41 },
+        { "Nuhkomm", 93 },   -- taucht in der Beispiel-Historie nicht auf
+        { "Velera",  12 },
+    }
+    for _, W in ipairs(gewuerfelt) do
+        namen[#namen + 1] = W[1]
+        Wuerfe[ns.Kern.Schluessel(W[1])] = W[2]
+    end
+    return { link = nil, name = "Zorn des Verräters", Wuerfe = Wuerfe, namen = namen }
 end
 
 return ns

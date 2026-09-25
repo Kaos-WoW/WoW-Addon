@@ -5,6 +5,7 @@
 ## Author: Kaos, xqp
 ## Version: 0.1.0
 ## OptionalDeps: Gargul
+## SavedVariables: LootHistorieDB
 
 Kern.lua
 Quelle.lua

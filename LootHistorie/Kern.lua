@@ -78,24 +78,38 @@ end
 --  Zweitrolle bekommt, hat damit keinen Anspruch verbraucht. Er steht
 --  trotzdem da, weil die Leitung ihn sehen will.
 --
+--  ⚠️ **Wer nichts bekommen hat, steht in Garguls Historie nicht.**
+--  Ausgerechnet der ist aber der Interessanteste, wenn gerade gewuerfelt
+--  wird. Darum nimmt `pflicht` Namen entgegen, die auch mit null
+--  Vergaben in der Liste auftauchen muessen.
+--
 --  @param historie  Tabelle: Pruefsumme -> Eintrag
 --  @param seit      Zeitstempel, ab dem gezaehlt wird; nil = alles
+--  @param pflicht   Liste von Namen, die in jedem Fall erscheinen
 --  @return Liste aus { name, haupt, zweit, letzte, letzterEintrag },
 --          Zahl der gezaehlten Vergaben, aeltester Zeitstempel
-function Kern.Bilanz(historie, seit)
-    if type(historie) ~= "table" then return {}, 0, nil end
+function Kern.Bilanz(historie, seit, pflicht)
+    if type(historie) ~= "table" then historie = {} end
     seit = seit or 0
 
     local nach, gesamt, aeltester = {}, 0, nil
 
+    local function eintragFuer(name)
+        local k = Kern.Schluessel(name)
+        if not k then return nil end
+        local z = nach[k]
+        if not z then
+            z = { name = Kern.Anzeigename(name), haupt = 0, zweit = 0, letzte = 0 }
+            nach[k] = z
+        end
+        return z
+    end
+
+    for _, name in ipairs(pflicht or {}) do eintragFuer(name) end
+
     for _, e in pairs(historie) do
         if Kern.Zaehlt(e) and e.timestamp >= seit then
-            local k = Kern.Schluessel(e.awardedTo)
-            local z = nach[k]
-            if not z then
-                z = { name = Kern.Anzeigename(e.awardedTo), haupt = 0, zweit = 0, letzte = 0 }
-                nach[k] = z
-            end
+            local z = eintragFuer(e.awardedTo)
 
             if e.OS then
                 z.zweit = z.zweit + 1
@@ -169,6 +183,39 @@ function Kern.Raidtage(historie, seit, tagOf)
         end
     end
     return n
+end
+
+--- Reihenfolge waehrend eines Wurfs.
+--
+--  ⭐ Wer gewuerfelt hat, steht oben — und dort **der mit den wenigsten
+--  Stuecken zuerst**. Genau diese Frage stellt sich der Pluendermeister
+--  in dem Moment. Alle uebrigen folgen in der gewohnten Reihenfolge,
+--  damit der Ueberblick nicht verlorengeht.
+--
+--  @param liste        Ergebnis von Kern.Bilanz
+--  @param istWuerfler  Funktion Name -> true/false
+function Kern.WurfReihenfolge(liste, istWuerfler)
+    if not istWuerfler then return liste end
+
+    table.sort(liste, function(a, b)
+        local wa, wb = istWuerfler(a.name), istWuerfler(b.name)
+        if wa ~= wb then return wa end
+
+        if wa then
+            -- Wenigste zuerst
+            if a.haupt ~= b.haupt then return a.haupt < b.haupt end
+            if a.zweit ~= b.zweit then return a.zweit < b.zweit end
+            -- Bei Gleichstand entscheidet, wer laenger nichts hatte
+            if a.letzte ~= b.letzte then return a.letzte < b.letzte end
+            return a.name < b.name
+        end
+
+        if a.haupt ~= b.haupt then return a.haupt > b.haupt end
+        if a.zweit ~= b.zweit then return a.zweit > b.zweit end
+        return a.name < b.name
+    end)
+
+    return liste
 end
 
 --- Zeitstempel, ab dem gezaehlt wird.

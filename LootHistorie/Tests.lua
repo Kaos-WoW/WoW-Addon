@@ -103,6 +103,50 @@ local function testBilanz()
     gleich("Unfug ergibt leere Liste", #Kern.Bilanz("nein", 0), 0)
 end
 
+local function testPflichtnamen()
+    -- ⭐ Wer nichts bekommen hat, steht in Garguls Historie nicht — und ist
+    -- beim Wurf der Interessanteste. Er muss trotzdem erscheinen.
+    local H = { a = { awardedTo = "Kaos", timestamp = 1000 } }
+
+    local liste = Kern.Bilanz(H, 0, { "Timo", "Kaos" })
+    gleich("Unbeschenkter taucht auf", #liste, 2)
+
+    local timo
+    for _, z in ipairs(liste) do if z.name == "Timo" then timo = z end end
+    gleich("Unbeschenkter hat null", timo and timo.haupt, 0)
+    gleich("Unbeschenkter hat kein zuletzt", timo and timo.letzte, 0)
+
+    -- Wer schon drin ist, darf nicht doppelt erscheinen
+    local n = 0
+    for _, z in ipairs(liste) do if z.name == "Kaos" then n = n + 1 end end
+    gleich("kein Doppeleintrag", n, 1)
+
+    -- Pflichtnamen aendern die Zahl der Vergaben nicht
+    local _, gesamt = Kern.Bilanz(H, 0, { "Timo" })
+    gleich("Pflichtnamen zaehlen keine Vergabe", gesamt, 1)
+end
+
+local function testWurfReihenfolge()
+    local liste = {
+        { name = "Viel",   haupt = 9, zweit = 0, letzte = 500 },
+        { name = "Wenig",  haupt = 1, zweit = 0, letzte = 400 },
+        { name = "Nichts", haupt = 0, zweit = 0, letzte = 0   },
+        { name = "Aussen", haupt = 4, zweit = 0, letzte = 300 },
+    }
+    local wuerfelt = { Viel = true, Wenig = true, Nichts = true }
+    Kern.WurfReihenfolge(liste, function(n) return wuerfelt[n] == true end)
+
+    -- Wuerfelnde oben, davon die mit den wenigsten Stuecken zuerst
+    gleich("ohne Stueck ganz oben", liste[1].name, "Nichts")
+    gleich("dann der mit einem",     liste[2].name, "Wenig")
+    gleich("dann der mit neun",      liste[3].name, "Viel")
+    gleich("Nichtwuerfler unten",    liste[4].name, "Aussen")
+
+    -- Ohne laufenden Wurf bleibt die Liste, wie sie ist
+    local unveraendert = { { name = "A" }, { name = "B" } }
+    gleich("ohne Wurf unveraendert", Kern.WurfReihenfolge(unveraendert, nil)[1].name, "A")
+end
+
 local function testSpieler()
     local H = {
         a = { awardedTo = "Kaos", timestamp = 1000 },
@@ -145,6 +189,8 @@ function Tests.Alle(ausgeben)
     testZaehlt()
     testNamen()
     testBilanz()
+    testPflichtnamen()
+    testWurfReihenfolge()
     testSpieler()
     testRaidtage()
     testSeit()

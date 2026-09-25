@@ -27,6 +27,7 @@ local function hilfe()
     print("  " .. GELB .. "/lh demo|r   – Fenster mit Beispieldaten (nichts wird gespeichert)")
     print("  " .. GELB .. "/lh liste|r  – dieselbe Auswertung im Chat, " .. GELB .. "liste 4|r für 4 Wochen")
     print("  " .. GELB .. "/lh <Name>|r – Einzelvergaben eines Spielers im Chat")
+    print("  " .. GELB .. "/lh auto|r   – Fenster bei Wurfbeginn automatisch öffnen (an/aus)")
     print("  " .. GELB .. "/lh stand|r  – Diagnose: liegt Garguls Historie vor")
     print("  " .. GELB .. "/lh test|r   – Selbsttests der Auswertung")
 end
@@ -50,6 +51,15 @@ befehle["stand"] = function()
     if wert > gesamt then
         print(string.format("  " .. GRAU .. "%d fallen heraus – entzaubert, Bonus-Beute oder unvollständig.|r",
             wert - gesamt))
+    end
+end
+
+befehle["auto"] = function()
+    local an = Fenster.AutoUmschalten()
+    if an then
+        sag("Fenster öffnet sich automatisch, sobald ein Wurf startet.")
+    else
+        sag("Automatisches Öffnen aus. " .. GELB .. "/lh|r öffnet es von Hand.")
     end
 end
 
