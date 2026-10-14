@@ -81,7 +81,9 @@ Dieselben Feldnamen wie bei Gargul, damit beide ohne Umrechnen lesbar sind.
 Rangfolge: **Plündermeister → Leiter → Assistenten**. Gewählt wird der erste,
 der das Addon nachweislich hat (Hallo-Meldung) oder man selbst ist.
 
-* Ohne Gruppe schreibt man selbst mit (Test, Solo-Instanz).
+* ⭐ **Ohne Gruppe wird nie mitgeschrieben** (auch nicht bei „immer“; Entscheid 14.10.2026): Das Addon ist für
+  Gruppeninhalt da, ein Solo-Fund gehört nicht in die Historie, Fünfer-Instanzen dienen nur dem Erproben des
+  Raid-Ablaufs *mit* einer Gruppe. Zentral in `Rolle.IchSchreibe`, daran hängen Chat, Blizzard-Historie und Gargul.
 * Bis die Hallo-Meldungen da sind (wenige Sekunden nach dem Beitritt),
   schreibt zur Not auch der Leiter mit. **Doppelt ist besser als gar nicht**;
   der Abgleich fängt Doppelte ab, eine fehlende Vergabe nicht.

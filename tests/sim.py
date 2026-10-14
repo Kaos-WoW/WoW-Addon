@@ -193,6 +193,11 @@ GetLootMethod = function()
 end
 IsMasterLooter = function() return welt.ml == welt.me end
 IsInInstance = function() return true, "raid" end
+LOOT_ITEM = "%s receives loot: %s."
+LOOT_ITEM_SELF = "You receive loot: %s."
+LOOT_ITEM_MULTIPLE = "%s receives loot: %sx%d."
+LOOT_ITEM_SELF_MULTIPLE = "You receive loot: %sx%d."
+RANDOM_ROLL_RESULT = "%s rolls %d (%d-%d)"
 
 GetLocale = function() return __locale or "deDE" end
 C_Timer = { After = function(d, fn) __nachher(d, fn) end }

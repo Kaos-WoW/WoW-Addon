@@ -163,11 +163,34 @@ fest(anz(w2, 1) == 1, "kaputte oder unsinnige Zeilen werden verworfen")
 ok, grund = tup(w2.clients[1]["ns"].Abgleich.Starten())
 fest(ok is False, "einfaches Mitglied darf nicht abgleichen (%s)" % grund)
 
-print("== 6. Keine Gruppe: Solo schreibt mit ==")
+print("== 6. Keine Gruppe: es wird NICHTS mitgeschrieben ==")
 w = Welt([{"name": "Solo"}], "")
 w.clients[0]["g"]["__welt"]["inGruppe"] = False
-ok, grund = tup(w.clients[0]["ns"].Rolle.IchSchreibe())
-fest(ok is True, "allein: schreibt mit (%s)" % grund)
+ns, g = w.clients[0]["ns"], w.clients[0]["g"]
+ok, grund = tup(ns.Rolle.IchSchreibe())
+fest(ok is False, "allein: schreibt nicht mit (%s)" % grund)
+r = tup3(w.eintragen(0, "Solo", 6001, int(w.t)))
+fest(r[0] is False and sum(1 for _ in w.hist(0).keys()) == 0, "ein Solo-Fund kommt nicht in die Historie")
+ns.Erfassung.Einstellungen()["schreiben"] = "immer"
+ok, grund = tup(ns.Rolle.IchSchreibe())
+fest(ok is False, "auch bei „immer“ nicht allein")
+r = tup3(w.eintragen(0, "Solo", 6002, int(w.t)))
+fest(r[0] is False and sum(1 for _ in w.hist(0).keys()) == 0, "und es entsteht auch dann kein Eintrag")
+link = "|cff0070dd|Hitem:6003::::::::60:::::|h[Ding]|h|r"
+lua = w.clients[0]["lua"]
+rg = tup3(ns.Erfassung.GargulVergabe(lua.table_from({"checksum": "SOLO1", "awardedTo": "Solo", "itemLink": link,
+                                                      "itemID": 6003, "timestamp": int(w.t)})))
+fest(rg[0] is False and sum(1 for _ in w.hist(0).keys()) == 0, "eine Gargul-Vergabe allein bleibt ohne Wirkung")
+ns.Erfassung.MusterBauen()
+ns.Erfassung.Einstellungen()["schreiben"] = "auto"
+ns.Erfassung.Beutemeldung("You receive loot: " + link + ".")
+fest(sum(1 for _ in w.hist(0).keys()) == 0, "eine Beutemeldung aus dem Chat bleibt ohne Wirkung")
+# In einer Gruppe schreibt er wieder mit
+g["__welt"]["inGruppe"] = True
+ok, grund = tup(ns.Rolle.IchSchreibe())
+fest(ok is True, "in einer Gruppe schreibt er mit (%s)" % grund)
+ns.Erfassung.Beutemeldung("You receive loot: " + link + ".")
+fest(sum(1 for _ in w.hist(0).keys()) == 1, "und dann zaehlt dieselbe Beutemeldung")
 
 print("== 7. Pluendermeister schreibt, der Leiter nicht ==")
 w = Welt([{"name": "Leiter Kaos", "leader": True}, {"name": "Timo"}, {"name": "Lina"}], "-Realm", ml=1)

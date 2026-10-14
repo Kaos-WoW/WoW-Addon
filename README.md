@@ -11,6 +11,7 @@ Das Addon spricht die **Sprache des Clients**: deutscher Client Deutsch, jeder a
 ## Wie es arbeitet
 
 * **Es führt eine eigene Historie** und braucht kein anderes Addon.
+* **Nur in einer Gruppe:** Allein unterwegs wird nichts aufgezeichnet.
 * **Nur einer schreibt mit:** der **Plündermeister**; gibt es keinen, der
   **Raidleiter** (Rückfall). Alle anderen empfangen und können die Historie
   einsehen. Jeder im Raid sollte das Addon haben.

@@ -162,13 +162,17 @@ function Rolle.IchSchreibe()
     local d = ns.Erfassung.Einstellungen()
     local modus = d.schreiben or "auto"
 
+    -- ⭐ Ohne Gruppe wird NIE mitgeschrieben — auch nicht bei „immer"
+    -- (Entscheid des Gildenleiters, 14.10.2026): Das Addon ist fuer
+    -- Gruppeninhalt gedacht. Wer allein etwas Seltenes bekommt, gehoert
+    -- nicht in die Historie, und Fuenfer-Instanzen dienen nur dem Erproben
+    -- des Raid-Ablaufs mit einer Gruppe.
+    if not (IsInGroup and IsInGroup()) then
+        return false, L["keine Gruppe – allein wird nichts mitgeschrieben"]
+    end
+
     if modus == "immer" then return true, L["eingestellt: immer"] end
     if modus == "nie"   then return false, L["eingestellt: nie"] end
-
-    -- Allein unterwegs (Test, Solo-Instanz): niemand sonst kann es tun.
-    if not (IsInGroup and IsInGroup()) then
-        return true, L["keine Gruppe"]
-    end
 
     local kandidaten, methode = Rolle.Kandidaten()
     if #kandidaten == 0 then

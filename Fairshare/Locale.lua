@@ -29,7 +29,7 @@ local EN = {
     ["%s schreibt mit"] = "%s is recording",
     ["eingestellt: immer"] = "set to: always",
     ["eingestellt: nie"] = "set to: never",
-    ["keine Gruppe"] = "no group",
+    ["keine Gruppe – allein wird nichts mitgeschrieben"] = "no group – nothing is recorded while you are alone",
     ["kein Leiter erkennbar"] = "no leader found",
     ["weder Plündermeister noch Leiter haben das Addon"] = "neither the master looter nor the leader has the addon",
 
