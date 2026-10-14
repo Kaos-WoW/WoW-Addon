@@ -30,8 +30,10 @@ local C = S.C
 
 local BREITE, HOEHE = 760, 600
 local KOPF, FUSS = 44, 40
-local ZEILEN, ZEILENHOEHE = 16, 24
+local MAXZEILEN, ZEILENHOEHE = 40, 24
 local TAFEL_X = 16
+local TAFEL_OBEN = KOPF + 84      -- Abstand der Tafel vom oberen Fensterrand
+local zeilenSicht = 16            -- wie viele Zeilen gerade hineinpassen
 
 -- Farben als Textcodes fuer einzelne Woerter
 local HELL  = S.Code(C.white)
@@ -46,15 +48,29 @@ local ansichtSeg, zeitSeg, abgleichBtn, einstellBtn, gruppeBtn, zurueckBtn, beis
 local zustand = { wochen = 0, beispiel = false, spieler = nil, versatz = 0, maxVersatz = 0,
                   ansicht = "liste", gruppe = nil }
 
--- Spaltenlagen je Ansicht: { x, Breite, Ausrichtung }
-local LAYOUT = {
-    liste   = { { 0, 230, "LEFT" }, { 236, 60, "RIGHT" }, { 302, 60, "RIGHT" },
-                { 380, 200, "LEFT" }, { 594, 100, "RIGHT" } },
-    verlauf = { { 0, 120, "LEFT" }, { 126, 190, "LEFT" }, { 322, 70, "LEFT" },
-                { 400, 294, "LEFT" }, { 0, 1, "LEFT" } },
-    spieler = { { 0, 120, "LEFT" }, { 126, 80, "LEFT" }, { 0, 1, "LEFT" },
-                { 214, 480, "LEFT" }, { 0, 1, "LEFT" } },
-}
+-- Spaltenlagen je Ansicht, abhaengig von der Zeilenbreite w:
+-- { x, Breite, Ausrichtung }. Von rechts gerechnet, die erste Spalte
+-- nimmt den Rest — dadurch waechst eine Spalte mit dem Fenster.
+local function layout(name, w)
+    local L6 = 6
+    if name == "verlauf" then
+        local a, b, c = 120, 190, 70
+        local dx = a + L6 + b + L6 + c + L6
+        return { { 0, a, "LEFT" }, { a + L6, b, "LEFT" }, { a + L6 + b + L6, c, "LEFT" },
+                 { dx, math.max(80, w - dx), "LEFT" }, { 0, 1, "LEFT" } }
+    elseif name == "spieler" then
+        return { { 0, 120, "LEFT" }, { 126, 80, "LEFT" }, { 0, 1, "LEFT" },
+                 { 214, math.max(80, w - 214), "LEFT" }, { 0, 1, "LEFT" } }
+    end
+    -- liste: Spieler | Haupt | Zweit | Zuletzt | Wurf
+    local ew, dw, cw, bw = 100, 170, 60, 60
+    local ex = w - ew
+    local dx = ex - L6 - dw
+    local cx = dx - L6 - cw
+    local bx = cx - L6 - bw
+    return { { 0, math.max(80, bx - L6), "LEFT" }, { bx, bw, "RIGHT" }, { cx, cw, "RIGHT" },
+             { dx, dw, "LEFT" }, { ex, ew, "RIGHT" } }
+end
 local SPALTEN = { "a", "b", "c", "d", "e" }
 
 -- =====================================================================
@@ -161,7 +177,10 @@ local function kopfBauen()
     k:EnableMouse(true)
     k:RegisterForDrag("LeftButton")
     k:SetScript("OnDragStart", function() rahmen:StartMoving() end)
-    k:SetScript("OnDragStop", function() rahmen:StopMovingOrSizing() end)
+    k:SetScript("OnDragStop", function()
+        rahmen:StopMovingOrSizing()
+        if rahmen.speichern then rahmen.speichern() end
+    end)
 
     local logo = CreateFrame("Frame", nil, k)
     logo:SetSize(22, 22)
@@ -197,9 +216,10 @@ local function baueFenster()
     if rahmen then return end
 
     rahmen = CreateFrame("Frame", "LootHistorieFenster", UIParent)
-    rahmen:SetSize(BREITE, HOEHE)
-    rahmen:SetPoint("CENTER")
+    -- Stufe fest und niedriger als beim Einstellungsfenster (das liegt auf
+    -- FULLSCREEN_DIALOG, Ebene 200): So liegt es nie darunter.
     rahmen:SetFrameStrata("DIALOG")
+    rahmen:SetFrameLevel(20)
     rahmen:SetClampedToScreen(true)
     rahmen:SetMovable(true)
     rahmen:EnableMouse(true)
@@ -251,8 +271,6 @@ local function baueFenster()
     zurueckBtn:Hide()
 
     unterzeile = S.Text(rahmen, 12, C.mu, "LEFT")
-    unterzeile:SetPoint("LEFT", rahmen, "TOPLEFT", 16, -(KOPF + 61))
-    unterzeile:SetWidth(BREITE - 32 - 190)
 
     -- Gruppe wechseln: Alle -> erste -> zweite ... -> Alle
     gruppeBtn = S.Knopf(rahmen, "", "secondary", 24)
@@ -275,9 +293,8 @@ local function baueFenster()
 
     -- Die Tafel: Kopfzeile und Zeilen auf einer Karte
     tafel = CreateFrame("Frame", nil, rahmen)
-    tafel:SetPoint("TOPLEFT", rahmen, "TOPLEFT", TAFEL_X, -(KOPF + 84))
-    tafel:SetPoint("TOPRIGHT", rahmen, "TOPRIGHT", -TAFEL_X, -(KOPF + 84))
-    tafel:SetHeight(32 + ZEILEN * ZEILENHOEHE + 8)
+    tafel:SetPoint("TOPLEFT", rahmen, "TOPLEFT", TAFEL_X, -TAFEL_OBEN)
+    tafel:SetPoint("BOTTOMRIGHT", rahmen, "BOTTOMRIGHT", -TAFEL_X, FUSS + 10)
     S.Kasten(tafel, 8, C.p1, C.ln)
 
     kopfZeile = CreateFrame("Frame", nil, tafel)
@@ -290,7 +307,7 @@ local function baueFenster()
     trenner:SetPoint("TOPLEFT", tafel, "TOPLEFT", 12, -30)
     trenner:SetPoint("TOPRIGHT", tafel, "TOPRIGHT", -12, -30)
 
-    for i = 1, ZEILEN do zeilen[i] = baueZeile(i) end
+    for i = 1, MAXZEILEN do zeilen[i] = baueZeile(i) end
 
     -- Fuss
     local f = CreateFrame("Frame", nil, rahmen)
@@ -302,12 +319,12 @@ local function baueFenster()
     fl:SetHeight(1)
     fl:SetPoint("TOPLEFT")
     fl:SetPoint("TOPRIGHT")
-    fuss = S.Text(f, 11, C.mu, "LEFT")
-    fuss:SetPoint("LEFT", f, "LEFT", 16, 0)
-    fuss:SetWidth(BREITE - 32 - 110)
-
     beispielBtn = S.Knopf(f, L["Beispiel"], "link", 22)
     beispielBtn:SetPoint("RIGHT", f, "RIGHT", -16, 0)
+
+    fuss = S.Text(f, 11, C.mu, "LEFT")
+    fuss:SetPoint("LEFT", f, "LEFT", 16, 0)
+    fuss:SetPoint("RIGHT", beispielBtn, "LEFT", -12, 0)
     beispielBtn:SetScript("OnClick", function()
         zustand.beispiel = not zustand.beispiel
         zustand.spieler = nil
@@ -327,6 +344,9 @@ local function baueFenster()
         end
     end)
 
+    S.Verstellbar(rahmen, "uebersicht", { b = BREITE, h = HOEHE, minB = 700, minH = 420,
+        maxB = 1300, maxH = 1100 }, function() Fenster.Aktualisieren() end)
+
     rahmen:SetScript("OnShow", function()
         Fenster.Aktualisieren()
         -- Die Schrift beim ersten Zeigen nachziehen (siehe Stil.Auffrischen).
@@ -343,7 +363,8 @@ end
 
 --- Stellt die Spalten fuer eine Ansicht ein.
 local function ordneSpalten(name)
-    local Lay = LAYOUT[name] or LAYOUT.liste
+    local w = math.max(300, rahmen:GetWidth() - 2 * TAFEL_X - 24)
+    local Lay = layout(name, w)
     local function setze(eltern, fs, def)
         fs:ClearAllPoints()
         fs:SetPoint("LEFT", eltern, "LEFT", def[1], 0)
@@ -352,12 +373,12 @@ local function ordneSpalten(name)
     end
     for i, k in ipairs(SPALTEN) do
         setze(kopfZeile, kopfZeile[k], Lay[i])
-        for j = 1, ZEILEN do setze(zeilen[j], zeilen[j][k], Lay[i]) end
+        for j = 1, MAXZEILEN do setze(zeilen[j], zeilen[j][k], Lay[i]) end
     end
 end
 
 local function leereZeilen(ab)
-    for i = math.max(ab, 1), ZEILEN do
+    for i = math.max(ab, 1), MAXZEILEN do
         local z = zeilen[i]
         z.spielername = nil
         z.hover:SetShown(false)
@@ -405,11 +426,11 @@ local function zeigeListe(H)
 
     setzeKopf(L["Spieler"], L["Haupt"], L["Zweit"], L["Zuletzt"], W and L["Wurf"] or nil)
 
-    zustand.maxVersatz = math.max(0, #liste - ZEILEN)
+    zustand.maxVersatz = math.max(0, #liste - zeilenSicht)
     if zustand.versatz > zustand.maxVersatz then zustand.versatz = zustand.maxVersatz end
 
     local gezeigt = 0
-    for i = 1, ZEILEN do
+    for i = 1, zeilenSicht do
         local z = zeilen[i]
         local e = liste[i + zustand.versatz]
         if not e then break end
@@ -439,7 +460,7 @@ local function zeigeListe(H)
     if aeltester then
         text = text .. "   |   " .. string.format(L["älteste Aufzeichnung %s"], date(L["%d.%m.%Y"], aeltester))
     end
-    if #liste > ZEILEN then text = text .. "   |   " .. L["Mausrad blättert"] end
+    if #liste > zeilenSicht then text = text .. "   |   " .. L["Mausrad blättert"] end
     fuss:SetText(text)
 
     if W then
@@ -455,11 +476,11 @@ local function zeigeSpieler(H)
     setzeKopf(L["Datum"], L["Art"], nil, L["Gegenstand"], nil)
 
     local liste = Kern.Spieler(H, zustand.spieler, seit())
-    zustand.maxVersatz = math.max(0, #liste - ZEILEN)
+    zustand.maxVersatz = math.max(0, #liste - zeilenSicht)
     if zustand.versatz > zustand.maxVersatz then zustand.versatz = zustand.maxVersatz end
 
     local gezeigt = 0
-    for i = 1, ZEILEN do
+    for i = 1, zeilenSicht do
         local z = zeilen[i]
         local e = liste[i + zustand.versatz]
         if not e then break end
@@ -487,11 +508,11 @@ local function zeigeVerlauf(H)
     setzeKopf(L["Wann"], L["Spieler"], L["Art"], L["Gegenstand"], nil)
 
     local liste = Kern.Verlauf(H, seit(), nil)
-    zustand.maxVersatz = math.max(0, #liste - ZEILEN)
+    zustand.maxVersatz = math.max(0, #liste - zeilenSicht)
     if zustand.versatz > zustand.maxVersatz then zustand.versatz = zustand.maxVersatz end
 
     local gezeigt = 0
-    for i = 1, ZEILEN do
+    for i = 1, zeilenSicht do
         local z = zeilen[i]
         local e = liste[i + zustand.versatz]
         if not e then break end
@@ -509,7 +530,7 @@ local function zeigeVerlauf(H)
     leereZeilen(gezeigt + 1)
 
     local text = string.format(L["%d Vergaben, neueste zuerst"], #liste)
-    if #liste > ZEILEN then text = text .. "   |   " .. L["Mausrad blättert"] end
+    if #liste > zeilenSicht then text = text .. "   |   " .. L["Mausrad blättert"] end
     fuss:SetText(text)
     unterzeile:SetText("")
 end
@@ -558,6 +579,13 @@ function Fenster.Aktualisieren()
     else
         unterzeile:SetPoint("LEFT", rahmen, "TOPLEFT", 16, -(KOPF + 61))
     end
+    unterzeile:SetPoint("RIGHT", gruppeBtn, "LEFT", -10, 0)
+
+    -- Wie viele Zeilen passen in das Fenster? Aus der Fensterhoehe gerechnet,
+    -- nicht aus der Tafel: deren Ausmasse stehen erst nach dem Zeichnen fest.
+    local platz = rahmen:GetHeight() - TAFEL_OBEN - (FUSS + 10) - 40
+    zeilenSicht = math.max(4, math.min(MAXZEILEN, math.floor(platz / ZEILENHOEHE)))
+    for i = 1, MAXZEILEN do zeilen[i]:SetShown(i <= zeilenSicht) end
 
     local H, grund = historie()
     if not H then

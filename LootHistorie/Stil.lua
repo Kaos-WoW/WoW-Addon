@@ -396,6 +396,87 @@ function Stil.Schalter(eltern)
 end
 
 -- =====================================================================
+--  Verstellbare Fenster: Groesse und Lage merken, Griff unten rechts
+-- =====================================================================
+
+local function begrenze(v, lo, hi)
+    if v < lo then return lo end
+    if v > hi then return hi end
+    return v
+end
+
+--- Macht ein Fenster in der Groesse verstellbar und merkt Groesse und Lage.
+--
+--  ⭐ Der Anker ist OBEN LINKS an UIParent, nie die Mitte: Bei einem
+--  Mittenanker waechst ein Fenster beim Ziehen nach beiden Seiten und
+--  springt. (Erfahrung KaosUI.)
+--
+--  @param schluessel  Name der Ablage in LootHistorieDB.fenster
+--  @param m           { b, h, minB, minH, maxB, maxH, dx, dy }  Vorgabe und Grenzen
+--  @param beiAenderung  wird bei jeder Groessenaenderung gerufen
+function Stil.Verstellbar(win, schluessel, m, beiAenderung)
+    LootHistorieDB = LootHistorieDB or {}
+    LootHistorieDB.fenster = LootHistorieDB.fenster or {}
+    local st = LootHistorieDB.fenster[schluessel] or {}
+    LootHistorieDB.fenster[schluessel] = st
+
+    local b = begrenze(st.b or m.b, m.minB, m.maxB)
+    local h = begrenze(st.h or m.h, m.minH, m.maxH)
+    win:SetSize(b, h)
+
+    win:ClearAllPoints()
+    if st.x and st.y then
+        win:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", st.x, st.y)
+    else
+        local uw, uh = UIParent:GetWidth(), UIParent:GetHeight()
+        win:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT",
+            math.floor((uw - b) / 2 + (m.dx or 0) + 0.5), math.floor((uh + h) / 2 + (m.dy or 0) + 0.5))
+    end
+
+    win:SetResizable(true)
+    if win.SetResizeBounds then
+        win:SetResizeBounds(m.minB, m.minH, m.maxB, m.maxH)
+    elseif win.SetMinResize then
+        win:SetMinResize(m.minB, m.minH)
+        if win.SetMaxResize then win:SetMaxResize(m.maxB, m.maxH) end
+    end
+
+    function win.speichern()
+        local l, t = win:GetLeft(), win:GetTop()
+        st.b, st.h = math.floor(win:GetWidth() + 0.5), math.floor(win:GetHeight() + 0.5)
+        if type(l) == "number" and type(t) == "number" then st.x, st.y = l, t end
+    end
+
+    -- Der Griff: drei Reihen kleiner Punkte in der Ecke
+    local griff = CreateFrame("Button", nil, win)
+    griff:SetSize(16, 16)
+    griff:SetPoint("BOTTOMRIGHT", win, "BOTTOMRIGHT", -3, 3)
+    griff:SetFrameLevel(win:GetFrameLevel() + 20)
+    griff.punkte = {}
+    for reihe = 0, 2 do
+        for spalte = 0, 2 - reihe do
+            local p = Tex(griff, "OVERLAY", C.dim)
+            p:SetSize(2, 2)
+            p:SetPoint("BOTTOMRIGHT", griff, "BOTTOMRIGHT", -(spalte * 4) - 2, reihe * 4 + 2)
+            griff.punkte[#griff.punkte + 1] = p
+        end
+    end
+    local function farbe(c) for _, p in ipairs(griff.punkte) do Stil.Faerbe(p, c) end end
+    griff:SetScript("OnEnter", function() farbe(C.mu) end)
+    griff:SetScript("OnLeave", function() farbe(C.dim) end)
+    griff:SetScript("OnMouseDown", function() win:StartSizing("BOTTOMRIGHT") end)
+    griff:SetScript("OnMouseUp", function()
+        win:StopMovingOrSizing()
+        win.speichern()
+    end)
+
+    win:SetScript("OnSizeChanged", function()
+        if beiAenderung then beiAenderung() end
+    end)
+    return griff
+end
+
+-- =====================================================================
 --  Bildlauf: Mausrad plus ein schmaler Balken, keine Blizzard-Vorlage
 -- =====================================================================
 
@@ -440,6 +521,7 @@ function Stil.Bildlauf(eltern, schritt)
     sf:SetScript("OnSizeChanged", function(s, w)
         if w and w > 0 then kind:SetWidth(w - 10) end
         balkenZeichnen()
+        if s.beiGroesse then s.beiGroesse() end
     end)
     sf:SetScript("OnScrollRangeChanged", balkenZeichnen)
 

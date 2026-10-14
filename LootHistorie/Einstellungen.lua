@@ -554,7 +554,10 @@ local function kopfBauen()
     kopf:EnableMouse(true)
     kopf:RegisterForDrag("LeftButton")
     kopf:SetScript("OnDragStart", function() win:StartMoving() end)
-    kopf:SetScript("OnDragStop", function() win:StopMovingOrSizing() end)
+    kopf:SetScript("OnDragStop", function()
+        win:StopMovingOrSizing()
+        if win.speichern then win.speichern() end
+    end)
 
     local logo = CreateFrame("Frame", nil, kopf)
     logo:SetSize(22, 22)
@@ -640,9 +643,12 @@ local kruemel, titel, beschr, fussText
 
 local function fensterBauen()
     win = CreateFrame("Frame", "LootHistorieEinstellungen", UIParent)
-    win:SetSize(BREITE, HOEHE)
-    win:SetPoint("CENTER", UIParent, "CENTER", 40, 0)
-    win:SetFrameStrata("DIALOG")
+    -- ⭐ Immer UEBER der Uebersicht: andere Ebene UND hoeher gelegene
+    -- Rahmenstufe. Nur die Ebene zu waehlen genuegt nicht — die Unterelemente
+    -- beider Fenster haben sonst gleiche Stufen und mischen sich beim
+    -- Ueberlappen. Die Stufe muss vor dem Anlegen der Kinder stehen.
+    win:SetFrameStrata("FULLSCREEN_DIALOG")
+    win:SetFrameLevel(200)
     win:SetClampedToScreen(true)
     win:EnableMouse(true)
     win:SetMovable(true)
@@ -685,11 +691,13 @@ local function fensterBauen()
     titel:SetPoint("TOPLEFT", body, "TOPLEFT", 20, -34)
     beschr = S.Text(body, 12, C.mu, "LEFT", true)
     beschr:SetPoint("TOPLEFT", body, "TOPLEFT", 20, -62)
-    beschr:SetWidth(BREITE - SEITE - 60)
+    beschr:SetPoint("TOPRIGHT", body, "TOPRIGHT", -20, -62)
 
     scroll = S.Bildlauf(body, 48)
     scroll:SetPoint("TOPLEFT", body, "TOPLEFT", 20, -96)
     scroll:SetPoint("BOTTOMRIGHT", body, "BOTTOMRIGHT", -16, 12)
+    -- Aendert sich die Breite, rechnen die Karten neu.
+    scroll.beiGroesse = function() Einstellungen.Aktualisieren() end
 
     -- Fuss
     local fuss = CreateFrame("Frame", nil, win)
@@ -720,6 +728,11 @@ local function fensterBauen()
         nav.bauen(P)
         Seiten[nav.id] = P
     end
+
+    -- Groesse und Lage merken, Griff unten rechts. Nach dem Aufbau, damit
+    -- alle Kinder schon da sind.
+    S.Verstellbar(win, "einstellungen", { b = BREITE, h = HOEHE, minB = 640, minH = 420,
+        maxB = 1200, maxH = 1000, dx = 40, dy = 0 }, function() Einstellungen.Aktualisieren() end)
 
     win:SetScript("OnShow", function()
         Einstellungen.Aktualisieren()

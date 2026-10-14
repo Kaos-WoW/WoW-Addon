@@ -432,6 +432,58 @@ fest(not any("Prüfungen" in x for x in aus), "kein deutscher Selbsttest-Text")
 diag = list(ns.Einstellungen.Diagnose().values())
 fest(len(diag) > 3, "Diagnose der Darstellung liefert Zeilen (%d)" % len(diag))
 
+print("== 14. Fenstergroesse und Ebenen ==")
+w = gruppe(2)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+cl = w.clients[0]
+ns, g, lua = cl["ns"], cl["g"], cl["lua"]
+for i in range(60):
+    w.setze(0, "v%d" % i, {"awardedTo": "Spieler%d" % (i % 25), "itemID": 7000 + i, "timestamp": int(w.t) - i * 3600})
+ns.Fenster.Zeigen(False)
+ns.Einstellungen.Zeigen()
+haupt, einst = g["LootHistorieFenster"], g["LootHistorieEinstellungen"]
+fest(einst._strata == "FULLSCREEN_DIALOG", "Einstellungsfenster liegt auf der hoeheren Stufe")
+fest(haupt._strata == "DIALOG", "Uebersicht liegt auf der niedrigeren Stufe")
+fest(einst._level > haupt._level, "und hat die hoehere Ebene (%s > %s)" % (einst._level, haupt._level))
+
+
+# Groesse aendern: kleinste und groesste zulaessige Masse, nie ein Fehler
+for b, h in [(700, 420), (1300, 1100), (900, 700), (760, 600)]:
+    for fenster, skript in ((haupt, ns.Fenster), (einst, ns.Einstellungen)):
+        fenster.SetSize(fenster, b, h)
+        fenster._scripts.OnSizeChanged(fenster, b, h)
+fest(not [x for x in g["__ausgabe"].values() if "Fehler" in str(x) or "rror" in str(x)],
+     "Groessenaenderung ohne Fehler (klein, gross, mittel)")
+
+# Gespeichert wird beim Loslassen des Griffs
+haupt.SetSize(haupt, 900, 700)
+haupt.speichern()
+st = g["LootHistorieDB"]["fenster"]["uebersicht"]
+fest(st["b"] == 900 and st["h"] == 700, "Groesse der Uebersicht gemerkt (%s x %s)" % (st["b"], st["h"]))
+einst.SetSize(einst, 820, 640)
+einst.speichern()
+st2 = g["LootHistorieDB"]["fenster"]["einstellungen"]
+fest(st2["b"] == 820 and st2["h"] == 640, "Groesse der Einstellungen gemerkt")
+
+# Beim naechsten Laden wird sie wieder angewandt (neuer Client mit denselben Daten)
+w2 = gruppe(2)
+c2 = w2.clients[0]
+c2["g"]["LootHistorieDB"] = c2["lua"].table_from({"fenster": c2["lua"].table_from(
+    {"uebersicht": c2["lua"].table_from({"b": 1000, "h": 650, "x": 50, "y": 700})})})
+c2["ns"].Fenster.Zeigen(False)
+f2 = c2["g"]["LootHistorieFenster"]
+fest(f2._w == 1000 and f2._h == 650, "gemerkte Groesse wird beim Oeffnen angewandt (%s x %s)" % (f2._w, f2._h))
+
+# Zu kleine oder zu grosse gemerkte Werte werden begrenzt
+w3 = gruppe(2)
+c3 = w3.clients[0]
+c3["g"]["LootHistorieDB"] = c3["lua"].table_from({"fenster": c3["lua"].table_from(
+    {"uebersicht": c3["lua"].table_from({"b": 10, "h": 99999})})})
+c3["ns"].Fenster.Zeigen(False)
+f3 = c3["g"]["LootHistorieFenster"]
+fest(f3._w == 700 and f3._h == 1100, "unsinnige gemerkte Werte werden auf die Grenzen gesetzt (%s x %s)" % (f3._w, f3._h))
+
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")
 sys.exit(0 if alle_ok else 1)

@@ -61,6 +61,12 @@ local function mock()
         if k == "SetHeight" then return function(self, h) self._h = h end end
         if k == "SetSize" then return function(self, w, h) self._w = w; self._h = h end end
         if k == "GetWidth" then return function(self) return self._w or 100 end end
+        if k == "SetFrameLevel" then return function(self, n) self._level = n end end
+        if k == "GetFrameLevel" then return function(self) return self._level or 5 end end
+        if k == "SetFrameStrata" then return function(self, n) self._strata = n end end
+        if k == "GetFrameStrata" then return function(self) return self._strata or "MEDIUM" end end
+        if k == "GetLeft" then return function(self) return 100 end end
+        if k == "GetTop" then return function(self) return 500 end end
         if k == "GetHeight" then return function(self) return self._h or 20 end end
         if k == "GetVerticalScrollRange" then return function() return 0 end end
         if k == "GetVerticalScroll" then return function() return 0 end end
@@ -132,9 +138,10 @@ print = function(...)
 end
 
 __frames = {}
-function CreateFrame(...)
+function CreateFrame(typ, name, ...)
     local f = mock()
     __frames[#__frames + 1] = f
+    if type(name) == "string" then _G[name] = f end
     return f
 end
 UIParent = mock()

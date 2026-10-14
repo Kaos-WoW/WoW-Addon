@@ -246,6 +246,17 @@ Höhe statt 1; (5) `Stil.Auffrischen()` setzt nach dem ersten Zeigen alle Texte 
 (KaosUI-Lehre: erst ein geänderter Text zeichnet). **Diagnose: `/lh darstellung`** (Schrift, Größe, Farbe,
 Sichtbarkeit der ersten Zeilen). Hilft nichts davon, mit dieser Ausgabe weitersuchen.
 
+### Fenstergröße und Ebenen (14.10.2026)
+
+Beide Fenster sind in der Größe verstellbar (Griff unten rechts, `Stil.Verstellbar`); Größe und Lage liegen in
+`LootHistorieDB.fenster.uebersicht` / `.einstellungen` und werden auf die Grenzen gebracht. Der Anker ist **oben
+links**, nie die Mitte (sonst springt das Fenster beim Ziehen). Die Übersicht rechnet Zeilenzahl (bis 40) und
+Spaltenbreiten aus der Fenstergröße; die Einstellungen legen die Karten bei jeder Breite neu.
+
+⭐ **Das Einstellungsfenster liegt immer über der Übersicht**: Stufe `FULLSCREEN_DIALOG` und Ebene 200 gegen
+`DIALOG`/20. Nur eine andere Ebene genügt nicht — die Unterelemente beider Fenster hatten gleiche Stufen und
+mischten sich beim Überlappen (Screenshot 14.10.). Die Stufe muss **vor** dem Anlegen der Kinder gesetzt werden.
+
 ### Die Übersicht kommt ohne Bibliotheken aus
 
 Fester Satz Zeilen plus Mausrad-Versatz. Ein Teil weniger, das beim nächsten
