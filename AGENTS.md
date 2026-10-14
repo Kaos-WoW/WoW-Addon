@@ -179,6 +179,14 @@ Plündermeister der eigenen Gruppe und Gilde. Dauer: Einstellung `wurfDauer` (St
 nur beim Leiter (`Erfassung.WurfBeginnt(link, false)` bei den anderen). Der erste Wurf zählt (siehe unten); Haupt vor OS.
 Englisch heißt Zweitbedarf **„OS"** (Nutzerwunsch), nicht „Off".
 
+**Offene Wünsche (Nutzer, 14.10.2026, „für die Zukunft"):**
+* **Würfelzeit frei wählbar**, länger oder kürzer. Heute: Einstellung `wurfDauer` mit 20/30/45/60 s (Einstellungen →
+  Gargul & Abgleich → Würfelfenster, Grenzen 10–120 s in `Wurf.Dauer`). Idee: Feld im Startdialog für diesen einen Wurf.
+* **Festlegbar, was ein „Main"- und was ein „OS"-Wurf ist.** Heute fest 1-100 / 1-50 an vier Stellen: `Kern.Bedarfsart`,
+  die Knöpfe in `Wurf.lua` (`RandomRoll`, Beschriftung), `Quelle.GargulBereiche`/`SOLL`, Texte. Idee: zwei Einstellungen
+  (Obergrenze Haupt, Obergrenze OS), überall daraus lesen; Beschriftungen und Erkennung folgen; Abgleich-Protokoll
+  unberührt (die Art steckt im Eintrag, nicht der Bereich).
+
 ### Beute aus dem Rucksack verteilen, Zuteilen (Stufe 2, 14.10.2026)
 
 ⭐ **Üblicher Ablauf der Gilde:** Der Plündermeister steckt die Beute selbst ein und lässt sie auf dem Weg zum nächsten Boss
@@ -194,10 +202,19 @@ verrollen; verteilt wird per **Handel**. Darum:
   Übersicht, je Zeile **Zuteilen**. Je nach Fundort des Gegenstands:
   * *Beutefenster:* `GiveMasterLoot(Platz, Empfänger)` (Empfänger über `GetMasterLootCandidate` nach Namen); eingetragen
     wird über die Beutemeldung „X erhält".
-  * *Rucksack:* `InitiateTrade(unit)`, bei `TRADE_SHOW` legt das Addon den Gegenstand **nur ein, wenn der Handelspartner
-    (`GetUnitName("NPC")`) der Gewinner ist** (`PickupContainerItem` + `ClickTradeButton(1)`); **Bestätigen tut nie das
-    Addon.** Bei `TRADE_CLOSED` wird eingetragen, **wenn der Gegenstand weg ist** (Zahl im Rucksack gesunken), Herkunft
-    `wurf` mit Wurf und Art. Bricht der Handel ab: kein Eintrag.
+  * *Rucksack:* **Jede Zuteilung wird vorgemerkt** (`FairshareDB.offen`, überlebt Neuladen und Abmelden, verfällt nach
+    3 h; `/fs wurf offen`, `… offen leeren`) und `InitiateTrade(unit)` versucht. Klappt der Handel nicht (Gewinner zu
+    weit weg, offline, nicht mehr in der Gruppe), bleibt die Vormerkung: Bei **jedem späteren Handel mit genau diesem
+    Spieler** (`TRADE_SHOW`, Partner über `GetUnitName("NPC")`) legt das Addon den Gegenstand selbst ein (bis 6 Plätze).
+    **Bestätigen tut nie das Addon.**
+  * *Handel von Hand* (Nutzerfund 14.10.2026, „trackt den manuellen Handel nicht"): Bei `TRADE_SHOW` merkt sich das Addon,
+    wie viele Stücke je Nummer im Rucksack liegen und welche eine Handelsfrist tragen; `TRADE_PLAYER_ITEM_CHANGED`/
+    `TRADE_ACCEPT_UPDATE` lesen die eigenen Handelsplätze (`GetTradePlayerItemLink`). Nach `TRADE_CLOSED` (+1,5 s): ist
+    die Zahl im Rucksack gesunken, war es ein Handel → eingetragen, wenn (a) eine Vormerkung für Partner und Gegenstand
+    besteht (Art und Wurf daraus), (b) ein Wurf des Partners für diesen Gegenstand bekannt ist (`Erfassung.WurfVon`:
+    Art aus dem Wurf) oder (c) das Stück eine Handelsfrist hat und kein Wurf bekannt ist (Hauptbedarf, mit Hinweis).
+    **Stücke ohne Handelsfrist und abgebrochene Handel werden nie eingetragen.** Ohne lesbare Handelsfrist
+    (kein `C_TooltipInfo`) entfällt (c).
   * *Nicht auffindbar oder man behält ihn selbst:* Knopf **Nur eintragen**.
 * ⚠️ Ungemessen im Spiel: `InitiateTrade`/`ClickTradeButton` aus dem Addon in Forever, der Tooltip-Text der Handelsfrist,
   `GiveMasterLoot`. `/fs beutetest` (nur lesen) prüft Letzteres bei offenem Beutefenster. `/fs rolle` zeigt in Forever

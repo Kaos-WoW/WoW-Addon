@@ -37,7 +37,7 @@ local function hilfe()
     print(L["  |cffffff78/fs <Name>|r       – Einzelvergaben eines Spielers im Chat"])
     print(L["  |cffffff78/fs abgleich|r     – Historien der Gruppe zusammenführen (|cffffff78abgleich status|r zeigt den Stand)"])
     print(L["  |cffffff78/fs rolle|r        – wer zeichnet gerade auf, und warum"])
-    print(L["  |cffffff78/fs wurf|r         – eigenes Würfelfenster starten (|cffffff78wurf <Link>|r, |cffffff78wurf ende|r, |cffffff78wurf ergebnis|r)"])
+    print(L["  |cffffff78/fs wurf|r         – eigenes Würfelfenster starten (|cffffff78wurf <Link>|r, |cffffff78wurf ende|r, |cffffff78wurf ergebnis|r, |cffffff78wurf offen|r)"])
     print(L["  |cffffff78/fs beutetest|r    – Diagnose: Beutefenster und Zuteilung durch den Plündermeister"])
     print(L["  |cffffff78/fs gruppe|r       – Kader und Raidgruppen (|cffffff78gruppe hilfe|r)"])
     print(L["  |cffffff78/fs bereiche|r     – Garguls Würfelbereiche prüfen (|cffffff78bereiche setzen|r)"])
@@ -294,6 +294,23 @@ befehle["wurf"] = function(arg)
     if kleinn == "ende" or kleinn == "end" or kleinn == "stop" then
         local ok, grund = ns.Wurf.BeendenAlle()
         if not ok then sag(ROT .. tostring(grund) .. "|r") end
+        return
+    end
+    if kleinn == "offen" or kleinn == "pending" or kleinn == "offen leeren" or kleinn == "pending clear" then
+        if kleinn:find("leeren", 1, true) or kleinn:find("clear", 1, true) then
+            sag(string.format(L["%d Vormerkungen gelöscht."], ns.Wurf.OffeneLeeren()))
+            return
+        end
+        local liste = ns.Wurf.Offene()
+        if #liste == 0 then
+            sag(GRAU .. L["Keine Zuteilung vorgemerkt."] .. "|r")
+            return
+        end
+        sag(L["Vorgemerkte Zuteilungen:"])
+        for _, e in ipairs(liste) do
+            print(string.format(L["  %s an %s (vor %d Min.)"], e.link, e.name, math.floor((time() - (e.zeit or 0)) / 60)))
+        end
+        print(L["  |cff8E9A94Beim nächsten Handel mit dem Spieler wird der Gegenstand eingelegt. |r|cffffff78/fs wurf offen leeren|r|cff8E9A94 löscht alle.|r"])
         return
     end
     if kleinn == "ergebnis" or kleinn == "result" then

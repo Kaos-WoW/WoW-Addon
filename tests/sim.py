@@ -238,8 +238,14 @@ C_TooltipInfo = {
     end,
 }
 InitiateTrade = function(unit) __handel = unit end
+__angeboten = {}
+GetTradePlayerItemLink = function(i) return __angeboten[i] end
 ClickTradeButton = function(i)
-    if __cursor then __imHandel = __tasche[__cursor.slot]; __cursor = nil end
+    if __cursor then
+        __imHandel = __tasche[__cursor.slot]
+        __angeboten[i] = __imHandel.link
+        __cursor = nil
+    end
 end
 ClearCursor = function() __cursor = nil end
 GetItemCount = function(id)

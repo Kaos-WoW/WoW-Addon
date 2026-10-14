@@ -1151,6 +1151,111 @@ LINK2 = "|cff0070dd|Hitem:7300::::::::60:::::|h[Zweites]|h|r"
 g0["__ereignis"]("CHAT_MSG_LOOT", "You receive loot: " + LINK2 + ".")
 fest(any(v["itemID"] == 7300 for v in w.hist(0).values()), "Schalter aus: auch Eingestecktes zaehlt")
 
+print("== 22. Vorgemerkte Zuteilung, Handel von Hand, zu weit weg ==")
+
+
+def eintraege(w, id_, wer=None):
+    return [v for v in w.hist(0).values() if v["itemID"] == id_ and (wer is None or v["awardedTo"] == wer)]
+
+
+def handel(g, partner, angeboten=None, lua=None):
+    g["__npc"] = partner
+    g["__ereignis"]("TRADE_SHOW")
+    if angeboten is not None:
+        lua.execute("__angeboten = { %s }" % ", ".join('"%s"' % a for a in angeboten))
+        g["__ereignis"]("TRADE_PLAYER_ITEM_CHANGED", 1)
+
+
+# --- 1. Zu weit weg: die Zuteilung bleibt vorgemerkt, spaeter wird eingelegt ----
+w, cl, g, ns, lua = runde()
+g["__klick"]("Zuteilen")                               # der Handel klappt nicht (kein TRADE_SHOW)
+w.weiter(5)
+fest(len(list(ns.Wurf.Offene().values())) == 1, "die Zuteilung ist vorgemerkt")
+fest(len(g["FairshareDB"]["offen"]) == 1, "und liegt in den gespeicherten Daten (ueberlebt Neuladen)")
+fest(len(eintraege(w, 7100)) == 0, "noch nichts eingetragen")
+w.t += 7200                                            # zwei Stunden spaeter
+handel(g, "Lina")                                      # Handel mit jemand anderem: nichts wird eingelegt
+fest(g["__angeboten"][1] is None, "anderer Handelspartner: nichts eingelegt")
+g["__ereignis"]("TRADE_CLOSED")
+w.weiter(3)
+handel(g, "Timo")                                      # man trifft Timo doch noch
+fest(g["__angeboten"][1] == LINK, "beim naechsten Handel mit Timo liegt der Gegenstand schon drin")
+lua.execute("__tasche[1].leer = true")                 # Handel bestaetigt, Gegenstand weg
+g["__ereignis"]("TRADE_CLOSED")
+w.weiter(3)
+treffer = eintraege(w, 7100, "Timo")
+fest(len(treffer) == 1 and treffer[0]["wurf"] == 77, "danach ist Timo eingetragen, mit seinem Wurf (77)")
+fest(len(list(ns.Wurf.Offene().values())) == 0, "die Vormerkung ist erledigt")
+
+# --- 2. Vormerkungen verfallen nach drei Stunden ---------------------------------
+w, cl, g, ns, lua = runde()
+g["__klick"]("Zuteilen")
+fest(len(list(ns.Wurf.Offene().values())) == 1, "vorgemerkt")
+w.t += 4 * 3600
+fest(len(list(ns.Wurf.Offene().values())) == 0, "nach vier Stunden ist sie verfallen")
+
+# --- 3. Ganz von Hand gehandelt, Wurf bekannt ------------------------------------
+w, cl, g, ns, lua = runde()
+handel(g, "Timo")
+fest(g["__angeboten"][1] is None, "ohne Vormerkung legt das Addon nichts ein")
+lua.execute('__angeboten = { "%s" }; __tasche[1].leer = true' % LINK)       # man legt es selbst hinein
+g["__ereignis"]("TRADE_PLAYER_ITEM_CHANGED", 1)
+g["__ereignis"]("TRADE_CLOSED")
+w.weiter(3)
+treffer = eintraege(w, 7100, "Timo")
+fest(len(treffer) == 1 and treffer[0]["wurf"] == 77 and treffer[0]["OS"] is None,
+     "Handel von Hand erkannt: Timo, Wurf 77, Hauptbedarf")
+
+# --- 4. Von Hand an einen Zweitbedarf-Wuerfler: die Art kommt aus dem Wurf ------
+w, cl, g, ns, lua = runde()
+handel(g, "Moe")
+lua.execute('__angeboten = { "%s" }; __tasche[1].leer = true' % LINK)
+g["__ereignis"]("TRADE_PLAYER_ITEM_CHANGED", 1)
+g["__ereignis"]("TRADE_CLOSED")
+w.weiter(3)
+treffer = eintraege(w, 7100, "Moe")
+fest(len(treffer) == 1 and treffer[0]["OS"] is True, "Moe hatte 1-50 gewuerfelt: als Zweitbedarf eingetragen")
+
+# --- 5. Kein Wurf bekannt, aber ein Stueck mit Handelsfrist: Hauptbedarf ---------
+w, cl, g, ns, lua = runde()
+handel(g, "Zora")
+lua.execute('__angeboten = { "%s" }; __tasche[1].leer = true' % LINK)
+g["__ereignis"]("TRADE_PLAYER_ITEM_CHANGED", 1)
+g["__ereignis"]("TRADE_CLOSED")
+w.weiter(3)
+treffer = eintraege(w, 7100, "Zora")
+fest(len(treffer) == 1 and treffer[0]["OS"] is None, "ohne Wurf, mit Handelsfrist: als Hauptbedarf eingetragen")
+
+# --- 6. Etwas ohne Handelsfrist zaehlt nicht -------------------------------------
+w, cl, g, ns, lua = runde()
+OTHER = "|cnIQ4:|Hitem:7500::::::::60:::::|h[Kram]|h|r"
+lua.execute('__tasche = { { link = "%s", quality = 4, frist = true }, { link = "%s", quality = 4, frist = false } }' % (LINK, OTHER))
+handel(g, "Timo")
+lua.execute('__angeboten = { "%s" }; __tasche[2].leer = true' % OTHER)
+g["__ereignis"]("TRADE_PLAYER_ITEM_CHANGED", 1)
+g["__ereignis"]("TRADE_CLOSED")
+w.weiter(3)
+fest(len(eintraege(w, 7500)) == 0, "ein Stueck ohne Handelsfrist ist kein Loot und wird nicht eingetragen")
+
+# --- 7. Abgebrochener Handel: nichts ---------------------------------------------
+w, cl, g, ns, lua = runde()
+handel(g, "Timo", [LINK], lua)
+g["__ereignis"]("TRADE_CLOSED")            # der Gegenstand blieb im Rucksack
+w.weiter(3)
+fest(len(eintraege(w, 7100)) == 0, "abgebrochen: kein Eintrag")
+
+# --- 8. Befehle -----------------------------------------------------------------
+w, cl, g, ns, lua = runde()
+g["__klick"]("Zuteilen")
+sl = g["SlashCmdList"]["FAIRSHARE"]
+g["__ausgabe"] = lua.table()
+sl("wurf offen")
+fest(any("Timo" in str(x) for x in g["__ausgabe"].values()), "/fs wurf offen zeigt die Vormerkung")
+sl("wurf offen leeren")
+fest(len(list(ns.Wurf.Offene().values())) == 0, "/fs wurf offen leeren loescht sie")
+fehler = [str(x) for x in g["__ausgabe"].values() if "Fehler" in str(x)]
+fest(not fehler, "ohne Fehler")
+
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")
 sys.exit(0 if alle_ok else 1)

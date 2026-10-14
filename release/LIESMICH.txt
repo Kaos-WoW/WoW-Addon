@@ -44,6 +44,9 @@ EIGENES WUERFELFENSTER (neu)
    Knopf "Zuteilen": Beute im Rucksack wird per Handel verteilt (das Addon
    legt den Gegenstand ein, bestaetigen tust du selbst und es wird erst
    danach eingetragen); Beute im Beutefenster wird direkt zugeteilt.
+ * Ist der Gewinner zu weit weg, bleibt die Zuteilung vorgemerkt: Beim
+   naechsten Handel mit ihm wird der Gegenstand eingelegt (/fs wurf offen).
+   Auch ein Handel von Hand wird erkannt und eingetragen.
  * Beute, die der Pluendermeister selbst einsteckt, zaehlt nicht als Vergabe.
  * Neue Datei Wurf.lua: nach dem Kopieren WoW komplett neu starten.
 

@@ -114,7 +114,9 @@ def uebersetzungen():
 
 
 def platzhalter(s):
-    return sorted(re.findall(r"%(?:\d+\$)?[sd]", s))
+    # ⚠️ Reihenfolge, nicht Menge: Lua kennt kein %2$d, eine vertauschte Uebersetzung
+    # liefe auf einem englischen Client in einen Fehler.
+    return re.findall(r"%(?:\d+\$)?[sd]", s)
 
 
 DEUTSCH = re.compile(

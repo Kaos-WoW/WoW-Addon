@@ -495,9 +495,9 @@ local function taschenListe()
     if fristBekannt then
         local nur = {}
         for _, e in ipairs(liste) do if e.frist then nur[#nur + 1] = e end end
-        return nur
+        return nur, true
     end
-    return liste
+    return liste, false
 end
 
 --- Alles, was sich verteilen laesst: offenes Beutefenster, dann Rucksack.
@@ -660,7 +660,6 @@ end
 local ERG_ZEILEN = 6
 local ergebnis            -- das Fenster
 local ergebnisDaten       -- { link, zeilen = { { name, wert, art, haupt, zweit } } }
-local pending             -- ein laufender Handel
 
 local function anzahlImRucksack(id)
     local CI = rawget(_G, "C_Item")
@@ -742,68 +741,185 @@ end
 --  Aus dem Rucksack (Handel)
 -- ---------------------------------------------------------------------
 
-local function handelStarten(name, link, ort, z)
-    local _, unit = ns.Rolle.Absender(name)
-    local initiate = rawget(_G, "InitiateTrade")
-    if not unit or type(initiate) ~= "function" then
-        sag(ROT .. L["Handel nicht möglich."] .. "|r")
-        return false
+-- ⭐ Eine Zuteilung aus dem Rucksack ist erst fertig, wenn der Handel
+-- stattgefunden hat — und der kann spaeter sein: Der Gewinner ist zu weit weg,
+-- schon offline, man trifft sich erst am naechsten Boss. Darum wird jede
+-- Zuteilung VORGEMERKT (gespeichert, ueberlebt /reload und Abmelden) und beim
+-- naechsten Handel mit genau diesem Spieler automatisch eingelegt. Zusaetzlich
+-- erkennt das Addon einen Handel, den man ganz von Hand macht, solange der
+-- Gegenstand noch eine Handelsfrist hat oder ein Wurf bekannt ist.
+local VORMERKDAUER = 3 * 3600   -- die Handelsfrist selbst endet nach zwei Stunden
+
+local function offenListe()
+    local d = db()
+    d.offen = d.offen or {}
+    local jetzt = time()
+    for i = #d.offen, 1, -1 do
+        if (jetzt - (d.offen[i].zeit or 0)) > VORMERKDAUER then table.remove(d.offen, i) end
     end
-    pending = { name = name, link = link, id = ort.id, art = z.art, wert = z.wert,
-                vorher = anzahlImRucksack(ort.id), bis = time() + 120 }
-    if not pcall(initiate, unit) then
-        pending = nil
-        sag(ROT .. L["Handel nicht möglich."] .. "|r")
-        return false
-    end
-    sag(string.format(L["Handel mit %s angefragt – der Gegenstand wird eingelegt, sobald das Fenster offen ist."], name))
-    return true
+    return d.offen
 end
 
---- Das Handelsfenster ist offen: den Gegenstand einlegen.
---  ⚠️ Nur, wenn der Handelspartner der Gewinner ist. Bestaetigen muss der
---  Plündermeister selbst; das Addon drueckt nie „Handeln".
-local function handelOffen()
-    local P = pending
-    if not P then return end
-    if time() > P.bis then pending = nil return end
-
-    local ok, partner = pcall(function() return GetUnitName("NPC", true) end)
-    if not ok or not partner or not Kern.GleicherSpieler(partner, P.name) then return end
-
-    local gefunden
-    for _, e in ipairs(taschenListe()) do
-        if e.id == P.id then gefunden = e break end
+local function vormerken(name, link, id, z)
+    local liste = offenListe()
+    for _, e in ipairs(liste) do
+        if e.id == id and Kern.GleicherSpieler(e.name, name) then return e end
     end
+    local e = { name = name, link = link, id = id, art = z.art, wert = z.wert, zeit = time() }
+    liste[#liste + 1] = e
+    return e
+end
+
+local function vormerkungLoeschen(e)
+    local liste = offenListe()
+    for i, x in ipairs(liste) do
+        if x == e then table.remove(liste, i) return end
+    end
+end
+
+--- Die vorgemerkten Zuteilungen (Kopie, fuer die Anzeige).
+function Wurf.Offene()
+    local aus = {}
+    for _, e in ipairs(offenListe()) do aus[#aus + 1] = e end
+    return aus
+end
+
+function Wurf.OffeneLeeren()
+    local n = #offenListe()
+    db().offen = {}
+    return n
+end
+
+--- Der gerade offene Handel:
+--  { partner, vorher = { Nummer -> Anzahl im Rucksack }, tauschbar = { Nummer -> true },
+--    angeboten = { Link, ... } }
+local handel
+
+--- Was liegt in den eigenen Handelsplaetzen?
+--  Beim Schliessen ist die Anzeige schon leer: dann bleibt der letzte Stand.
+local function angebotLesen(H, leerErlaubt)
+    if not H then return end
+    local f = rawget(_G, "GetTradePlayerItemLink")
+    if type(f) ~= "function" then return end
+    local liste = {}
+    for i = 1, 6 do
+        local ok, l = pcall(f, i)
+        if ok and type(l) == "string" and l ~= "" then liste[#liste + 1] = l end
+    end
+    if #liste > 0 or leerErlaubt then H.angeboten = liste end
+end
+
+--- Einen Handel mit dem Spieler anfragen (er muss in der Gruppe und in Reichweite sein).
+local function handelAnfragen(name)
+    local _, unit = ns.Rolle.Absender(name)
+    local initiate = rawget(_G, "InitiateTrade")
+    if not unit or type(initiate) ~= "function" then return false end
+    return pcall(initiate, unit) and true or false
+end
+
+--- Das Handelsfenster ist offen.
+--  Vorgemerktes fuer genau diesen Partner wird eingelegt; sonst nur gemerkt,
+--  was im Rucksack liegt, um einen Handel von Hand spaeter zu erkennen.
+--  ⚠️ Bestaetigen muss der Plündermeister selbst; das Addon drueckt nie „Handeln".
+local function handelOffen()
+    local ok, partner = pcall(function() return GetUnitName("NPC", true) end)
+    if not ok or type(partner) ~= "string" or partner == "" then handel = nil return end
+
+    local liste, fristBekannt = taschenListe()
+    handel = { partner = partner, vorher = {}, tauschbar = {}, angeboten = {} }
+    for _, e in ipairs(liste) do
+        if e.id then
+            handel.vorher[e.id] = anzahlImRucksack(e.id)
+            if fristBekannt then handel.tauschbar[e.id] = true end
+        end
+    end
+    -- auch der Gegenstand des letzten Wurfs, falls die Liste ihn nicht kennt
+    local rid = ergebnisDaten and idVon(ergebnisDaten.link)
+    if rid and handel.vorher[rid] == nil then handel.vorher[rid] = anzahlImRucksack(rid) end
+
     local CC = rawget(_G, "C_Container")
     local nimm = (CC and CC.PickupContainerItem) or rawget(_G, "PickupContainerItem")
     local lege = rawget(_G, "ClickTradeButton")
-    if not gefunden or type(nimm) ~= "function" or type(lege) ~= "function" then
-        sag(ROT .. L["Gegenstand konnte nicht eingelegt werden – bitte von Hand ins Handelsfenster ziehen."] .. "|r")
-        return
+    if type(nimm) ~= "function" or type(lege) ~= "function" then return end
+
+    local k, benutzt = 0, {}
+    for _, v in ipairs(offenListe()) do
+        if k >= 6 then break end
+        if Kern.GleicherSpieler(v.name, partner) then
+            for _, e in ipairs(liste) do
+                local platz = e.bag .. ":" .. e.slot
+                if e.id == v.id and not benutzt[platz] then
+                    benutzt[platz] = true
+                    k = k + 1
+                    if handel.vorher[v.id] == nil then handel.vorher[v.id] = anzahlImRucksack(v.id) end
+                    pcall(nimm, e.bag, e.slot)
+                    pcall(lege, k)
+                    break
+                end
+            end
+        end
     end
-    pcall(nimm, gefunden.bag, gefunden.slot)
-    pcall(lege, 1)
     local leeren = rawget(_G, "ClearCursor")
     if type(leeren) == "function" then pcall(leeren) end
-    P.eingelegt = true
-    sag(L["Gegenstand liegt im Handelsfenster – bitte prüfen und bestätigen."])
+
+    if k > 0 then
+        angebotLesen(handel, true)
+        sag(string.format(L["Für %s liegen %d vorgemerkte Gegenstände im Handelsfenster – bitte prüfen und bestätigen."], partner, k))
+    end
 end
 
---- Das Handelsfenster ist zu: war es erfolgreich, wird eingetragen.
-local function handelZu()
-    local P = pending
-    if not P then return end
-    if not P.eingelegt or not C_Timer then pending = nil return end
-    C_Timer.After(1.5, function()
-        local p = pending
-        pending = nil
-        if p ~= P then return end
-        -- Der Gegenstand ist weg? Dann ist der Handel gelungen.
-        if anzahlImRucksack(P.id) < P.vorher then
-            eintragen(P.name, P.link, P)
+--- Ein Gegenstand ging an den Handelspartner: eintragen, wenn es eine Vergabe war.
+local function handelVerbuchen(H, id, link)
+    local V
+    for _, v in ipairs(offenListe()) do
+        if v.id == id and Kern.GleicherSpieler(v.name, H.partner) then V = v break end
+    end
+
+    local z
+    if V then
+        z = V
+    else
+        -- Von Hand gehandelt: war ein Wurf bekannt, gilt dessen Art und Zahl.
+        local wert, art = ns.Erfassung.WurfVon(H.partner, link)
+        if wert and wert > 0 then
+            z = { art = art, wert = wert }
+        elseif H.tauschbar[id] then
+            -- Ein Stueck mit Handelsfrist, ohne bekannten Wurf: sicherer Hauptbedarf.
+            z = { ohneWurf = true }
         else
-            sag(GRAU .. L["Handel nicht abgeschlossen – nichts eingetragen."] .. "|r")
+            return
+        end
+    end
+
+    eintragen(H.partner, link, z)
+    if z.ohneWurf then sag(GRAU .. L["Kein Wurf bekannt – als Hauptbedarf eingetragen."] .. "|r") end
+    if V then vormerkungLoeschen(V) end
+end
+
+--- Das Handelsfenster ist zu: war etwas aus dem Rucksack weg, ist es gehandelt.
+local function handelZu()
+    local H = handel
+    handel = nil
+    if not H or not C_Timer then return end
+    angebotLesen(H, false)
+    if #H.angeboten == 0 then return end
+
+    C_Timer.After(1.5, function()
+        local zaehler = {}
+        for _, l in ipairs(H.angeboten) do
+            local id = idVon(l)
+            if id then
+                local z = zaehler[id]
+                if not z then z = { n = 0, link = l }; zaehler[id] = z end
+                z.n = z.n + 1
+            end
+        end
+        for id, z in pairs(zaehler) do
+            local vor = H.vorher[id]
+            -- Weg aus dem Rucksack = gehandelt (ein abgebrochener Handel laesst alles liegen).
+            if vor and anzahlImRucksack(id) <= vor - z.n then
+                handelVerbuchen(H, id, z.link)
+            end
         end
     end)
 end
@@ -826,7 +942,13 @@ function Wurf.Zuteilen(z)
         local ok, grund = ausBeutefenster(name, ort, link)
         if not ok then sag(ROT .. tostring(grund) .. "|r") return end
     else
-        if not handelStarten(name, link, ort, z) then return end
+        vormerken(name, link, ort.id, z)
+        if handelAnfragen(name) then
+            sag(string.format(L["Handel mit %s angefragt – der Gegenstand wird eingelegt, sobald das Fenster offen ist."], name))
+        end
+        -- ⭐ Auch wenn der Handel jetzt nicht klappt (zu weit weg, offline): Die
+        -- Zuteilung bleibt vorgemerkt und wird beim naechsten Handel eingelegt.
+        sag(GRAU .. string.format(L["Vorgemerkt: %s für %s. Ist der Spieler zu weit weg, wird der Gegenstand beim nächsten Handel mit ihm automatisch eingelegt. |cffffff78/fs wurf offen|r zeigt alle."], link, name) .. "|r")
     end
     if ergebnis then ergebnis:Hide() end
 end
@@ -970,7 +1092,7 @@ end
 
 local ereignisse = CreateFrame("Frame")
 for _, e in ipairs({ "LOOT_OPENED", "LOOT_CLOSED", "LOOT_SLOT_CLEARED", "BAG_UPDATE_DELAYED",
-                     "TRADE_SHOW", "TRADE_CLOSED" }) do
+                     "TRADE_SHOW", "TRADE_CLOSED", "TRADE_PLAYER_ITEM_CHANGED", "TRADE_ACCEPT_UPDATE" }) do
     pcall(function() ereignisse:RegisterEvent(e) end)
 end
 ereignisse:SetScript("OnEvent", function(_, ereignis)
@@ -978,6 +1100,8 @@ ereignisse:SetScript("OnEvent", function(_, ereignis)
         pcall(handelOffen)
     elseif ereignis == "TRADE_CLOSED" then
         pcall(handelZu)
+    elseif ereignis == "TRADE_PLAYER_ITEM_CHANGED" or ereignis == "TRADE_ACCEPT_UPDATE" then
+        pcall(angebotLesen, handel, true)
     elseif starter and starter:IsShown() then
         pcall(starterBeute)
     end
