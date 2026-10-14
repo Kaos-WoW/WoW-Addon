@@ -2030,6 +2030,41 @@ ns2.Einstellungen.Zeigen()
 w.clients[2]["g"]["__klick"]("Würfeln & Abgleich")
 fest(w.clients[2]["g"]["__klick"]("Senden") is False, "bei einem Raider ist der Knopf gesperrt")
 
+print("== 31. Startdialog: Dauer ueber das Feld ==")
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+cl = w.clients[0]
+ns, g, lua = cl["ns"], cl["g"], cl["lua"]
+lua.execute('__tasche = { { link = "%s", quality = 4, frist = true } }' % LINK)
+ns.Wurf.Dialog()
+dlg = g["FairshareWurfStart"]
+fest(dlg["dauerFeld"] is not None and dlg["dauer"] is not None, "der Dialog hat Beschriftung und Feld fuer die Dauer")
+fest(str(dlg["dauer"]._text) == "Dauer (s)", "Beschriftung: Dauer (s)")
+fest(str(dlg["dauerFeld"]._text) == "30", "das Feld zeigt den Standard (30)")
+lua.execute("""
+for _, f in ipairs(__frames) do
+    local t = f._text
+    if t and t:find("Schwert der Probe", 1, true) and f._eltern and f._eltern._scripts.OnClick then __beutezeile = f._eltern end
+    if t == "Wurf starten" and f._eltern and f._eltern._scripts.OnClick then __startknopf = f._eltern end
+end
+""")
+g["__beutezeile"]._scripts.OnClick(g["__beutezeile"])
+dlg["dauerFeld"]._text = "45"
+g["__startknopf"]._scripts.OnClick(g["__startknopf"])
+w.weiter(2)
+text = " ".join(str(x) for x in ns.Wurf.Status().values())
+fest(ns.Wurf.Aktiv() and "noch 43 s" in text, "Start ueber den Dialog mit 45 Sekunden (%s)" % text[:70])
+fest(g["FairshareDB"]["wurfDauer"] == 45, "und als neuer Standard gemerkt")
+w.weiter(50)
+fest(not ns.Wurf.Aktiv() and not w.clients[1]["ns"].Wurf.Aktiv(), "nach 52 s ist der Wurf bei allen vorbei")
+ns.Wurf.Dialog()
+fest(str(dlg["dauerFeld"]._text) == "45", "beim naechsten Oeffnen steht 45 im Feld")
+dlg["dauerFeld"]._text = "1000"
+g["__beutezeile"]._scripts.OnClick(g["__beutezeile"])
+g["__startknopf"]._scripts.OnClick(g["__startknopf"])
+fest(not ns.Wurf.Aktiv() and "300" in str(dlg["fehler"]._text), "1000 Sekunden: rote Meldung mit der Grenze (%s)" % str(dlg["fehler"]._text)[:50])
+
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")
 sys.exit(0 if alle_ok else 1)

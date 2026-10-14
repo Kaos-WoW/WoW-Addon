@@ -229,7 +229,7 @@ Nur einer stellt ein (Würfelbereiche, Verzauberer, Gruppen …), alle bekommen 
   Vormerkungen mit `entzaubern`; `Erfassung.EntzauberMerken`/`EntzauberungPruefen` lässt die Beutemeldung „X erhält …" den
   Gegenstand nicht als Vergabe eintragen). Ein Handel, den man **ganz von Hand** an den Verzauberer macht, wird dagegen als
   Vergabe erkannt — dann per *Rückgängig* korrigieren, oder besser den Weg über das Fenster nehmen.
-* **Freie Würfelzeit:** Der Startdialog hat ein Feld *Dauer (s)* (5–300). Die gewählte Zeit gilt für diesen Wurf und wird der
+* **Freie Würfelzeit:** Der Startdialog hat ein Feld *Dauer (s)* (5–300), **oben rechts neben dem Gegenstandsfeld** (unten neben der Beschriftung war es im Spiel nicht zu sehen: Die englische Beschriftung „Duration (s)" ist länger als das Feld weit rechts begann — Nutzerfund 15.10.2026, Lehre: Elemente nie an feste Abstände neben Text ankern, dessen Länge je Sprache wechselt). Die gewählte Zeit gilt für diesen Wurf und wird der
   neue Standard (`wurfDauer`); `/fs wurf 45 <Link>` geht auch. Die Voreinstellung 20/30/45/60 bleibt in den Einstellungen.
   Empfänger nehmen bis 300 s an.
 

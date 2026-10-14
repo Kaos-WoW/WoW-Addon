@@ -740,7 +740,17 @@ local function starterBauen()
     t1:SetPoint("TOPLEFT", s, "TOPLEFT", 16, -46)
     t1:SetText(L["Gegenstand"])
 
-    s.eingabe = S.Eingabe(s, 328, 28)
+    -- ⭐ Die Dauer steht NEBEN dem Gegenstandsfeld, nicht unten: Dort lag sie bei
+    -- der englischen (laengeren) Beschriftung unter dem Text und war nicht zu
+    -- sehen (Nutzerfund 15.10.2026). Oben stimmt alles, das hat sich gezeigt.
+    s.dauer = S.Text(s, 12, C.mu, "LEFT")
+    s.dauer:SetPoint("TOPLEFT", s, "TOPLEFT", 268, -46)
+    s.dauerFeld = S.Eingabe(s, 76, 28)
+    s.dauerFeld:SetPoint("TOPLEFT", s, "TOPLEFT", 268, -64)
+    s.dauerFeld:SetMaxLetters(3)
+    s.dauerFeld:SetScript("OnEnterPressed", function(e) e:ClearFocus(); starterStarten() end)
+
+    s.eingabe = S.Eingabe(s, 244, 28)
     s.eingabe:SetPoint("TOPLEFT", s, "TOPLEFT", 16, -64)
     s.eingabe:SetMaxLetters(300)
     s.eingabe:SetScript("OnEnterPressed", function(e) e:ClearFocus(); starterStarten() end)
@@ -785,13 +795,6 @@ local function starterBauen()
     s.fehler = S.Text(s, 12, C.bad, "LEFT", true)
     s.fehler:SetPoint("BOTTOMLEFT", s, "BOTTOMLEFT", 16, 52)
     s.fehler:SetWidth(328)
-
-    s.dauer = S.Text(s, 12, C.mu, "LEFT")
-    s.dauer:SetPoint("BOTTOMLEFT", s, "BOTTOMLEFT", 16, 24)
-    s.dauerFeld = S.Eingabe(s, 56, 26)
-    s.dauerFeld:SetPoint("BOTTOMLEFT", s, "BOTTOMLEFT", 78, 16)
-    s.dauerFeld:SetMaxLetters(3)
-    s.dauerFeld:SetScript("OnEnterPressed", function(e) e:ClearFocus(); starterStarten() end)
 
     local los = S.Knopf(s, L["Wurf starten"], "primary", 30)
     los:SetPoint("BOTTOMRIGHT", s, "BOTTOMRIGHT", -16, 16)
