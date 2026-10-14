@@ -18,6 +18,7 @@
 ------------------------------------------------------------------------]]
 
 local ADDON, ns = ...
+local L = ns.L
 
 local Gruppen = {}
 ns.Gruppen = Gruppen
@@ -56,14 +57,14 @@ end
 --- @return true, oder false und ein Grund
 function Gruppen.Anlegen(name, modus)
     name = type(name) == "string" and name:match("^%s*(.-)%s*$") or ""
-    if name == "" then return false, "kein Name" end
-    if #name > 40 then return false, "Name zu lang (höchstens 40 Zeichen)" end
+    if name == "" then return false, L["kein Name"] end
+    if #name > 40 then return false, L["Name zu lang (höchstens 40 Zeichen)"] end
     -- ⚠️ Kein Semikolon und keine Steuerzeichen: Der Name geht beim Abgleich
     -- mit auf die Reise. Kodieren schuetzt zwar, aber Ruhe ist besser.
-    if name:find("[;~|%c]") then return false, "Zeichen nicht erlaubt" end
+    if name:find("[;~|%c]") then return false, L["Zeichen nicht erlaubt"] end
 
     local d = db()
-    if d.gruppen[name] then return false, "gibt es schon" end
+    if d.gruppen[name] then return false, L["gibt es schon"] end
     d.gruppen[name] = { name = name, modus = modus == "raid" and "raid" or "kader", kader = {} }
     if not d.aktiveGruppe then d.aktiveGruppe = name end
     return true

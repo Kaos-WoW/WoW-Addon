@@ -6,6 +6,8 @@ Plündermeister im Moment der Vergabe schnell und fair entscheiden kann.
 
 Nur für **WoW Forever** (Beta). Für TBC wird es nicht gebraucht.
 
+Das Addon spricht die **Sprache des Clients**: deutscher Client Deutsch, jeder andere Englisch.
+
 ## Wie es arbeitet
 
 * **Es führt eine eigene Historie** und braucht kein anderes Addon.
@@ -67,5 +69,6 @@ Entwicklungsnotizen, Begründungen und Fallstricke stehen in
 python luacheck.py LootHistorie/*.lua       # Blockstruktur
 pip install lupa                            # einmalig: Lua 5.1 für Python
 python tests/rechenkern.py                  # Selbsttests ohne Spiel
-python tests/szenarien.py                   # mehrere virtuelle Clients, Abgleich, Oberfläche
+python tests/szenarien.py                   # mehrere virtuelle Clients, Abgleich, Oberfläche, englischer Client
+python tests/texte.py --streng              # Übersetzung vollständig?
 ```

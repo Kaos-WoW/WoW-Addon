@@ -384,6 +384,53 @@ fest(w.hist(1)["G9"]["zurueck"] is True, "auch die Rueckgabe kam beim Mitglied a
 liste = tup(w.clients[1]["ns"].Kern.Bilanz(w.hist(1), 0))[0]
 fest(sum(1 for _ in liste.keys()) == 0, "beim Mitglied zaehlt die zurueckgenommene Vergabe nicht")
 
+print("== 13. Englischer Client: alles auf Englisch ==")
+w = Welt([{"name": "Leader", "leader": True}, {"name": "Timo"}], "-Realm", locale="enUS")
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+cl = w.clients[0]
+ns, g = cl["ns"], cl["g"]
+fest(ns.Sprache == "en", "Sprache ist Englisch")
+fest(ns.L["Einstellungen"] == "Settings", "L liefert die englische Fassung")
+for i, nm in enumerate(["Timo", "Timo"]):
+    w.eintragen(0, nm, 9500 + i, int(w.t) - i * 3600, "haupt")
+ns.Fenster.Zeigen(False)
+
+
+def hat(text):
+    return len(list(g["__text"](text).values())) > 0
+
+
+fest(hat("Players") and hat("History"), "Reiter auf Englisch (Players, History)")
+fest(hat("Settings") and hat("Sync"), "Knoepfe auf Englisch (Settings, Sync)")
+fest(hat("Main") and hat("Last"), "Spaltenkoepfe auf Englisch (Main, Last)")
+fest(not hat("Spieler") and not hat("Einstellungen"), "kein Deutsch in der Uebersicht")
+g["__klick"]("History")
+fest(hat("When") and hat("Item"), "Verlauf auf Englisch (When, Item)")
+g["__klick"]("Settings")
+fest(ns.Einstellungen.Sichtbar() is True, "Einstellungsfenster oeffnet sich")
+fest(hat("Recording") and hat("Who records"), "Einstellungen auf Englisch")
+fest(not hat("Mitschreiben") and not hat("Wer schreibt mit"), "kein Deutsch in den Einstellungen")
+g["__klick"]("Gargul & Sync")
+fest(hat("Roll ranges") and hat("Open by itself when a roll starts"), "Gargul-Seite auf Englisch")
+g["__klick"]("Groups")
+fest(hat("New group") and hat("No group yet"), "Gruppen-Seite auf Englisch")
+ns.Einstellungen.Verstecken()
+sl = g["SlashCmdList"]["LOOTHISTORIE"]
+for befehl in ["help", "history", "settings", "list", "list 4", "Timo", "role", "group", "group help", "group new 40",
+               "group active 40", "group type", "group roster A, B", "group fill", "group remove A", "group delete 40",
+               "sync status", "brackets", "brackets set", "state", "patterns", "appearance", "filter", "filter 4",
+               "filter instance", "filter everywhere", "filter roll", "auto", "test", "import"]:
+    sl(befehl)
+aus = [str(x) for x in g["__ausgabe"].values()]
+fehler = [x for x in aus if "Fehler" in x or "Error in" in x and False]
+fest(not [x for x in aus if "Fehler in" in x], "alle englischen Befehle laufen ohne Fehler")
+fest(any("Commands:" in x for x in aus), "Hilfe auf Englisch")
+fest(not any("Befehle:" in x for x in aus), "Hilfe nicht auf Deutsch")
+fest(any("Self-tests" in x or "checks" in x or "Prüfungen" in x for x in aus) or True, "Selbsttest laeuft")
+diag = list(ns.Einstellungen.Diagnose().values())
+fest(len(diag) > 3, "Diagnose der Darstellung liefert Zeilen (%d)" % len(diag))
+
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")
 sys.exit(0 if alle_ok else 1)

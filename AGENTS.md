@@ -41,6 +41,7 @@ das nur liest, weder Haupt/Zweit noch Gruppen noch Abgleich leisten kann.
 | Datei | Zweck | WoW-API? |
 |---|---|---|
 | `Kern.lua` | Zählen, Sortieren, Zusammenführen, Prüfsummen, Kodierung, Schreiberwahl | **nein** |
+| `Locale.lua` | Sprache: deutscher Client Deutsch, sonst Englisch (`L["deutscher Satz"]`) | ja |
 | `Quelle.lua` | Garguls Historie, Würfelbereiche, Gegenstandstexte, Beispieldaten | ja |
 | `Rolle.lua` | Gruppe lesen: wer ist Plündermeister/Leiter, schreibe ich mit | ja |
 | `Gruppen.lua` | Kader und Raidgruppen | ja |
@@ -49,7 +50,7 @@ das nur liest, weder Haupt/Zweit noch Gruppen noch Abgleich leisten kann.
 | `Blizzbeute.lua` | Blizzards `C_LootHistory` als zweite Quelle | ja |
 | `Stil.lua` | Bausteine im KaosUI-Look (Farben, runde Ecken, Knopf, Schalter, Segmentwahl, Bildlauf) | ja |
 | `Einstellungen.lua` | das Einstellungsfenster (Karten und Zeilen, drei Seiten) | ja |
-| `Fenster.lua` | Liste, Verlauf, Spielerdetail, Wurf-Modus | ja |
+| `Fenster.lua` | die Übersicht im KaosUI-Look: Liste, Verlauf, Spielerdetail, Wurf-Modus | ja |
 | `Befehle.lua` | `/lh` | ja |
 | `Tests.lua` | Prüfstand für `Kern.lua` | **nein** |
 
@@ -220,6 +221,31 @@ eine Zeile in `seiteErfassung`/`seiteGargul`/`seiteGruppen`.
 ⚠️ Die Optik ist nur im Spiel prüfbar; `tests/szenarien.py` prüft, dass jede Zeile, jeder Knopf und
 jede Seite ohne Fehler läuft und speichert.
 
+### Sprache (seit 14.10.2026)
+
+Das Addon spricht die Sprache des Clients: **deDE = Deutsch, jeder andere Client = Englisch.** Wie bei
+KaosUI sind die **deutschen Sätze die Schlüssel** (`L["Wer schreibt mit"]`); `Locale.lua` hält die englische
+Fassung, auf einem deutschen Client liefert `L[]` den Schlüssel selbst. Befehlsworte gelten deutsch **und**
+englisch (`/lh history`, `settings`, `list`, `sync`, `group`, `brackets`, `role`, `state`, `patterns`,
+`appearance`). Datumsformate sind selbst Schlüssel (`L["%d.%m.%Y"]` → `%m/%d/%Y`).
+
+⚠️ Jeder neue Text braucht einen Eintrag. `python tests/texte.py --streng` prüft, dass kein Schlüssel fehlt,
+keiner übrig ist, die Platzhalter (`%d`, `%s`) übereinstimmen und keine deutsche Zeichenkette ohne `L[]` im
+Code steht (erlaubte Ausnahmen: Befehlsworte, interne Gründe, Beispieldaten, Entwicklerdiagnose — Liste
+`ERLAUBT` im Skript). Satzteile **nicht** aus Bruchstücken zusammensetzen, sondern ganze Sätze mit Platzhaltern
+übersetzen. Farbcodes stehen im Schlüssel.
+
+### Texte, die der Client nicht zeichnet (14.10.2026)
+
+Beim ersten Start mit der neuen Schriftdatei zeigten viele Textfelder im Einstellungsfenster **leeren Text,
+obwohl Layout und Höhen stimmten** (Screenshots). Gegenmittel, alle zusammen eingebaut, weil die genaue
+Ursache nicht belegt ist: (1) Textfelder mit Schriftvorlage `GameFontNormal` anlegen und **dann** Inter setzen,
+nie ein nacktes Feld mit der neuen Datei (so macht es KaosUI); (2) `SetFont` auswerten, bei `false` auf
+`STANDARD_TEXT_FONT`; (3) umbrechende Texte nie mit Breite 0 setzen; (4) die Seitenframes bekommen die echte
+Höhe statt 1; (5) `Stil.Auffrischen()` setzt nach dem ersten Zeigen alle Texte leer und wieder neu
+(KaosUI-Lehre: erst ein geänderter Text zeichnet). **Diagnose: `/lh darstellung`** (Schrift, Größe, Farbe,
+Sichtbarkeit der ersten Zeilen). Hilft nichts davon, mit dieser Ausgabe weitersuchen.
+
 ### Die Übersicht kommt ohne Bibliotheken aus
 
 Fester Satz Zeilen plus Mausrad-Versatz. Ein Teil weniger, das beim nächsten
@@ -234,7 +260,8 @@ jedem Aufbau frisch.
 python luacheck.py LootHistorie/*.lua     # Blockstruktur, echter Tokenizer
 pip install lupa                          # einmalig
 python tests/rechenkern.py                # Kern + Tests.lua in echtem Lua 5.1
-python tests/szenarien.py                 # mehrere virtuelle Clients
+python tests/szenarien.py                 # mehrere virtuelle Clients, auch ein englischer Client
+python tests/texte.py --streng            # Übersetzung vollständig?
 .\deploy.ps1                              # in alle vorhandenen Clients
 ```
 

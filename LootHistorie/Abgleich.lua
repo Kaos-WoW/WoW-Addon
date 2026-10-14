@@ -34,6 +34,7 @@
 ------------------------------------------------------------------------]]
 
 local ADDON, ns = ...
+local L = ns.L
 
 local Abgleich = {}
 ns.Abgleich = Abgleich
@@ -211,7 +212,7 @@ local function popupZeigen(anzahl, namen)
         local ja = CreateFrame("Button", nil, popup, "UIPanelButtonTemplate")
         ja:SetSize(150, 24)
         ja:SetPoint("BOTTOMLEFT", popup, "BOTTOMLEFT", 24, 20)
-        ja:SetText("Jetzt abgleichen")
+        ja:SetText(L["Jetzt abgleichen"])
         ja:SetScript("OnClick", function()
             popup:Hide()
             local ok, grund = Abgleich.Starten()
@@ -221,12 +222,12 @@ local function popupZeigen(anzahl, namen)
         local spaeter = CreateFrame("Button", nil, popup, "UIPanelButtonTemplate")
         spaeter:SetSize(150, 24)
         spaeter:SetPoint("BOTTOMRIGHT", popup, "BOTTOMRIGHT", -24, 20)
-        spaeter:SetText("Später")
+        spaeter:SetText(L["Später"])
         spaeter:SetScript("OnClick", function() popup:Hide() end)
     end
 
     popup.text:SetText(string.format(
-        "Die Loot-Historien in dieser Gruppe sind nicht gleich.\n|cffffff78%d Spieler|r weichen ab.\nEinmal abgleichen führt sie zusammen.",
+        L["Die Loot-Historien in dieser Gruppe sind nicht gleich.\n|cffffff78%d Spieler|r weichen ab.\nEinmal abgleichen führt sie zusammen."],
         anzahl))
     popup:Show()
 end
@@ -353,9 +354,9 @@ end
 --- Startet einen Abgleich. Nur Leiter, Assistenten und Pluendermeister.
 --  @return true, oder false und ein Grund
 function Abgleich.Starten()
-    if not kanal() then return false, "Du bist in keiner Gruppe." end
+    if not kanal() then return false, L["Du bist in keiner Gruppe."] end
     if not ns.Rolle.Berechtigt(eigenerName()) then
-        return false, "Nur Leiter, Assistenten und der Plündermeister dürfen abgleichen."
+        return false, L["Nur Leiter, Assistenten und der Plündermeister dürfen abgleichen."]
     end
 
     local sid = neueSitzung()
@@ -371,7 +372,7 @@ function Abgleich.Starten()
         einreihen(string.format("Q;%s;%d;%d;%s", sid, i, #stuecke, st))
     end
 
-    print(MELDUNG .. "Abgleich gestartet – ich warte auf die Antworten der Gruppe.")
+    print(MELDUNG .. L["Abgleich gestartet – ich warte auf die Antworten der Gruppe."])
     Abgleich.AbschlussMelden()
     return true
 end
@@ -387,11 +388,11 @@ function Abgleich.AbschlussMelden()
         if mein ~= abschluss.token then return end
         local z = Zaehler
         if z.neu + z.doppelt + z.vorhanden + z.abgelehnt == 0 then
-            print(MELDUNG .. "Abgleich beendet – es kam nichts Neues an.")
+            print(MELDUNG .. L["Abgleich beendet – es kam nichts Neues an."])
         else
-            print(string.format(MELDUNG .. "Abgleich beendet: |cff55ff55%d neu|r übernommen, %d schon vorhanden, %d als Doppelgänger erkannt%s.",
+            print(string.format(MELDUNG .. L["Abgleich beendet: |cff55ff55%d neu|r übernommen, %d schon vorhanden, %d als Doppelgänger erkannt%s."],
                 z.neu, z.vorhanden, z.doppelt,
-                z.abgelehnt > 0 and string.format(", |cffff5555%d abgelehnt|r", z.abgelehnt) or ""))
+                z.abgelehnt > 0 and string.format(L[", |cffff5555%d abgelehnt|r"], z.abgelehnt) or ""))
         end
         fensterAktualisieren()
         Abgleich.HalloSpaeter(2)
@@ -565,26 +566,26 @@ end
 function Abgleich.Diagnose()
     local n, summe = Abgleich.Stand()
     local zeilen = {}
-    zeilen[#zeilen + 1] = string.format("Eigener Stand: %d Einträge, Prüfsumme %d, %d Doppelgänger vermerkt",
+    zeilen[#zeilen + 1] = string.format(L["Eigener Stand: %d Einträge, Prüfsumme %d, %d Doppelgänger vermerkt"],
         n, summe, (function() local c = 0 for _ in pairs(alias()) do c = c + 1 end return c end)())
-    zeilen[#zeilen + 1] = "Kanal: " .. tostring(kanal() or "keiner (nicht in einer Gruppe)")
+    zeilen[#zeilen + 1] = string.format(L["Kanal: %s"], tostring(kanal() or L["keiner (nicht in einer Gruppe)"]))
 
     local anz = 0
     for _, P in pairs(Bekannt) do
         anz = anz + 1
-        zeilen[#zeilen + 1] = string.format("  %s: %d Einträge, Prüfsumme %d%s%s",
+        zeilen[#zeilen + 1] = string.format(L["  %s: %d Einträge, Prüfsumme %d%s%s"],
             P.name, P.n, P.summe,
-            (P.n == n and P.summe == summe) and " |cff55ff55gleich|r" or " |cffffff78weicht ab|r",
-            P.gilde and "" or " (nicht in der Gilde)")
+            (P.n == n and P.summe == summe) and (" " .. L["|cff55ff55gleich|r"]) or (" " .. L["|cffffff78weicht ab|r"]),
+            P.gilde and "" or (" " .. L["(nicht in der Gilde)"]))
     end
-    zeilen[#zeilen + 1] = string.format("Mitspieler mit Addon: %d", anz)
-    zeilen[#zeilen + 1] = "Letzter Absender (roh): " .. tostring(letzterAbsender)
+    zeilen[#zeilen + 1] = string.format(L["Mitspieler mit Addon: %d"], anz)
+    zeilen[#zeilen + 1] = string.format(L["Letzter Absender (roh): %s"], tostring(letzterAbsender))
     if letzterAbsender then
         local gilde, unit = ns.Rolle.Absender(letzterAbsender)
-        zeilen[#zeilen + 1] = string.format("  zugeordnet zu: %s, Gilde: %s",
+        zeilen[#zeilen + 1] = string.format(L["  zugeordnet zu: %s, Gilde: %s"],
             tostring(unit), tostring(gilde))
     end
-    zeilen[#zeilen + 1] = "Nachrichten in der Warteschlange: " .. #Warteschlange
+    zeilen[#zeilen + 1] = string.format(L["Nachrichten in der Warteschlange: %d"], #Warteschlange)
     return zeilen
 end
 
@@ -616,7 +617,7 @@ rahmen:SetScript("OnEvent", function(_, ereignis, praefix, text, _, sender)
         end
     end)
     if not ok then
-        print(MELDUNG .. "|cffff5555Fehler im Abgleich: " .. tostring(fehler) .. "|r")
+        print(MELDUNG .. "|cffff5555" .. string.format(L["Fehler im Abgleich: %s"], tostring(fehler)) .. "|r")
     end
 end)
 

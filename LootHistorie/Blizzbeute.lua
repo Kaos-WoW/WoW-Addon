@@ -22,6 +22,7 @@
 ------------------------------------------------------------------------]]
 
 local ADDON, ns = ...
+local L = ns.L
 
 local Blizzbeute = {}
 ns.Blizzbeute = Blizzbeute
@@ -39,10 +40,10 @@ local PRAEFIX = "|cff1B6B57Loot-Historie|r: "
 function Blizzbeute.Verfuegbar()
     local LH = rawget(_G, "C_LootHistory")
     if type(LH) ~= "table" then
-        return false, "C_LootHistory gibt es hier nicht"
+        return false, L["C_LootHistory gibt es hier nicht"]
     end
     if type(LH.GetSortedInfoForDrop) ~= "function" then
-        return false, "C_LootHistory ist zu alt"
+        return false, L["C_LootHistory ist zu alt"]
     end
     return true
 end
@@ -154,7 +155,7 @@ rahmen:SetScript("OnEvent", function(_, ereignis, a1, a2)
         end
     end)
     if not ok then
-        print(PRAEFIX .. "|cffff5555Fehler beim Lesen der Beute-Historie: " .. tostring(fehler) .. "|r")
+        print(PRAEFIX .. "|cffff5555" .. string.format(L["Fehler beim Lesen der Beute-Historie: %s"], tostring(fehler)) .. "|r")
     end
 end)
 

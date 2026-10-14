@@ -17,9 +17,13 @@
     ⚠️ Jede Zeile hat `update()`. Aenderungen laufen immer ueber
     `Einstellungen.Aktualisieren()`, das Texte, Zustand und Hoehen neu setzt.
     So gibt es keine Anker zwischen den Zeilen, die sich verschieben koennten.
+
+    ⚠️ Beim ersten Zeigen zeichnete der Client einen Teil der Texte nicht
+    (neue Schriftdatei). `Stil.Auffrischen` setzt sie kurz danach neu.
 ------------------------------------------------------------------------]]
 
 local ADDON, ns = ...
+local L = ns.L
 
 local Einstellungen = {}
 ns.Einstellungen = Einstellungen
@@ -30,6 +34,7 @@ local C = S.C
 local BREITE, HOEHE = 780, 580
 local KOPF, FUSS, SEITE = 44, 40, 190
 local KARTE_X, KARTE_Y, KARTE_LUECKE = 14, 12, 10
+local STANDARDBREITE = BREITE - 2 - SEITE - 20 - 16 - 10
 
 local win, body, scroll
 local Seiten = {}        -- id -> { karten, nav }
@@ -37,6 +42,7 @@ local NavKnoepfe = {}
 local aktuelleSeite = "erfassung"
 local Meldung = {}       -- kurze Rueckmeldungen je Schluessel
 local loeschenBereit
+local letzteMasse = {}
 
 local function d() return ns.Erfassung.Einstellungen() end
 
@@ -136,8 +142,6 @@ end
 --- Hoehe einer Zeile bei Breite w; setzt die Lage der Teile.
 local function zeileMessen(r, w)
     r:SetWidth(w)
-    local lh = r.label:IsShown() and r.label:GetStringHeight() or 0
-    local bh = r.beschr:IsShown() and (r.beschr:GetStringHeight() + (lh > 0 and 2 or 0)) or 0
 
     local seitlich = r.ctrl and not r.stapel
     local cb = (seitlich and (r.ctrlB or 0)) or 0
@@ -146,8 +150,8 @@ local function zeileMessen(r, w)
     r.label:SetWidth(tb)
     r.beschr:SetWidth(tb)
 
-    lh = r.label:IsShown() and r.label:GetStringHeight() or 0
-    bh = r.beschr:IsShown() and (r.beschr:GetStringHeight() + (lh > 0 and 2 or 0)) or 0
+    local lh = r.label:IsShown() and r.label:GetStringHeight() or 0
+    local bh = r.beschr:IsShown() and (r.beschr:GetStringHeight() + (lh > 0 and 2 or 0)) or 0
 
     local h
     if r.ctrl and r.stapel then
@@ -246,8 +250,9 @@ local function seiteMessen(id)
     -- Breite des Bildlaufs abzueglich Balken; vor dem ersten Zeichnen ist
     -- sie noch nicht bekannt, dann gilt das Sollmass.
     local w = (scroll:GetWidth() or 0) - 10
-    if w < 100 then w = BREITE - 2 - SEITE - 20 - 16 - 10 end
+    if w < 100 then w = STANDARDBREITE end
     P.kind:SetWidth(w)
+    letzteMasse.breite = w
 
     local y = 0
     for _, c in ipairs(P.karten) do
@@ -262,6 +267,11 @@ local function seiteMessen(id)
             c:Hide()
         end
     end
+    letzteMasse.hoehe = y
+    -- Die Seite selbst bekommt die echte Hoehe: Ihre Kinder ragen sonst weit
+    -- ueber ihre Ausmasse hinaus (Hoehe 1), und der Client zeichnet dann
+    -- nicht jeden Text.
+    P.kind:SetHeight(math.max(1, y))
     scroll:SetInhaltHoehe(y)
 end
 
@@ -270,132 +280,137 @@ end
 -- =====================================================================
 
 local ORTE = {
-    { wert = "raid",     label = "Schlachtzug" },
-    { wert = "instanz",  label = "Instanz" },
-    { wert = "ueberall", label = "Überall" },
+    { wert = "raid",     label = L["Schlachtzug"] },
+    { wert = "instanz",  label = L["Instanz"] },
+    { wert = "ueberall", label = L["Überall"] },
 }
 local ORT_TEXT = {
-    raid     = "Nur in Schlachtzugsinstanzen.",
-    instanz  = "Auch Fünfergruppen – zum Erproben des Ablaufs.",
-    ueberall = "Ohne Einschränkung; auch Weltdrops und Questbelohnungen zählen.",
+    raid     = L["Nur in Schlachtzugsinstanzen."],
+    instanz  = L["Auch Fünfergruppen – zum Erproben des Ablaufs."],
+    ueberall = L["Ohne Einschränkung; auch Weltdrops und Questbelohnungen zählen."],
 }
 local QUALITAETEN = {
-    { wert = 1, label = "Gewöhnlich" }, { wert = 2, label = "Ungewöhnlich" },
-    { wert = 3, label = "Selten" },     { wert = 4, label = "Episch" },
-    { wert = 5, label = "Legendär" },
+    { wert = 1, label = L["Gewöhnlich"] }, { wert = 2, label = L["Ungewöhnlich"] },
+    { wert = 3, label = L["Selten"] },     { wert = 4, label = L["Episch"] },
+    { wert = 5, label = L["Legendär"] },
 }
 local MODI = {
-    { wert = "auto",  label = "Automatisch" },
-    { wert = "immer", label = "Immer" },
-    { wert = "nie",   label = "Nie" },
+    { wert = "auto",  label = L["Automatisch"] },
+    { wert = "immer", label = L["Immer"] },
+    { wert = "nie",   label = L["Nie"] },
 }
 local MODUS_TEXT = {
-    auto  = "Der Plündermeister schreibt; gibt es keinen, der Raidleiter.",
-    immer = "Dieser Spieler schreibt mit – egal, wer sonst.",
-    nie   = "Dieser Spieler schreibt nicht mit, er empfängt nur.",
+    auto  = L["Der Plündermeister schreibt; gibt es keinen, der Raidleiter."],
+    immer = L["Dieser Spieler schreibt mit – egal, wer sonst."],
+    nie   = L["Dieser Spieler schreibt nicht mit, er empfängt nur."],
 }
 
 local function seiteErfassung(P)
-    local k1 = karte(P, "Mitschreiben", "Was das Addon in die Historie aufnimmt.")
-    zeile(k1, { art = "schalter", label = "Vergaben aufzeichnen",
-        beschr = "Aus heißt: nichts Neues wird erfasst. Vorhandenes bleibt.",
+    local k1 = karte(P, L["Mitschreiben"], L["Was das Addon in die Historie aufnimmt."])
+    zeile(k1, { art = "schalter", label = L["Vergaben aufzeichnen"],
+        beschr = L["Aus heißt: nichts Neues wird erfasst. Vorhandenes bleibt."],
         get = function() return d().erfassen end,
         set = function(v) d().erfassen = v end })
-    zeile(k1, { art = "schalter", label = "Nur Ausgewürfeltes zählen",
-        beschr = "Streng: Ohne Bedarfswurf zugeteilte Stücke fallen heraus.",
+    zeile(k1, { art = "schalter", label = L["Nur Ausgewürfeltes zählen"],
+        beschr = L["Streng: Ohne Bedarfswurf zugeteilte Stücke fallen heraus."],
         get = function() return d().nurGewuerfelt end,
         set = function(v) d().nurGewuerfelt = v end })
 
-    local k2 = karte(P, "Wer schreibt mit",
-        "Nur einer pro Gruppe führt die Historie, damit nichts doppelt entsteht.")
-    zeile(k2, { art = "segment", label = "Schreiber", werte = MODI,
+    local k2 = karte(P, L["Wer schreibt mit"],
+        L["Nur einer pro Gruppe führt die Historie, damit nichts doppelt entsteht."])
+    zeile(k2, { art = "segment", label = L["Schreiber"], werte = MODI,
         beschr = function() return MODUS_TEXT[d().schreiben or "auto"] end,
         get = function() return d().schreiben or "auto" end,
         set = function(v) d().schreiben = v end })
     zeile(k2, { art = "info",
         label = function()
             local darf = ns.Rolle.IchSchreibe()
-            return darf and farbig(C.ok, "Du schreibst gerade mit")
-                         or farbig(C.warn, "Du schreibst gerade nicht mit")
+            return darf and farbig(C.ok, L["Du schreibst gerade mit"])
+                         or farbig(C.warn, L["Du schreibst gerade nicht mit"])
         end,
         beschr = function()
             local _, grund = ns.Rolle.IchSchreibe()
             local wer = ns.Rolle.AktuellerSchreiber()
-            return tostring(grund) .. ((wer and ("  ·  Schreiber: " .. wer)) or "")
+            return tostring(grund) .. ((wer and ("  ·  " .. string.format(L["Schreiber: %s"], wer))) or "")
         end })
 
-    local k3 = karte(P, "Was wird erfasst")
-    zeile(k3, { art = "segment", label = "Ort", werte = ORTE,
+    local k3 = karte(P, L["Was wird erfasst"])
+    zeile(k3, { art = "segment", label = L["Ort"], werte = ORTE,
         beschr = function() return ORT_TEXT[d().ort] or "" end,
         get = function() return d().ort end,
         set = function(v) d().ort = v end })
-    zeile(k3, { art = "segment", label = "Ab welcher Qualität", werte = QUALITAETEN, gestapelt = true,
-        beschr = "Auf Stufe 60 fällt in manchen Raids überwiegend Blaues – lieber zu viel erfassen als einen Drop verlieren.",
+    zeile(k3, { art = "segment", label = L["Ab welcher Qualität"], werte = QUALITAETEN, gestapelt = true,
+        beschr = L["Auf Stufe 60 fällt in manchen Raids überwiegend Blaues – lieber zu viel erfassen als einen Drop verlieren."],
         get = function() return d().mindestQualitaet end,
         set = function(v) d().mindestQualitaet = v end })
 end
 
 local function seiteGargul(P)
-    local k1 = karte(P, "Gargul", "Gewürfelt wird 100 für Hauptbedarf und 50 für Zweitbedarf.")
-    zeile(k1, { art = "knopf", label = "Würfelbereiche",
+    local k1 = karte(P, "Gargul", L["Gewürfelt wird 100 für Hauptbedarf und 50 für Zweitbedarf."])
+    zeile(k1, { art = "knopf", label = L["Würfelbereiche"],
         beschr = function()
             local B, grund = ns.Quelle.GargulBereiche()
-            if not B then return "Gargul ist nicht bereit (" .. tostring(grund) .. "). Ohne Gargul liest das Addon die Würfe selbst aus dem Chat." end
+            if not B then
+                return string.format(L["Gargul ist nicht bereit (%s). Ohne Gargul liest das Addon die Würfe selbst aus dem Chat."],
+                    tostring(grund))
+            end
             local liste = table.concat(B.bereiche, ", ")
-            if B.ok then return farbig(C.ok, "Stimmen.") .. "  Gargul kennt: " .. liste end
-            return farbig(C.bad, "Passen nicht.") .. "  Gargul kennt: " .. liste ..
-                ". Erwartet werden 1-100 und 1-50, sonst wird der Zweitbedarf nicht erkannt."
+            if B.ok then
+                return farbig(C.ok, L["Stimmen."]) .. "  " .. string.format(L["Gargul kennt: %s"], liste)
+            end
+            return farbig(C.bad, L["Passen nicht."]) .. "  " .. string.format(L["Gargul kennt: %s"], liste) ..
+                ". " .. L["Erwartet werden 1-100 und 1-50, sonst wird der Zweitbedarf nicht erkannt."]
         end,
-        knopf = { text = "Auf 100/50 stellen", art = "primary",
+        knopf = { text = L["Auf 100/50 stellen"], art = "primary",
             aktiv = function()
                 local B = ns.Quelle.GargulBereiche()
                 return B ~= nil and not B.ok
             end,
             klick = function() ns.Quelle.GargulBereicheSetzen() end } })
-    zeile(k1, { art = "knopf", label = "Bisherige Vergaben übernehmen",
+    zeile(k1, { art = "knopf", label = L["Bisherige Vergaben übernehmen"],
         beschr = function()
-            return Meldung.import or "Holt Garguls bisherige Aufzeichnungen in die eigene Historie. Mehrfaches Übernehmen ändert nichts."
+            return Meldung.import or L["Holt Garguls bisherige Aufzeichnungen in die eigene Historie. Mehrfaches Übernehmen ändert nichts."]
         end,
-        knopf = { text = "Übernehmen",
+        knopf = { text = L["Übernehmen"],
             klick = function()
                 local neu, doppelt = ns.Quelle.GargulImport()
                 if not neu then
                     Meldung.import = farbig(C.bad, tostring(doppelt))
                 else
-                    Meldung.import = farbig(C.ok, neu .. " übernommen") ..
-                        (doppelt > 0 and (", " .. doppelt .. " schon vorhanden") or "")
+                    Meldung.import = farbig(C.ok, string.format(L["%d übernommen"], neu)) ..
+                        (doppelt > 0 and (", " .. string.format(L["%d schon vorhanden"], doppelt)) or "")
                 end
                 if ns.Fenster then ns.Fenster.Aktualisieren() end
             end } })
 
-    local k2 = karte(P, "Fenster")
-    zeile(k2, { art = "schalter", label = "Bei Wurfbeginn selbst öffnen",
-        beschr = "Die Übersicht springt auf, sobald der erste Bedarfswurf fällt.",
+    local k2 = karte(P, L["Fenster"])
+    zeile(k2, { art = "schalter", label = L["Bei Wurfbeginn selbst öffnen"],
+        beschr = L["Die Übersicht springt auf, sobald der erste Bedarfswurf fällt."],
         get = function() return ns.Fenster.AutoOeffnen() end,
         set = function(v) ns.Fenster.AutoSetzen(v) end })
 
-    local k3 = karte(P, "Abgleich",
-        "Führt die Historien einer Gruppe zusammen – es kommt nur hinzu, nichts wird überschrieben.")
+    local k3 = karte(P, L["Abgleich"],
+        L["Führt die Historien einer Gruppe zusammen – es kommt nur hinzu, nichts wird überschrieben."])
     zeile(k3, { art = "info",
         label = function()
             local n = ns.Abgleich.Stand()
-            return n .. " Einträge bei dir"
+            return string.format(L["%d Einträge bei dir"], n)
         end,
         beschr = function()
             local bekannte = 0
             for _ in pairs(ns.Abgleich.Bekannte()) do bekannte = bekannte + 1 end
             local abw = #ns.Abgleich.Abweichend
-            return bekannte .. " Mitspieler mit dem Addon erkannt  ·  " ..
-                (abw > 0 and farbig(C.warn, abw .. " weichen ab") or "keine Abweichung bekannt")
+            return string.format(L["%d Mitspieler mit dem Addon erkannt"], bekannte) .. "  ·  " ..
+                (abw > 0 and farbig(C.warn, string.format(L["%d weichen ab"], abw)) or L["keine Abweichung bekannt"])
         end })
-    zeile(k3, { art = "knopf", label = "Jetzt abgleichen",
+    zeile(k3, { art = "knopf", label = L["Jetzt abgleichen"],
         beschr = function()
-            return Meldung.abgleich or "Nur Leiter, Assistenten und der Plündermeister dürfen abgleichen."
+            return Meldung.abgleich or L["Nur Leiter, Assistenten und der Plündermeister dürfen abgleichen."]
         end,
-        knopf = { text = "Abgleichen", art = "primary",
+        knopf = { text = L["Abgleichen"], art = "primary",
             klick = function()
                 local ok, grund = ns.Abgleich.Starten()
-                Meldung.abgleich = ok and farbig(C.ok, "Gestartet – das Ergebnis steht im Chat.")
+                Meldung.abgleich = ok and farbig(C.ok, L["Gestartet – das Ergebnis steht im Chat."])
                                        or farbig(C.bad, tostring(grund))
             end } })
 end
@@ -403,8 +418,8 @@ end
 local function seiteGruppen(P)
     local G = ns.Gruppen
 
-    local k1 = karte(P, "Gruppen",
-        "Eine Gruppe bestimmt, wer in der Liste steht – auch ohne Vergabe. Vergaben merken sich die Gruppe, die beim Eintragen aktiv war.")
+    local k1 = karte(P, L["Gruppen"],
+        L["Eine Gruppe bestimmt, wer in der Liste steht – auch ohne Vergabe. Vergaben merken sich die Gruppe, die beim Eintragen aktiv war."])
     for i = 1, 8 do
         zeile(k1, { art = "knopf",
             sichtbar = function() return G.Namen()[i] ~= nil end,
@@ -412,10 +427,10 @@ local function seiteGruppen(P)
             beschr = function()
                 local g = G.Holen(G.Namen()[i])
                 if not g then return "" end
-                return g.modus == "raid" and "Raidgruppe – wer gerade in deiner Gruppe steht"
-                                         or (#(g.kader or {}) .. " Namen im Kader")
+                return g.modus == "raid" and L["Raidgruppe – wer gerade in deiner Gruppe steht"]
+                                         or string.format(L["%d Namen im Kader"], #(g.kader or {}))
             end,
-            knopf = { text = function() return G.Namen()[i] == G.AktivName() and "Aktiv" or "Aktivieren" end,
+            knopf = { text = function() return G.Namen()[i] == G.AktivName() and L["Aktiv"] or L["Aktivieren"] end,
                 art = "primary",
                 aktiv = function() return G.Namen()[i] ~= G.AktivName() end,
                 klick = function()
@@ -424,23 +439,23 @@ local function seiteGruppen(P)
                 end } })
     end
     zeile(k1, { art = "info", sichtbar = function() return #G.Namen() == 0 end,
-        label = "Noch keine Gruppe",
-        beschr = "Unten eine anlegen, zum Beispiel „40er“ oder „10er“." })
+        label = L["Noch keine Gruppe"],
+        beschr = L["Unten eine anlegen, zum Beispiel „40er“ oder „10er“."] })
     zeile(k1, { art = "knopf", sichtbar = function() return G.AktivName() ~= nil end,
-        label = "Keine Gruppe verwenden",
-        beschr = "Neue Vergaben bekommen dann keine Gruppe, die Liste keine Pflichtnamen.",
-        knopf = { text = "Abwählen", klick = function() G.Aktivieren(nil) end } })
+        label = L["Keine Gruppe verwenden"],
+        beschr = L["Neue Vergaben bekommen dann keine Gruppe, die Liste keine Pflichtnamen."],
+        knopf = { text = L["Abwählen"], klick = function() G.Aktivieren(nil) end } })
 
     local aktiv = function() return G.AktivName() ~= nil end
-    local k2 = karte(P, function() return "Aktive Gruppe: " .. tostring(G.AktivName() or "") end,
+    local k2 = karte(P, function() return string.format(L["Aktive Gruppe: %s"], tostring(G.AktivName() or "")) end,
         nil, aktiv)
-    zeile(k2, { art = "segment", label = "Art",
-        werte = { { wert = "kader", label = "Kader" }, { wert = "raid", label = "Raidgruppe" } },
+    zeile(k2, { art = "segment", label = L["Art"],
+        werte = { { wert = "kader", label = L["Kader"] }, { wert = "raid", label = L["Raidgruppe"] } },
         beschr = function()
             local g = G.Aktiv()
             return (g and g.modus == "raid")
-                and "In der Liste stehen alle, die gerade in deiner Gruppe sind – für kleinere Schlachtzüge."
-                or  "In der Liste steht immer der ganze Kader – zum Beispiel für den 40er."
+                and L["In der Liste stehen alle, die gerade in deiner Gruppe sind – für kleinere Schlachtzüge."]
+                or  L["In der Liste steht immer der ganze Kader – zum Beispiel für den 40er."]
         end,
         get = function() local g = G.Aktiv() return g and g.modus or "kader" end,
         set = function(v)
@@ -448,28 +463,28 @@ local function seiteGruppen(P)
             if g and g.modus ~= v then G.ModusUmschalten(G.AktivName()) end
         end })
     local istKader = function() local g = G.Aktiv() return g and g.modus ~= "raid" end
-    zeile(k2, { art = "knopf", sichtbar = istKader, label = "Kader aus der aktuellen Gruppe füllen",
+    zeile(k2, { art = "knopf", sichtbar = istKader, label = L["Kader aus der aktuellen Gruppe füllen"],
         beschr = function()
-            return Meldung.kader or "Ersetzt den Kader durch alle, die jetzt in deiner Gruppe stehen."
+            return Meldung.kader or L["Ersetzt den Kader durch alle, die jetzt in deiner Gruppe stehen."]
         end,
-        knopf = { text = "Füllen",
+        knopf = { text = L["Füllen"],
             klick = function()
                 local n = G.KaderAusGruppe(G.AktivName())
-                Meldung.kader = farbig(C.ok, (n or 0) .. " Namen übernommen")
+                Meldung.kader = farbig(C.ok, string.format(L["%d Namen übernommen"], n or 0))
             end } })
-    zeile(k2, { art = "eingabe", sichtbar = istKader, label = "Namen hinzufügen",
+    zeile(k2, { art = "eingabe", sichtbar = istKader, label = L["Namen hinzufügen"],
         beschr = function()
-            return Meldung.namen or "Mit Komma trennen – Nachnamen enthalten Leerzeichen."
+            return Meldung.namen or L["Mit Komma trennen – Nachnamen enthalten Leerzeichen."]
         end,
-        knopf = { text = "Hinzufügen",
+        knopf = { text = L["Hinzufügen"],
             klick = function(text)
                 local n = G.KaderErgaenzen(G.AktivName(), text)
-                Meldung.namen = farbig(C.ok, (n or 0) .. " ergänzt")
+                Meldung.namen = farbig(C.ok, string.format(L["%d ergänzt"], n or 0))
             end } })
-    zeile(k2, { art = "info", sichtbar = istKader, label = "Kader",
+    zeile(k2, { art = "info", sichtbar = istKader, label = L["Kader"],
         beschr = function()
             local g = G.Aktiv()
-            if not g or #(g.kader or {}) == 0 then return "Noch leer." end
+            if not g or #(g.kader or {}) == 0 then return L["Noch leer."] end
             local teile = {}
             for i, n in ipairs(g.kader) do
                 if i > 16 then teile[#teile + 1] = "…" break end
@@ -477,12 +492,12 @@ local function seiteGruppen(P)
             end
             return table.concat(teile, ", ")
         end })
-    zeile(k2, { art = "knopf", label = "Gruppe löschen",
+    zeile(k2, { art = "knopf", label = L["Gruppe löschen"],
         beschr = function()
-            return loeschenBereit and farbig(C.warn, "Nochmal klicken, um die Gruppe wirklich zu löschen.")
-                   or "Die Vergaben bleiben erhalten, sie verlieren nur ihre Gruppe nicht."
+            return loeschenBereit and farbig(C.warn, L["Nochmal klicken, um die Gruppe wirklich zu löschen."])
+                   or L["Die Vergaben bleiben erhalten, sie verlieren nur ihre Gruppe nicht."]
         end,
-        knopf = { text = function() return loeschenBereit and "Wirklich löschen" or "Löschen" end,
+        knopf = { text = function() return loeschenBereit and L["Wirklich löschen"] or L["Löschen"] end,
             klick = function()
                 local name = G.AktivName()
                 if loeschenBereit == name then
@@ -493,25 +508,25 @@ local function seiteGruppen(P)
                 end
             end } })
 
-    local k3 = karte(P, "Neue Gruppe")
-    zeile(k3, { art = "eingabe", label = "Name",
+    local k3 = karte(P, L["Neue Gruppe"])
+    zeile(k3, { art = "eingabe", label = L["Name"],
         beschr = function()
-            return Meldung.neu or "Höchstens 40 Zeichen, ohne Semikolon."
+            return Meldung.neu or L["Höchstens 40 Zeichen, ohne Semikolon."]
         end,
-        knopf = { text = "Anlegen",
+        knopf = { text = L["Anlegen"],
             klick = function(text)
                 local ok, grund = G.Anlegen(text)
-                Meldung.neu = ok and farbig(C.ok, "Angelegt.") or farbig(C.bad, tostring(grund))
+                Meldung.neu = ok and farbig(C.ok, L["Angelegt."]) or farbig(C.bad, tostring(grund))
             end } })
 end
 
 local NAV = {
-    { id = "erfassung", label = "Erfassung",         icon = "settings.tga",
-      titel = "Erfassung", beschr = "Was, wo und von wem mitgeschrieben wird.", bauen = seiteErfassung },
-    { id = "gargul",    label = "Gargul & Abgleich", icon = "rotate.tga",
-      titel = "Gargul & Abgleich", beschr = "Würfelbereiche, Import und der Abgleich zwischen den Spielern.", bauen = seiteGargul },
-    { id = "gruppen",   label = "Gruppen",           icon = "users-group.tga",
-      titel = "Gruppen", beschr = "Kader und Raidgruppen für verschiedene Raidgrößen.", bauen = seiteGruppen },
+    { id = "erfassung", label = L["Erfassung"],         icon = "settings.tga",
+      titel = L["Erfassung"], beschr = L["Was, wo und von wem mitgeschrieben wird."], bauen = seiteErfassung },
+    { id = "gargul",    label = L["Gargul & Abgleich"], icon = "rotate.tga",
+      titel = L["Gargul & Abgleich"], beschr = L["Würfelbereiche, Import und der Abgleich zwischen den Spielern."], bauen = seiteGargul },
+    { id = "gruppen",   label = L["Gruppen"],           icon = "users-group.tga",
+      titel = L["Gruppen"], beschr = L["Kader und Raidgruppen für verschiedene Raidgrößen."], bauen = seiteGruppen },
 }
 
 -- =====================================================================
@@ -520,6 +535,7 @@ local NAV = {
 
 local function version()
     local f = (C_AddOns and C_AddOns.GetAddOnMetadata) or rawget(_G, "GetAddOnMetadata")
+    if not f then return "?" end
     local ok, v = pcall(f, ADDON, "Version")
     return (ok and v) or "?"
 end
@@ -648,7 +664,7 @@ local function fensterBauen()
 
     local gl = S.Text(seite, 11, C.mu)
     gl:SetPoint("TOPLEFT", seite, "TOPLEFT", 16, -16)
-    gl:SetText("Einstellungen")
+    gl:SetText(L["Einstellungen"])
     local y = 36
     for _, nav in ipairs(NAV) do
         local b = navKnopf(seite, nav)
@@ -669,7 +685,7 @@ local function fensterBauen()
     titel:SetPoint("TOPLEFT", body, "TOPLEFT", 20, -34)
     beschr = S.Text(body, 12, C.mu, "LEFT", true)
     beschr:SetPoint("TOPLEFT", body, "TOPLEFT", 20, -62)
-    beschr:SetPoint("TOPRIGHT", body, "TOPRIGHT", -20, -62)
+    beschr:SetWidth(BREITE - SEITE - 60)
 
     scroll = S.Bildlauf(body, 48)
     scroll:SetPoint("TOPLEFT", body, "TOPLEFT", 20, -96)
@@ -689,7 +705,7 @@ local function fensterBauen()
     fussText = S.Text(fuss, 11, C.mu)
     fussText:SetPoint("LEFT", fuss, "LEFT", 16, 0)
 
-    local tests = S.Knopf(fuss, "Selbsttests", "secondary", 24)
+    local tests = S.Knopf(fuss, L["Selbsttests"], "secondary", 24)
     tests:SetPoint("RIGHT", fuss, "RIGHT", -12, 0)
     tests:SetScript("OnClick", function()
         if ns.Tests then ns.Tests.Alle() end
@@ -699,13 +715,21 @@ local function fensterBauen()
     for _, nav in ipairs(NAV) do
         local P = { karten = {}, kind = CreateFrame("Frame", nil, scroll.kind), nav = nav }
         P.kind:SetPoint("TOPLEFT", scroll.kind, "TOPLEFT", 0, 0)
-        P.kind:SetSize(BREITE - 2 - SEITE - 20 - 16 - 10, 1)
+        P.kind:SetSize(STANDARDBREITE, 1)
         P.kind:Hide()
         nav.bauen(P)
         Seiten[nav.id] = P
     end
 
-    win:SetScript("OnShow", function() Einstellungen.Aktualisieren() end)
+    win:SetScript("OnShow", function()
+        Einstellungen.Aktualisieren()
+        -- Erste Fassung der Schrift nachziehen: ein neuer Client zeichnet
+        -- Text, der vor dem Laden der Schriftdatei gesetzt wurde, nicht.
+        if C_Timer then
+            C_Timer.After(0.1, function() S.Auffrischen(); Einstellungen.Aktualisieren() end)
+            C_Timer.After(0.6, function() S.Auffrischen() end)
+        end
+    end)
 end
 
 -- =====================================================================
@@ -721,18 +745,19 @@ function Einstellungen.Aktualisieren()
         for id, Q in pairs(Seiten) do Q.kind:SetShown(id == aktuelleSeite) end
         setzeNav(aktuelleSeite)
 
-        kruemel:SetText("Einstellungen  ›  " .. P.nav.label)
+        kruemel:SetText(L["Einstellungen"] .. "  ›  " .. P.nav.label)
         titel:SetText(P.nav.titel)
         beschr:SetText(P.nav.beschr)
 
         seiteMessen(aktuelleSeite)
 
         local darf, grund = ns.Rolle.IchSchreibe()
-        fussText:SetText((darf and "Du schreibst mit" or "Du schreibst nicht mit") ..
+        fussText:SetText((darf and L["Du schreibst mit"] or L["Du schreibst nicht mit"]) ..
             "  ·  " .. tostring(grund))
     end)
     if not ok then
-        print("|cff1B6B57Loot-Historie|r: |cffff5555Fehler in den Einstellungen: " .. tostring(fehler) .. "|r")
+        print("|cff1B6B57Loot-Historie|r: |cffff5555" ..
+            string.format(L["Fehler in den Einstellungen: %s"], tostring(fehler)) .. "|r")
     end
 end
 
@@ -742,6 +767,7 @@ function Einstellungen.Waehle(id)
     loeschenBereit = nil
     scroll:Zurueck()
     Einstellungen.Aktualisieren()
+    if C_Timer then C_Timer.After(0.1, function() S.Auffrischen() end) end
 end
 
 function Einstellungen.Zeigen(id)
@@ -761,6 +787,41 @@ end
 
 function Einstellungen.Sichtbar()
     return win and win:IsShown() and true or false
+end
+
+--- Diagnose: was weiss der Client ueber unsere Textfelder?
+--  Fuer den Fall „Text steht im Layout, wird aber nicht gezeichnet".
+function Einstellungen.Diagnose()
+    local zeilen = {}
+    local function z(t) zeilen[#zeilen + 1] = t end
+
+    z(string.format("Sprache: %s  Locale: %s", ns.Sprache or "?", tostring(GetLocale and GetLocale())))
+    z(string.format("Textfelder des Baukastens: %d", S.AnzahlTexte()))
+    z(string.format("Seite: %s  Breite %s  Hoehe %s", aktuelleSeite,
+        tostring(letzteMasse.breite), tostring(letzteMasse.hoehe)))
+
+    local P = Seiten[aktuelleSeite]
+    if not P then z("keine Seite") return zeilen end
+
+    for ci, c in ipairs(P.karten) do
+        z(string.format("Karte %d: sichtbar=%s Titel=%q H=%s", ci, tostring(c:IsShown()),
+            tostring(c.titel:GetText()), tostring(c:GetHeight())))
+        for ri, r in ipairs(c.zeilen) do
+            if r:IsShown() then
+                local fs = r.label
+                local pfad, groesse = fs:GetFont()
+                local rot, gruen, blau, alpha = fs:GetTextColor()
+                z(string.format("  Zeile %d: %q  sichtbar=%s w=%s h=%s eff.alpha=%s font=%s/%s farbe=%.2f,%.2f,%.2f,%.2f",
+                    ri, tostring(fs:GetText()), tostring(fs:IsVisible()),
+                    tostring(fs:GetStringWidth()), tostring(fs:GetStringHeight()),
+                    tostring(fs:GetEffectiveAlpha()), tostring(pfad and pfad:match("[^\\]+$")), tostring(groesse),
+                    rot or -1, gruen or -1, blau or -1, alpha or -1))
+                if ri >= 2 then break end
+            end
+        end
+        if ci >= 2 then break end
+    end
+    return zeilen
 end
 
 return ns

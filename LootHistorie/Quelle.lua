@@ -19,6 +19,7 @@
 ------------------------------------------------------------------------]]
 
 local _, ns = ...
+local L = ns.L
 
 local Quelle = {}
 ns.Quelle = Quelle
@@ -32,14 +33,14 @@ ns.Quelle = Quelle
 function Quelle.Gargul()
     local GL = rawget(_G, "Gargul")
     if not GL then
-        return nil, "Gargul ist nicht geladen"
+        return nil, L["Gargul ist nicht geladen"]
     end
     if type(GL.DB) ~= "table" then
-        return nil, "Gargul ist noch nicht bereit"
+        return nil, L["Gargul ist noch nicht bereit"]
     end
     local H = GL.DB.AwardHistory
     if type(H) ~= "table" then
-        return nil, "Gargul hat noch keine Vergabe aufgezeichnet"
+        return nil, L["Gargul hat noch keine Vergabe aufgezeichnet"]
     end
     return H
 end
@@ -56,7 +57,7 @@ end
 --- Die Historie, aus der ausgewertet wird: die EIGENE.
 --  Gargul ist nur noch Einfuhrquelle, nicht Datenhalter.
 function Quelle.Historie()
-    if not ns.Erfassung then return nil, "Erfassung nicht geladen" end
+    if not ns.Erfassung then return nil, L["Erfassung nicht geladen"] end
     return ns.Erfassung.Historie()
 end
 
@@ -78,7 +79,7 @@ function Quelle.GargulImport(fenster)
 
     local G, grund = Quelle.Gargul()
     if not G then return nil, grund end
-    if not ns.Erfassung then return nil, "Erfassung nicht geladen" end
+    if not ns.Erfassung then return nil, L["Erfassung nicht geladen"] end
 
     local eigen = ns.Erfassung.Historie()
     local Kern = ns.Kern
@@ -146,11 +147,11 @@ local SOLL = {
 function Quelle.GargulBereiche()
     local GL = rawget(_G, "Gargul")
     if not (GL and GL.Settings and GL.Settings.get) then
-        return nil, "Gargul ist nicht bereit"
+        return nil, L["Gargul ist nicht bereit"]
     end
 
     local ok, B = pcall(GL.Settings.get, GL.Settings, "RollTracking.Brackets", {})
-    if not ok or type(B) ~= "table" then return nil, "Einstellung nicht lesbar" end
+    if not ok or type(B) ~= "table" then return nil, L["Einstellung nicht lesbar"] end
 
     local haupt, zweit, alle = false, false, {}
     for _, b in ipairs(B) do
@@ -169,7 +170,7 @@ end
 --  Eigene weitere Bereiche gehen dabei verloren.
 function Quelle.GargulBereicheSetzen()
     local GL = rawget(_G, "Gargul")
-    if not (GL and GL.Settings and GL.Settings.set) then return false, "Gargul ist nicht bereit" end
+    if not (GL and GL.Settings and GL.Settings.set) then return false, L["Gargul ist nicht bereit"] end
 
     local kopie = {}
     for i, b in ipairs(SOLL) do kopie[i] = { b[1], b[2], b[3], b[4], b[5], b[6] } end
@@ -250,7 +251,7 @@ function Quelle.Gegenstandstext(eintrag)
         local ok, _, link = pcall(voll, id)
         if ok and link then return link end
     end
-    return "Gegenstand " .. tostring(id)
+    return string.format(L["Gegenstand %s"], tostring(id))
 end
 
 --- Tagesschluessel fuer Kern.Raidtage.

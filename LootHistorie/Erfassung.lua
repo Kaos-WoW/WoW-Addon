@@ -23,6 +23,7 @@
 ------------------------------------------------------------------------]]
 
 local ADDON, ns = ...
+local L = ns.L
 
 local Erfassung = {}
 ns.Erfassung = Erfassung
@@ -476,7 +477,7 @@ rahmen:SetScript("OnEvent", function(_, ereignis, a1)
         end
     end)
     if not ok then
-        print(PRAEFIX .. "|cffff5555Fehler beim Mitschreiben: " .. tostring(fehler) .. "|r")
+        print(PRAEFIX .. "|cffff5555" .. string.format(L["Fehler beim Mitschreiben: %s"], tostring(fehler)) .. "|r")
     end
 end)
 

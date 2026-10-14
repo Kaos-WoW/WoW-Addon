@@ -19,6 +19,7 @@
 ------------------------------------------------------------------------]]
 
 local ADDON, ns = ...
+local L = ns.L
 
 local Rolle = {}
 ns.Rolle = Rolle
@@ -124,13 +125,13 @@ function Rolle.Kandidaten()
             unit = E.unit,
         }
         if methode == "master" and not ml and istPluendermeister(E, partei) then
-            k.rolle = "Plündermeister"
+            k.rolle = L["Plündermeister"]
             ml = k
         elseif istLeiter(E) then
-            k.rolle = "Leiter"
+            k.rolle = L["Leiter"]
             leiter = k
         elseif istAssistent(E) then
-            k.rolle = "Assistent"
+            k.rolle = L["Assistent"]
             assist[#assist + 1] = k
         end
     end
@@ -161,18 +162,18 @@ function Rolle.IchSchreibe()
     local d = ns.Erfassung.Einstellungen()
     local modus = d.schreiben or "auto"
 
-    if modus == "immer" then return true, "eingestellt: immer" end
-    if modus == "nie"   then return false, "eingestellt: nie" end
+    if modus == "immer" then return true, L["eingestellt: immer"] end
+    if modus == "nie"   then return false, L["eingestellt: nie"] end
 
     -- Allein unterwegs (Test, Solo-Instanz): niemand sonst kann es tun.
     if not (IsInGroup and IsInGroup()) then
-        return true, "keine Gruppe"
+        return true, L["keine Gruppe"]
     end
 
     local kandidaten, methode = Rolle.Kandidaten()
     if #kandidaten == 0 then
         -- Weder Leiter noch Plündermeister auszumachen: lieber doppelt als gar nicht.
-        return true, "kein Leiter erkennbar"
+        return true, L["kein Leiter erkennbar"]
     end
 
     local hat = ns.Abgleich and ns.Abgleich.Bekannte() or {}
@@ -180,12 +181,12 @@ function Rolle.IchSchreibe()
 
     if not wahl then
         -- Keiner der Kandidaten hat das Addon.
-        return false, "weder Plündermeister noch Leiter haben das Addon"
+        return false, L["weder Plündermeister noch Leiter haben das Addon"]
     end
     if wahl.ich then
-        return true, (wahl.rolle or "Kandidat") .. (methode == "master" and "" or " (kein Plündermeister)")
+        return true, (wahl.rolle or L["Kandidat"]) .. (methode == "master" and "" or (" " .. L["(kein Plündermeister)"]))
     end
-    return false, (wahl.name or "?") .. " schreibt mit"
+    return false, string.format(L["%s schreibt mit"], wahl.name or "?")
 end
 
 --- Wer ist der Schreiber gerade? Fuer die Anzeige.

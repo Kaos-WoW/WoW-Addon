@@ -8,6 +8,7 @@
 ## SavedVariables: LootHistorieDB
 
 Kern.lua
+Locale.lua
 Quelle.lua
 Rolle.lua
 Gruppen.lua

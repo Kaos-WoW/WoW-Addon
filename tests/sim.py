@@ -13,7 +13,7 @@ import sys
 from lupa import lua51
 
 A = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "LootHistorie")
-DATEIEN = ["Kern.lua", "Quelle.lua", "Rolle.lua", "Gruppen.lua", "Erfassung.lua", "Abgleich.lua",
+DATEIEN = ["Kern.lua", "Locale.lua", "Quelle.lua", "Rolle.lua", "Gruppen.lua", "Erfassung.lua", "Abgleich.lua",
           "Blizzbeute.lua", "Stil.lua", "Einstellungen.lua", "Fenster.lua", "Befehle.lua", "Tests.lua"]
 
 STUBS = r'''
@@ -46,6 +46,9 @@ local function mock()
             end
         end
         if k == "GetFont" then return function() return nil end end
+        if k == "GetTextColor" then return function() return 1, 1, 1, 1 end end
+        if k == "GetEffectiveAlpha" then return function() return 1 end end
+        if k == "IsVisible" then return function(self) return self._shown ~= false end end
         if k == "GetStringWidth" then return function(self) return #tostring(self._text or "") * 7 end end
         if k == "GetStringHeight" then
             return function(self)
@@ -184,6 +187,7 @@ end
 IsMasterLooter = function() return welt.ml == welt.me end
 IsInInstance = function() return true, "raid" end
 
+GetLocale = function() return __locale or "deDE" end
 C_Timer = { After = function(d, fn) __nachher(d, fn) end }
 C_ChatInfo = {
     RegisterAddonMessagePrefix = function() return true end,
@@ -216,8 +220,9 @@ end
 
 
 class Welt:
-    def __init__(self, mitglieder, sender_suffix="", ml=None):
+    def __init__(self, mitglieder, sender_suffix="", ml=None, locale="deDE"):
         self.ml = ml
+        self.locale = locale
         """mitglieder: Liste von dicts {name, leader, assist, gilde, addon}"""
         self.t = 1700000000.0
         self.zeitgeber = []   # (faellig, nr, client, fn)
@@ -248,6 +253,7 @@ class Welt:
         if self.ml is not None:
             welt["ml"] = self.ml + 1
         g["__welt"] = welt
+        g["__locale"] = self.locale
 
         g["__jetzt"] = lambda: int(self.t)
         g["__nachher"] = lambda d, fn, c=idx: self._nachher(c, d, fn)

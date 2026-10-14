@@ -97,29 +97,63 @@ Stil.Faerbe = Faerbe
 
 local function Schrift(fs, groesse)
     local px = (groesse or 12) + GROESSE_PLUS
-    fs:SetFont(SCHRIFT, px, "")
-    -- Fehlt die Datei (unvollstaendig ausgerollt), bleibt die Standardschrift.
-    if not fs:GetFont() then
-        local pfad = GameFontNormal and GameFontNormal:GetFont()
+    local ok = fs:SetFont(SCHRIFT, px, "")
+    -- Fehlt die Datei oder laedt sie (noch) nicht, bleibt Blizzards Schrift
+    -- in derselben Groesse. `false` ausdruecklich: aeltere Clients liefern nil.
+    if ok == false or not fs:GetFont() then
+        local pfad = rawget(_G, "STANDARD_TEXT_FONT")
+            or (GameFontNormal and GameFontNormal:GetFont())
         if pfad then fs:SetFont(pfad, px, "") end
     end
 end
 Stil.Schrift = Schrift
 
+-- Alle Textfelder, die dieser Baukasten erzeugt hat (schwach, damit nichts
+-- am Leben gehalten wird).
+local Texte = setmetatable({}, { __mode = "k" })
+
 local function Text(eltern, groesse, c, ausrichtung, umbruch)
-    local fs = eltern:CreateFontString(nil, "OVERLAY")
+    -- ⭐ Mit Schriftvorlage anlegen, DANN die eigene Schrift setzen (so macht
+    -- es KaosUI): Das Feld hat von Anfang an eine geladene Grundschrift,
+    -- und der Wechsel auf Inter zeigt nie leeren Text.
+    local fs = eltern:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     Schrift(fs, groesse)
+    Texte[fs] = groesse or 12
     fs:SetJustifyH(ausrichtung or "LEFT")
     fs:SetShadowOffset(0, 0)
     c = c or C.tx
     fs:SetTextColor(c[1], c[2], c[3], c[4] or 1)
-    if umbruch then
-        fs:SetWordWrap(true)
-        fs:SetJustifyV("TOP")
-    end
+    fs:SetWordWrap(umbruch and true or false)
+    -- ⚠️ Ein umbrechender Text ohne Breite wird mit Breite 0 gesetzt und
+    -- zeichnet dann unter Umstaenden nichts. Darum von Anfang an eine
+    -- vernuenftige Breite; das Layout setzt spaeter die richtige.
+    if umbruch then fs:SetWidth(300) end
     return fs
 end
 Stil.Text = Text
+
+--- ⭐ Setzt Schrift und Text aller Textfelder neu.
+--
+--  Hintergrund (KaosUI, OptionsKit.lua): Eine Schriftdatei, die der Client
+--  noch nie geladen hat, zeigt beim ersten Setzen leeren Text, bis der Text
+--  NEU gesetzt wird. Gleicher Text allein genuegt nicht — erst leer, dann
+--  wieder der Text. Das Layout (Hoehen) bleibt davon unberuehrt.
+function Stil.Auffrischen()
+    for fs, groesse in pairs(Texte) do
+        local t = fs:GetText()
+        Schrift(fs, groesse)
+        if t and t ~= "" then
+            fs:SetText("")
+            fs:SetText(t)
+        end
+    end
+end
+
+function Stil.AnzahlTexte()
+    local n = 0
+    for _ in pairs(Texte) do n = n + 1 end
+    return n
+end
 
 function Stil.TextFarbe(fs, c)
     fs:SetTextColor(c[1], c[2], c[3], c[4] or 1)
@@ -265,6 +299,13 @@ function Stil.Knopf(eltern, text, art, hoehe)
     function b:SetAktiv(an)
         self:SetEnabled(an and true or false)
         KnopfFarbe(self)
+    end
+    --- Aussehen wechseln, z. B. normal -> petrol, wenn etwas auffaellt.
+    function b:SetArt(art2)
+        if self.art == art2 or not self.kasten then return end
+        self.art = art2
+        KnopfFarbe(self)
+        KnopfMasse(self)
     end
 
     b:SetLabel(text)
