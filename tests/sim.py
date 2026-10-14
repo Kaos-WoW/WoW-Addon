@@ -14,7 +14,7 @@ from lupa import lua51
 
 A = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Fairshare")
 DATEIEN = ["Kern.lua", "Locale.lua", "Quelle.lua", "Rolle.lua", "Gruppen.lua", "Erfassung.lua", "Abgleich.lua",
-          "Blizzbeute.lua", "Stil.lua", "Wurf.lua", "Einstellungen.lua", "Fenster.lua", "Befehle.lua", "Tests.lua"]
+          "Blizzbeute.lua", "Stil.lua", "Wurf.lua", "Konfig.lua", "Einstellungen.lua", "Fenster.lua", "Befehle.lua", "Tests.lua"]
 
 STUBS = r'''
 local welt = __welt
@@ -263,6 +263,7 @@ GetMasterLootCandidate = function(slot, i)
     return namen[i]
 end
 GiveMasterLoot = function(slot, i) __geben[#__geben + 1] = { slot, i } end
+IsInGuild = function() return true end
 __chat = {}
 SendChatMessage = function(t, kanal) __chat[#__chat + 1] = { t, kanal } end
 __wurfLog = {}

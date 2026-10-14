@@ -39,6 +39,7 @@ local function hilfe()
     print(L["  |cffffff78/fs rolle|r        – wer zeichnet gerade auf, und warum"])
     print(L["  |cffffff78/fs rueckgaengig|r – die letzte Vergabe zurücknehmen (mit Rückfrage; einzelne Vergaben im Verlauf)"])
     print(L["  |cffffff78/fs wurf|r         – eigenes Würfelfenster starten (|cffffff78wurf [Sekunden] <Link>|r, |cffffff78wurf ende|r, |cffffff78wurf abbrechen|r, |cffffff78wurf entzaubern|r, |cffffff78wurf ergebnis|r, |cffffff78wurf offen|r, |cffffff78wurf status|r)"])
+    print(L["  |cffffff78/fs konfig|r       – Einstellungen teilen (|cffffff78konfig senden|r, |cffffff78nachfragen|r, |cffffff78zurueck|r)"])
     print(L["  |cffffff78/fs verzauberer|r  – Verzauberer fürs Entzaubern (|cffffff78verzauberer add Name, Name|r, |cffffff78verzauberer del Name|r)"])
     print(L["  |cffffff78/fs beutetest|r    – Diagnose: Beutefenster und Zuteilung durch den Plündermeister"])
     print(L["  |cffffff78/fs gruppe|r       – Kader und Raidgruppen (|cffffff78gruppe hilfe|r)"])
@@ -423,6 +424,28 @@ befehle["rueckgaengig"] = function(arg)
 end
 befehle["undo"] = befehle["rueckgaengig"]
 befehle["revert"] = befehle["rueckgaengig"]
+
+--- ⭐ Einstellungen teilen (Konfig.lua)
+befehle["konfig"] = function(arg)
+    local was = (arg or ""):lower():match("^(%S*)") or ""
+    if was == "senden" or was == "send" then
+        local n, grund = ns.Konfig.Senden()
+        if not n then sag(ROT .. tostring(grund) .. "|r") return end
+        sag(string.format(L["Einstellungen an die Gilde gesendet (%d Nachrichten)."], n))
+        return
+    elseif was == "nachfragen" or was == "holen" or was == "get" then
+        ns.Konfig.Anfragen("GUILD")
+        sag(L["Angefragt – hat jemand neuere Einstellungen, kommen sie gleich."])
+        return
+    elseif was == "zurueck" or was == "zurück" or was == "undo" then
+        local ok, grund = ns.Konfig.Zurueck()
+        sag(ok and (GRUEN .. L["Frühere Einstellungen wiederhergestellt."] .. "|r") or (ROT .. tostring(grund) .. "|r"))
+        return
+    end
+    sag(L["Einstellungen teilen:"])
+    for _, z in ipairs(ns.Konfig.Status()) do print("  " .. z) end
+end
+befehle["config"] = befehle["konfig"]
 
 befehle["abgleich"] = function(arg)
     if arg == "status" or arg == "stand" then

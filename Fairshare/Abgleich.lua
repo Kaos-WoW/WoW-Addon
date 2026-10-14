@@ -93,11 +93,13 @@ end
 local Warteschlange = {}
 local wartezeit = 0
 
-local function senden(text)
+--  @param kanalName  nil = die Gruppe, sonst z. B. "GUILD" (Einstellungen teilen, Konfig.lua)
+local function senden(text, kanalName)
     if #text > 250 then return false end
 
     local f = C_ChatInfo and C_ChatInfo.SendAddonMessage or rawget(_G, "SendAddonMessage")
-    local k = kanal()
+    local k = kanalName or kanal()
+    if kanalName == "GUILD" and not (IsInGuild and IsInGuild()) then return false end
     if not f or not k then return false end
 
     local ok, ergebnis = pcall(f, PRAEFIX, text, k)
@@ -119,7 +121,7 @@ Takter:SetScript("OnUpdate", function(_, dt)
     if wartezeit > 0 then return end
 
     local Eintrag = Warteschlange[1]
-    local r = senden(Eintrag.text)
+    local r = senden(Eintrag.text, Eintrag.kanal)
     if r == nil then
         -- gedrosselt: spaeter erneut, aber nicht endlos
         Eintrag.versuche = (Eintrag.versuche or 0) + 1
@@ -131,20 +133,22 @@ Takter:SetScript("OnUpdate", function(_, dt)
     wartezeit = TAKT
 end)
 
-local function einreihen(text)
-    Warteschlange[#Warteschlange + 1] = { text = text }
+local function einreihen(text, kanalName)
+    Warteschlange[#Warteschlange + 1] = { text = text, kanal = kanalName }
 end
 
 --- Fuer andere Dateien (Wurf.lua): eine Nachricht an die Gruppe.
 --  @param vorn  vor allen wartenden Abgleich-Nachrichten senden
---  @return true, oder false ohne Gruppe
-function Abgleich.Senden(text, vorn)
-    if not kanal() then return false end
+--  @param kanalName  nil = die Gruppe, "GUILD" = die Gilde
+--  @return true, oder false ohne Gruppe (bzw. Gilde)
+function Abgleich.Senden(text, vorn, kanalName)
+    if not (kanalName or kanal()) then return false end
+    if kanalName == "GUILD" and not (IsInGuild and IsInGuild()) then return false end
     if vorn then
-        table.insert(Warteschlange, 1, { text = text })
+        table.insert(Warteschlange, 1, { text = text, kanal = kanalName })
         wartezeit = 0
     else
-        einreihen(text)
+        einreihen(text, kanalName)
     end
     return true
 end
@@ -526,12 +530,19 @@ local function aufNReagieren(sid, S, text)
 end
 
 --- Eine Addon-Nachricht ist eingetroffen.
-function Abgleich.Empfangen(text, sender)
+function Abgleich.Empfangen(text, sender, kanalName)
     if type(text) ~= "string" then return end
     letzterAbsender = sender
 
     local typ, rest = text:match("^(%a);(.*)$")
     if not typ then return end
+
+    -- ⭐ Einstellungen teilen (Konfig.lua): kommt auch ueber die Gilde, nicht nur aus
+    -- der Gruppe; Konfig prueft den Absender selbst (Gilde und Rang).
+    if typ == "K" or typ == "A" then
+        if ns.Konfig then ns.Konfig.Empfangen(typ, rest, sender, kanalName) end
+        return
+    end
 
     local gilde, unit = ns.Rolle.Absender(sender)
 
@@ -661,10 +672,10 @@ local rahmen = CreateFrame("Frame")
 rahmen:RegisterEvent("CHAT_MSG_ADDON")
 rahmen:RegisterEvent("GROUP_ROSTER_UPDATE")
 rahmen:RegisterEvent("PLAYER_ENTERING_WORLD")
-rahmen:SetScript("OnEvent", function(_, ereignis, praefix, text, _, sender)
+rahmen:SetScript("OnEvent", function(_, ereignis, praefix, text, kanalName, sender)
     local ok, fehler = pcall(function()
         if ereignis == "CHAT_MSG_ADDON" then
-            if praefix == PRAEFIX then Abgleich.Empfangen(text, sender) end
+            if praefix == PRAEFIX then Abgleich.Empfangen(text, sender, kanalName) end
         elseif ereignis == "GROUP_ROSTER_UPDATE" then
             Abgleich.HalloSpaeter(6)
             Abgleich.Pruefen()

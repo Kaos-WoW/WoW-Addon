@@ -55,6 +55,7 @@ das nur liest, weder Haupt/Zweit noch Gruppen noch Abgleich leisten kann.
 | `Abgleich.lua` | Hallo, Live-Meldung, Abgleich, Hinweis-Fenster | ja |
 | `Blizzbeute.lua` | Blizzards `C_LootHistory` als zweite Quelle | ja |
 | `Wurf.lua` | eigenes Würfelfenster: Haupt (1-100) / OS (1-50) / Passen, Startdialog, `/fs beutetest` | ja |
+| `Konfig.lua` | Einstellungen teilen: einer stellt ein, alle bekommen es (Gilde, Rangprüfung, Nachfragen) | ja |
 | `Stil.lua` | Bausteine im KaosUI-Look (Farben, runde Ecken, Knopf, Schalter, Segmentwahl, Bildlauf) | ja |
 | `Einstellungen.lua` | das Einstellungsfenster (Karten und Zeilen, drei Seiten) | ja |
 | `Fenster.lua` | die Übersicht im KaosUI-Look: Liste, Verlauf, Spielerdetail, Wurf-Modus | ja |
@@ -187,6 +188,32 @@ Englisch heißt Zweitbedarf **„OS"** (Nutzerwunsch), nicht „Off".
   die Knöpfe in `Wurf.lua` (`RandomRoll`, Beschriftung), `Quelle.GargulBereiche`/`SOLL`, Texte. Idee: zwei Einstellungen
   (Obergrenze Haupt, Obergrenze OS), überall daraus lesen; Beschriftungen und Erkennung folgen; Abgleich-Protokoll
   unberührt (die Art steckt im Eintrag, nicht der Bereich).
+
+### Einstellungen teilen (`Konfig.lua`, Nutzerwunsch 15.10.2026)
+
+Nur einer stellt ein (Würfelbereiche, Verzauberer, Gruppen …), alle bekommen es — wichtig bei mehreren 10er-/20er-Raids.
+
+* **Senden:** *Einstellungen → Würfeln & Abgleich → Einstellungen teilen → An alle senden* oder `/fs konfig senden`. Über den
+  **Gildenkanal** (Nachricht `K;<Stand>;<von>;<k>;<n>;<Paket>`, Zeilen wie `B|1|100|1|50`, `V|Name,Name`, `G|Name|auto|Ränge`,
+  `X|Name|Namen`) an alle, die online sind. `Abgleich.Senden(text, vorn, kanalName)` kennt jetzt auch `"GUILD"`;
+  `Abgleich.Empfangen` reicht `K`/`A` an `Konfig.Empfangen` weiter, **vor** der Gruppenprüfung.
+* **Wer darf senden:** Gildenrang. `Konfig.RangStufe(name)` = Stufe aus der Reihenfolge der vorkommenden Ränge (1 = höchster; Forever
+  zählt ab 1, die alte Liste ab 0), Grenze `konfigRang` (Standard **1 = nur Gildenleiter**), selbst Teil der geteilten
+  Einstellungen: ändern kann sie nur, wer ohnehin senden darf.
+* **Annehmen** nur wenn: Absender in der eigenen Gilde **und** Urheber (`von`) darf senden (Gildenliste muss geladen sein, sonst
+  nichts) **und** der Stand neuer ist. Weitergereichtes (Absender ≠ Urheber) nur, wenn **ich** in den letzten 3 min nachgefragt
+  habe — sonst könnte sich jedes Gildenmitglied als Leiter ausgeben. Schalter *Einstellungen der Gildenleitung übernehmen*
+  (`konfigAnnehmen`) schaltet es ab. `Konfig.Dekodieren` begrenzt alles Fremde (Zahlen auf ihren Bereich, Namen auf 40 Zeichen
+  ohne `; ~ | ,`, höchstens 12 Gruppen/8 Verzauberer/60 Namen je Gruppe, Unbekanntes bleibt unbeachtet).
+* **Nachholen:** Beim Anmelden (25 s, Gilde) und beim Gruppenbeitritt (höchstens alle 5 min) fragt jeder `A;<mein Stand>`. Wer einen
+  **neueren** Stand hat, schickt ihn zufällig verzögert nach (1–6 s; wer inzwischen hört, dass es jemand tat, schweigt) — und zwar
+  den **unveränderten Text des Urhebers** (`konfigRoh`), nie die eigenen, vielleicht geänderten Werte.
+* **Was geteilt wird:** Würfelbereiche, Würfelzeit, Ansage, Einstecken, nur Ausgewürfeltes, Abgleich automatisch, Qualität, Ort,
+  Rangstufe, Verzauberer, Gruppen (Beschriftung, Ränge, von Hand ergänzte Namen). **Nicht:** Fenstergröße/-lage, „selbst
+  öffnen", wer aufzeichnet (`schreiben`), die aktive Gruppe, der verwaltete Kader (jeder bildet ihn aus den Gildenrängen neu).
+  Gruppen werden **ersetzt**: eigene Gruppen, die es beim Absender nicht gibt, verschwinden.
+* **Zurück:** Vor jeder Übernahme wird der alte Stand gesichert (`konfigAlt`); `/fs konfig zurueck` oder der Knopf stellt ihn her.
+* Diagnose: `/fs konfig` zeigt Stand, eigene Stufe, ob angenommen wird, und die letzten Meldungen mit Grund einer Ablehnung.
 
 ### Entzaubern und freie Würfelzeit (Nutzerwünsche 14.10.2026)
 

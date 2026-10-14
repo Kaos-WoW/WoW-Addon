@@ -54,6 +54,12 @@ EIGENES WUERFELFENSTER (neu)
  * Ist der Gewinner zu weit weg, bleibt die Zuteilung vorgemerkt: Beim
    naechsten Handel mit ihm wird der Gegenstand eingelegt (/fs wurf offen).
    Auch ein Handel von Hand wird erkannt und eingetragen.
+ * Einstellungen teilen: Die Gildenleitung stellt das Addon einmal ein
+   (Wuerfelbereiche, Verzauberer, Gruppen ...) und klickt unter
+   Einstellungen -> Wuerfeln & Abgleich -> "An alle senden". Alle
+   Gildenmitglieder mit dem Addon uebernehmen es (zuruecknehmbar mit
+   /fs konfig zurueck); wer spaeter kommt, bekommt es beim Anmelden.
+   Neue Datei Konfig.lua: WoW ganz neu starten.
  * Wuerfelt niemand, kommt ein Fenster "Zum Entzaubern vergeben?": die
    Verzauberer stehen in den Einstellungen (Wuerfeln & Abgleich) oder per
    /fs verzauberer add Name. Der Pluendermeister bestaetigt mit "Vergeben";

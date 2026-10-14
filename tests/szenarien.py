@@ -1818,6 +1818,218 @@ fest("noch 18 s" in text or "noch 19 s" in text or "noch 20 s" in text, "/fs wur
 w.weiter(25)
 fest(not L0["ns"].Wurf.Aktiv(), "und nach 27 s vorbei")
 
+print("== 30. Einstellungen teilen ==")
+
+GILDE30 = """
+__gilde = {
+  [1] = { name = "Leiter Kaos", guildRank = "Gildenleiter", guildRankOrder = 1 },
+  [2] = { name = "Timo",        guildRank = "Offizier",     guildRankOrder = 2 },
+  [3] = { name = "Lina",        guildRank = "Raider",       guildRankOrder = 3 },
+  [4] = { name = "Moe",         guildRank = "Raider",       guildRankOrder = 3 },
+}
+C_Club = {
+  GetGuildClubId = function() return 1 end,
+  GetClubMembers = function() local t = {} for id in pairs(__gilde) do t[#t + 1] = id end table.sort(t) return t end,
+  GetMemberInfo = function(club, id) return __gilde[id] end,
+}
+"""
+
+
+def welt30(moe_addon=True, gilde=True):
+    ms = [{"name": "Leiter Kaos", "leader": True}, {"name": "Timo"}, {"name": "Lina"}, {"name": "Moe", "addon": moe_addon}]
+    w = Welt(ms, "-Realm")
+    for cl in w.clients:
+        cl["ns"].Erfassung.Einstellungen()["autoAbgleich"] = False
+        if gilde:
+            cl["lua"].execute(GILDE30)
+    w.ereignis("PLAYER_ENTERING_WORLD")
+    w.weiter(15)
+    return w
+
+
+def db30(w, k):
+    return w.clients[k]["g"]["FairshareDB"]
+
+
+def einstellen_leiter(w):
+    ns = w.clients[0]["ns"]
+    ns.Erfassung.BereicheSetzen(1, 200, 1, 20)
+    ns.Wurf.VerzaubererHinzufuegen("Zora, Gorm")
+    ns.Gruppen.Anlegen("10er")
+    ns.Gruppen.RangSetzen("10er", 3, True)
+    ns.Gruppen.KaderErgaenzen("10er", "Handname")
+    db30(w, 0)["wurfDauer"] = 45
+    db30(w, 0)["ansagen"] = False
+
+
+# --- Der Gildenleiter sendet, alle uebernehmen ---------------------------------------
+w = welt30()
+einstellen_leiter(w)
+n, grund = tup(w.clients[0]["ns"].Konfig.Senden())
+fest(n is not None and n >= 1, "Gildenleiter sendet (%s Nachrichten, %s)" % (n, grund))
+w.weiter(15)
+for k in (1, 2, 3):
+    d = db30(w, k)
+    fest(d["bereiche"] is not None and d["bereiche"]["haupt"][2] == 200 and d["bereiche"]["zweit"][2] == 20,
+         "%s: Würfelbereiche 1-200 / 1-20 übernommen" % w.mitglieder[k]["name"])
+ns2 = w.clients[2]["ns"]
+fest(ns2.Kern.Bedarfsart(1, 200) == "haupt", "und gleich wirksam")
+fest(list(ns2.Wurf.Verzauberer().values()) == ["Zora", "Gorm"], "Verzauberer übernommen")
+G = ns2.Gruppen.Holen("10er")
+fest(G is not None and G["raenge"][3] is True and list(G["extra"].values()) == ["Handname"], "Gruppe 10er mit Rang und Handnamen übernommen")
+fest(db30(w, 2)["wurfDauer"] == 45 and db30(w, 2)["ansagen"] is False, "Würfelzeit und Ansage übernommen")
+w.weiter(5)
+fest("Lina" in list(ns2.Gruppen.Holen("10er")["kader"].values()), "der Kader wird bei jedem aus den Gildenraengen neu gebildet")
+fest(db30(w, 2)["konfigVon"] == "Leiter Kaos" and db30(w, 2)["konfigStand"] == db30(w, 0)["konfigStand"], "Absender und Stand vermerkt")
+fest(db30(w, 2)["konfigAlt"] is not None, "der alte Stand ist gesichert")
+fest(any("übernommen" in str(x) for x in w.clients[2]["g"]["__ausgabe"].values()), "eine Zeile im Chat sagt es")
+fest(db30(w, 2)["schreiben"] == "auto" or db30(w, 2)["schreiben"] is None, "Persönliches (Wer aufzeichnet) bleibt unberührt")
+
+# --- Zweimal dasselbe: nichts passiert ----------------------------------------------
+vorher = len(w.protokoll)
+w.clients[0]["ns"].Konfig.Senden()
+w.weiter(10)
+fest(db30(w, 2)["konfigStand"] == db30(w, 0)["konfigStand"], "ein neuer Stand loest den alten ab")
+
+# --- Wer nicht senden darf, kann nicht -----------------------------------------------
+w = welt30()
+ok, grund = tup(w.clients[2]["ns"].Konfig.Senden())
+fest(ok is None or ok is False, "Raider darf nicht senden (%s)" % str(grund)[:60])
+w.clients[1]["ns"].Konfig.Senden()
+fest(db30(w, 1)["konfigStand"] is None, "auch ein Offizier nicht, solange die Grenze bei 1 liegt")
+
+# --- Gefaelscht oder von Unberechtigten ---------------------------------------------
+w = welt30()
+einstellen_leiter(w)
+ns0 = w.clients[0]["ns"]
+zeilen = list(ns0.Konfig.Kodieren(ns0.Konfig.Sammeln()).values())
+paket = "~".join(str(z) for z in zeilen)
+stand = int(w.t) + 500
+ns1 = w.clients[1]["ns"]
+ns1.Abgleich.Empfangen("K;%d;Lina;1;1;%s" % (stand, paket), "Lina-Realm", "GUILD")
+fest(db30(w, 1)["konfigStand"] is None, "Urheber Lina (Stufe 3) wird abgelehnt")
+ns1.Abgleich.Empfangen("K;%d;Leiter Kaos;1;1;%s" % (stand, paket), "Fremder-Realm", "GUILD")
+fest(db30(w, 1)["konfigStand"] is None, "Absender, der nicht in der Gilde steht, wird abgelehnt")
+text = " | ".join(str(x) for x in ns1.Konfig.Status().values())
+fest("abgelehnt" in text, "der Status nennt die Ablehnung")
+ns1.Abgleich.Empfangen("K;%d;Leiter Kaos;1;1;%s" % (stand, paket), "Lina-Realm", "GUILD")
+fest(db30(w, 1)["konfigStand"] is None, "Lina gibt sich als Leiter aus (weitergereicht, ungefragt): abgelehnt")
+text = " | ".join(str(x) for x in ns1.Konfig.Status().values())
+fest("unaufgefordert" in text, "der Status nennt den Grund")
+ns1.Konfig.Anfragen("GUILD")                          # Timo fragt nach ...
+ns1.Abgleich.Empfangen("K;%d;Leiter Kaos;1;1;%s" % (stand, paket), "Lina-Realm", "GUILD")
+fest(db30(w, 1)["konfigStand"] == stand, "... dann wird eine Antwort (auch weitergereicht) angenommen")
+
+# --- Gildenliste nicht geladen: nichts annehmen ------------------------------------------------
+w = welt30(gilde=False)
+ns0 = w.clients[0]["ns"]
+ok, grund = tup(ns0.Konfig.Senden())
+fest(ok is None, "ohne Gildenliste kann man nicht senden")
+ns1 = w.clients[1]["ns"]
+ns1.Abgleich.Empfangen("K;%d;Leiter Kaos;1;1;%s" % (stand, paket), "Leiter Kaos-Realm", "GUILD")
+fest(db30(w, 1)["konfigStand"] is None, "und ohne Gildenliste nimmt man nichts an")
+
+# --- Ausgeschaltet -----------------------------------------------------------------------------------
+w = welt30()
+einstellen_leiter(w)
+db30(w, 1)["konfigAnnehmen"] = False
+w.clients[0]["ns"].Konfig.Senden()
+w.weiter(12)
+fest(db30(w, 1)["konfigStand"] is None and db30(w, 2)["konfigStand"] is not None, "wer abgeschaltet hat, uebernimmt nichts; die anderen schon")
+
+# --- Spaeter dazugekommen: nachfragen, einer antwortet ---------------------------------------
+w = welt30(moe_addon=False)
+einstellen_leiter(w)
+w.clients[0]["ns"].Konfig.Senden()
+w.weiter(15)
+fest(db30(w, 3)["konfigStand"] is None, "Moe war nicht da und hat nichts")
+w.mitglieder[3]["addon"] = True
+n0 = len(w.protokoll)
+w.clients[3]["ns"].Konfig.Anfragen("GUILD")
+w.weiter(25)
+fest(db30(w, 3)["konfigStand"] == db30(w, 0)["konfigStand"], "nach der Anfrage hat Moe den Stand")
+fest(db30(w, 3)["bereiche"]["haupt"][2] == 200, "mit den Würfelbereichen")
+sender = set(von for von, t in w.protokoll[n0:] if t.startswith("K;"))
+fest(1 <= len(sender) <= 2, "hoechstens zwei haben geantwortet, nicht alle drei (%s)" % sorted(sender))
+# Weitergegeben wird der Text des Urhebers, auch wenn der Antwortende selbst etwas aendert
+w = welt30(moe_addon=False)
+einstellen_leiter(w)
+w.clients[0]["ns"].Konfig.Senden()
+w.weiter(15)
+w.clients[1]["ns"].Erfassung.BereicheSetzen(1, 999, 1, 5)          # Timo aendert danach von Hand
+w.mitglieder[3]["addon"] = True
+w.clients[3]["ns"].Konfig.Anfragen("GUILD")
+w.weiter(25)
+fest(db30(w, 3)["bereiche"]["haupt"][2] == 200, "Weitergegeben wird der Stand des Urhebers (200), nicht Timos Handarbeit (999)")
+
+# --- Die Stufe selbst wird geteilt ---------------------------------------------------------------
+w = welt30()
+db30(w, 0)["konfigRang"] = 2
+w.clients[0]["ns"].Konfig.Senden()
+w.weiter(12)
+fest(w.clients[2]["ns"].Konfig.RangGrenze() == 2, "die Rangstufe ist bei allen auf 2")
+fest(w.clients[1]["ns"].Konfig.DarfSenden() is True, "jetzt darf auch der Offizier senden")
+w.clients[1]["ns"].Erfassung.BereicheSetzen(1, 150, 1, 30)
+w.clients[1]["ns"].Konfig.Senden()
+w.weiter(12)
+fest(db30(w, 2)["bereiche"]["haupt"][2] == 150, "und die anderen uebernehmen von ihm")
+
+# --- Zurueck ----------------------------------------------------------------------------------------
+w = welt30()
+einstellen_leiter(w)
+w.clients[2]["ns"].Gruppen.Anlegen("Meine")
+w.clients[0]["ns"].Konfig.Senden()
+w.weiter(12)
+fest(w.clients[2]["ns"].Gruppen.Holen("Meine") is None, "eigene Gruppen weichen den geteilten")
+ok, grund = tup(w.clients[2]["ns"].Konfig.Zurueck())
+fest(ok is True, "Zuruecknehmen (%s)" % grund)
+fest(w.clients[2]["ns"].Kern.Bedarfsart(1, 100) == "haupt" and w.clients[2]["ns"].Gruppen.Holen("Meine") is not None,
+     "der alte Stand ist wieder da (Bereiche und Gruppe)")
+fest(len(list(w.clients[2]["ns"].Wurf.Verzauberer().values())) == 0, "ohne die Verzauberer")
+ok, grund = tup(w.clients[2]["ns"].Konfig.Zurueck())
+fest(ok is False, "ein zweites Mal gibt es nichts mehr")
+
+# --- Dekodieren begrenzt Fremdes ----------------------------------------------------------------------
+K = w.clients[0]["ns"].Konfig
+lua = w.clients[0]["lua"]
+t = lua.table_from(["B|1|100|1|50", "W|99999", "V|schlecht;name,Gut,Zwei", "G|boese;name|1|1,2", "G|Ok|1|3,999", "X|Ok|Hans,Fritz;x", "Z|unbekannt", "Q|9", "O|irgendwas"])
+s, grund = tup(K.Dekodieren(t))
+fest(s is not None, "Dekodieren liefert etwas (%s)" % grund)
+fest(s["wurfDauer"] is not None and s["wurfDauer"] < 99999, "unsinnige Dauer wird ignoriert")
+fest(list(s["verzauberer"].values()) == ["Gut", "Zwei"], "Namen mit Semikolon fliegen raus")
+fest(s["gruppen"]["Ok"] is not None and s["gruppen"]["boese;name"] is None, "Gruppe mit unerlaubtem Namen fehlt")
+fest(list(s["gruppen"]["Ok"]["raenge"].values()) == [3], "Rangnummern ueber 50 fliegen raus")
+fest(list(s["gruppen"]["Ok"]["extra"].values()) == ["Hans", "Fritz"] or len(list(s["gruppen"]["Ok"]["extra"].values())) <= 2,
+     "Namen mit Semikolon in Listen fliegen raus")
+fest(s["mindestQualitaet"] == 3 and s["ort"] == "raid", "Qualitaet ueber 5 und fremder Ort: Standard")
+s, grund = tup(K.Dekodieren(lua.table_from(["B|1|100|1|100"])))
+fest(s is None, "gleiche Bereiche fuer Haupt und OS werden abgelehnt")
+s, grund = tup(K.Dekodieren(lua.table_from(["W|30"])))
+fest(s is None, "ohne Bereiche wird nichts angenommen")
+
+# --- Befehl und Seite -----------------------------------------------------------------------------------------
+w = welt30()
+einstellen_leiter(w)
+g = w.clients[0]["g"]
+sl = g["SlashCmdList"]["FAIRSHARE"]
+sl("konfig")
+sl("konfig senden")
+sl("konfig nachfragen")
+sl("config undo")
+w.weiter(12)
+fehler = [str(x) for x in g["__ausgabe"].values() if "Fehler" in str(x)]
+fest(not fehler, "/fs konfig ohne Fehler")
+ns = w.clients[0]["ns"]
+ns.Einstellungen.Zeigen()
+g["__klick"]("Würfeln & Abgleich")
+fest(len(list(g["__text"]("Einstellungen teilen").values())) > 0, "die Seite hat die Karte Einstellungen teilen")
+fest(g["__klick"]("Senden") is True, "Knopf Senden (Gildenleiter)")
+w.weiter(5)
+ns2 = w.clients[2]["ns"]
+ns2.Einstellungen.Zeigen()
+w.clients[2]["g"]["__klick"]("Würfeln & Abgleich")
+fest(w.clients[2]["g"]["__klick"]("Senden") is False, "bei einem Raider ist der Knopf gesperrt")
+
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")
 sys.exit(0 if alle_ok else 1)

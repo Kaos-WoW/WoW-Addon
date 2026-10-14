@@ -17,6 +17,7 @@ Abgleich.lua
 Blizzbeute.lua
 Stil.lua
 Wurf.lua
+Konfig.lua
 Einstellungen.lua
 Fenster.lua
 Befehle.lua

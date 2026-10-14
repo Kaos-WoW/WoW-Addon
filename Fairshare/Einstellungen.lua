@@ -339,6 +339,13 @@ local MODUS_TEXT = {
     nie   = L["Dieser Spieler zeichnet nicht auf, er empfängt nur."],
 }
 
+local SENDERANG = {
+    { wert = 1, label = L["Nur Gildenleiter"] },
+    { wert = 2, label = string.format(L["bis Stufe %d"], 2) },
+    { wert = 3, label = string.format(L["bis Stufe %d"], 3) },
+    { wert = 4, label = string.format(L["bis Stufe %d"], 4) },
+}
+
 local DAUERN = {
     { wert = 20, label = "20 s" }, { wert = 30, label = "30 s" },
     { wert = 45, label = "45 s" }, { wert = 60, label = "60 s" },
@@ -565,6 +572,57 @@ local function seiteWuerfeln(P)
                         (doppelt > 0 and (", " .. string.format(L["%d schon vorhanden"], doppelt)) or "")
                 end
                 if ns.Fenster then ns.Fenster.Aktualisieren() end
+            end } })
+
+    -- ⭐ Einstellungen teilen (Konfig.lua): nur einer stellt ein, alle bekommen es
+    local ks = karte(P, L["Einstellungen teilen"],
+        L["Nur einer stellt das Addon ein und schickt es an alle: Würfelbereiche, Würfelzeit, Verzauberer, Gruppen und die Erfassungs-Einstellungen. Persönliches (Fenster, wer aufzeichnet) bleibt unberührt."])
+    zeile(ks, { art = "info",
+        label = function() return ns.Konfig.Status()[1] end,
+        beschr = function() return ns.Konfig.Status()[2] end })
+    zeile(ks, { art = "schalter", label = L["Einstellungen der Gildenleitung übernehmen"],
+        beschr = L["Aus: Nachrichten mit geteilten Einstellungen werden ignoriert."],
+        get = function() return d().konfigAnnehmen ~= false end,
+        set = function(v) d().konfigAnnehmen = v end })
+    zeile(ks, { art = "segment", label = L["Wer darf Einstellungen senden"], werte = SENDERANG,
+        beschr = function()
+            local R = ns.Gruppen.Raenge()
+            if not R then return L["Gildenliste nicht geladen"] end
+            local namen = {}
+            for i = 1, math.min(ns.Konfig.RangGrenze(), #R) do namen[#namen + 1] = R[i].name end
+            return string.format(L["Das sind: %s. Gilt für alle, sobald es geteilt wird."], table.concat(namen, ", "))
+        end,
+        get = function() return ns.Konfig.RangGrenze() end,
+        set = function(v) d().konfigRang = v end })
+    zeile(ks, { art = "knopf", label = L["An alle senden"],
+        beschr = function()
+            if Meldung.konfig then return Meldung.konfig end
+            if ns.Konfig.DarfSenden() then
+                return L["Schickt deine Einstellungen an alle Gildenmitglieder, die online sind. Wer später kommt, fragt beim Anmelden nach."]
+            end
+            return L["Nur die Gildenleitung darf senden (siehe oben)."]
+        end,
+        knopf = { text = L["Senden"], art = "primary",
+            aktiv = function() return ns.Konfig.DarfSenden() end,
+            klick = function()
+                local n, grund = ns.Konfig.Senden()
+                Meldung.konfig = n and farbig(C.ok, string.format(L["Gesendet (%d Nachrichten)."], n))
+                                    or farbig(C.bad, tostring(grund))
+            end } })
+    zeile(ks, { art = "knopf", label = L["Jetzt nachfragen"],
+        beschr = L["Fragt, ob jemand neuere geteilte Einstellungen hat, und übernimmt sie."],
+        knopf = { text = L["Nachfragen"],
+            klick = function()
+                ns.Konfig.Anfragen("GUILD")
+                Meldung.konfig = farbig(C.ok, L["Angefragt."])
+            end } })
+    zeile(ks, { art = "knopf", label = L["Letzte Übernahme zurücknehmen"],
+        sichtbar = function() return d().konfigAlt ~= nil end,
+        beschr = L["Stellt die Einstellungen vor der letzten Übernahme wieder her."],
+        knopf = { text = L["Zurücknehmen"],
+            klick = function()
+                local ok, grund = ns.Konfig.Zurueck()
+                Meldung.konfig = ok and farbig(C.ok, L["Wiederhergestellt."]) or farbig(C.bad, tostring(grund))
             end } })
 
     local k3 = karte(P, L["Abgleich"],
@@ -981,7 +1039,7 @@ end
 function Einstellungen.Waehle(id)
     if not Seiten[id] then return end
     aktuelleSeite = id
-    Meldung.bereich, Meldung.gargul, Meldung.gargulHolen, Meldung.verz = nil, nil, nil, nil
+    Meldung.bereich, Meldung.gargul, Meldung.gargulHolen, Meldung.verz, Meldung.konfig = nil, nil, nil, nil, nil
     loeschenBereit = nil
     verlaufBereit = false
     scroll:Zurueck()
