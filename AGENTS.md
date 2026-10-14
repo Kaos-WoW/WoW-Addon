@@ -5,7 +5,7 @@ Addon für die Gilde **Resurrected** (Thunderstrike EU). Es beantwortet:
 wann was?** Damit der Plündermeister im Moment der Vergabe schnell und
 begründet entscheiden kann.
 
-Stand 14.10.2026, Version 0.1.0 (noch nicht veröffentlicht).
+Stand 14.10.2026, Version 0.1.0 (noch nicht veröffentlicht). Nur für Forever.
 
 ---
 
@@ -148,7 +148,7 @@ Absenders und seine Zuordnung.
   (nicht löschen, sonst brächte der Abgleich es zurück) und verteilen.
 * Kam die Beutemeldung vor Gargul, wird der Eintrag **berichtigt**, nicht
   verdoppelt (`herkunft = "gargul"`).
-* **Gargul 8.0.1 (03.10.2026) hat offiziellen Forever-Support**, kennt aber
+* **Gargul 8.0.1 (03.10.2026) ist für Forever offiziell veröffentlicht**, kennt aber
   weiterhin keine Nachnamen (kein Treffer für „surname"). Lizenz bleibt
   **All Rights Reserved**: nur Ereignisse und die Historie lesen,
   **keinen Code übernehmen**, nichts davon ins Repo.
@@ -251,20 +251,20 @@ fehlen sie dort — und im Spiel nicht.
 
 ---
 
-## Clients
+## Client
 
-Eine Quelle, eine TOC, beide Clients:
+**Nur WoW Forever** (Beta, `_classic_beta_`, Mainline-Unterbau 12.1.5) —
+Entscheid des Gildenleiters, 14.10.2026. TBC Anniversary braucht das Addon
+nicht, `deploy.ps1` rollt dort nicht mehr aus.
 
 ```
-## Interface: 16001, 120100, 120105, 20506
+## Interface: 16001, 120100, 120105
 ```
 
-* **TBC Anniversary** (`_anniversary_`) — hier raidet die Gilde.
-* **WoW Forever Beta** (`_classic_beta_`) — Mainline-Unterbau 12.1.5.
-
-Gargul läuft in beiden (in Forever seit 8.0.1 offiziell). **Dieses Addon darf
-keine fehlenden Globals selbst definieren** — Garguls Weichen prüfen
-`Global or C_Namespace.Name` und nähmen sonst den falschen Weg.
+Gargul ist für die Forever-Beta vom Entwickler **offiziell veröffentlicht**
+(8.0.1, `Gargul_Camelot.toc`). **Dieses Addon darf keine fehlenden Globals
+selbst definieren** — Garguls Weichen prüfen `Global or C_Namespace.Name` und
+nähmen sonst den falschen Weg.
 
 ---
 

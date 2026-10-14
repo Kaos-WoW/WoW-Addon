@@ -4,7 +4,7 @@ WoW-Addon für die Gilde **Resurrected**. Es zeigt, **wer über die Wochen wie
 viele Gegenstände bekommen hat** — und wer wann was bekam. Damit der
 Plündermeister im Moment der Vergabe schnell und fair entscheiden kann.
 
-Läuft im **TBC-Anniversary-Client** und in der **WoW-Forever-Beta**.
+Nur für **WoW Forever** (Beta). Für TBC wird es nicht gebraucht.
 
 ## Wie es arbeitet
 
@@ -12,7 +12,7 @@ Läuft im **TBC-Anniversary-Client** und in der **WoW-Forever-Beta**.
 * **Nur einer schreibt mit:** der **Plündermeister**; gibt es keinen, der
   **Raidleiter** (Rückfall). Alle anderen empfangen und können die Historie
   einsehen. Jeder im Raid sollte das Addon haben.
-* **Gargul** ist als Würfel-Addon willkommen: Seine Vergaben landen mit
+* **Gargul** (für die Forever-Beta offiziell veröffentlicht) ist das Würfel-Addon: Seine Vergaben landen mit
   Haupt-/Zweitbedarf und Wurf in der Historie. Gewürfelt wird
   **100 = Hauptbedarf, 50 = Zweitbedarf** — das Addon prüft Garguls
   Würfelbereiche und stellt sie auf Wunsch um.
@@ -54,7 +54,7 @@ Anspruch verbraucht.
 .\deploy.ps1
 ```
 
-Rollt in alle vorhandenen Clients aus. Danach im Spiel `/reload`.
+Rollt in die Forever-Beta aus. Danach im Spiel `/reload`.
 
 ## Mitarbeiten
 

@@ -1,8 +1,7 @@
 # deploy.ps1 (Loot-Historie in alle vorhandenen Clients ausrollen)
 #
-# Das Addon laeuft mit derselben Quelle im TBC-Anniversary-Client und in
-# der Forever-Beta. Die TOC fuehrt alle noetigen Interface-Nummern; es
-# gibt keinen Grund fuer zwei Ordner.
+# Das Addon ist nur fuer WoW Forever (Beta). TBC Anniversary braucht es
+# nicht (Entscheid des Gildenleiters, 14.10.2026).
 #
 # Aufruf:  powershell -ExecutionPolicy Bypass -File .\deploy.ps1
 
@@ -11,8 +10,7 @@ $ErrorActionPreference = "Stop"
 $src  = Join-Path $PSScriptRoot "LootHistorie"
 $root = "C:\Program Files (x86)\World of Warcraft"
 
-# Nur Clients, die es wirklich gibt. Forever zuerst, dort wird entwickelt.
-$clients = @("_classic_beta_", "_anniversary_")
+$clients = @("_classic_beta_")
 
 if (-not (Test-Path $src)) {
     throw "Quellordner nicht gefunden: $src"

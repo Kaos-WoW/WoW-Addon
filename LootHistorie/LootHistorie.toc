@@ -1,4 +1,4 @@
-## Interface: 16001, 120100, 120105, 20506
+## Interface: 16001, 120100, 120105
 ## Title: Loot-Historie
 ## Notes: Wer hat ueber Wochen wie viele Gegenstaende bekommen, und wann. Fuehrt eine eigene Historie, Abgleich in der Gruppe. Befehl: /lh
 ## Notes-deDE: Wer hat über Wochen wie viele Gegenstände bekommen, und wann. Führt eine eigene Historie, Abgleich in der Gruppe. Befehl: /lh
