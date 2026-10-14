@@ -3,7 +3,7 @@
 ## Notes: Fair loot distribution: who got what, and when. Own history, group sync, rosters from guild ranks. Command: /fs
 ## Notes-deDE: Faire Beuteverteilung: wer bekam was, und wann. Eigene Historie, Abgleich in der Gruppe, Kader aus Gildenrängen. Befehl: /fs
 ## Author: Kaos, xqp
-## Version: 0.1.0
+## Version: 0.1.1
 ## OptionalDeps: Gargul
 ## SavedVariables: FairshareDB
 
