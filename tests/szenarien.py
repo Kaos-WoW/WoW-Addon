@@ -1099,6 +1099,29 @@ ns.Wurf.Dialog()
 fest(any("Schwert der Probe" in t for t in texte_von(g, "Rucksack")), "Startdialog listet den Gegenstand mit Handelsfrist")
 fest(not any("Ohne Frist" in t for t in texte_von(g, "")), "Stuecke ohne Handelsfrist werden nicht angeboten")
 
+# --- Dialog: gewaehlter Link, auch wenn GetText() nur den Namen liefert ------
+# (im Spiel gesehen am 14.10.2026: das Feld zeigt "[Trogg Scepter]", Start scheiterte)
+w, cl, g, ns, lua = runde()
+lua.execute('__tasche = { { link = "%s", quality = 4, frist = true } }' % LINK)
+ns.Wurf.Dialog()
+lua.execute("""
+for _, f in ipairs(__frames) do
+    local t = f._text
+    if t and t:find("Schwert der Probe", 1, true) and f._eltern and f._eltern._scripts.OnClick then
+        __beutezeile = f._eltern
+    end
+    if f._scripts and f._scripts.OnEnterPressed and f._scripts.OnTextChanged then __eingabe = f end
+    if t == "Wurf starten" and f._eltern and f._eltern._scripts.OnClick then __startknopf = f._eltern end
+end
+""")
+fest(g["__beutezeile"] is not None and g["__eingabe"] is not None and g["__startknopf"] is not None,
+     "Zeile, Eingabefeld und Startknopf des Dialogs gefunden")
+g["__beutezeile"]._scripts.OnClick(g["__beutezeile"])
+lua.execute('__eingabe.GetText = function() return "[Schwert der Probe]" end')     # nur der Name
+g["__startknopf"]._scripts.OnClick(g["__startknopf"])
+w.weiter(3)
+fest(ns.Wurf.Aktiv() is True, "Start mit dem gemerkten Link, obwohl das Feld nur den Namen liefert")
+
 # --- Eingesteckte Beute zaehlt nicht -------------------------------------------
 w = Welt([{"name": "Leiter Kaos", "leader": True}, {"name": "Timo"}], "-Realm", ml=0)
 w.ereignis("PLAYER_ENTERING_WORLD")

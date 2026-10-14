@@ -538,8 +538,15 @@ local function starterAuffrischen()
 end
 
 local function starterStarten()
-    local ok, grund = Wurf.Starten(starter.eingabe:GetText())
+    -- ⚠️ Das Feld zeigt einen Link nur als farbigen Namen („[Schwert]"); was
+    -- GetText() dann liefert, ist nicht verlaesslich der volle Link (so gesehen
+    -- am 14.10.2026: „Kein Gegenstand erkannt"). Darum merkt sich der Dialog
+    -- den gewaehlten Link selbst. Ein von Hand eingefuegter Link im Feld gilt.
+    local text = starter.eingabe:GetText()
+    local quelle = (linkAus(text) and text) or starter.gewaehlt or text
+    local ok, grund = Wurf.Starten(quelle)
     if ok then
+        starter.gewaehlt = nil
         starter.eingabe:SetText("")
         starter.fehler:SetText("")
         starter:Hide()
@@ -571,6 +578,9 @@ local function starterBauen()
     s.eingabe:SetPoint("TOPLEFT", s, "TOPLEFT", 16, -64)
     s.eingabe:SetMaxLetters(300)
     s.eingabe:SetScript("OnEnterPressed", function(e) e:ClearFocus(); starterStarten() end)
+    s.eingabe:SetScript("OnTextChanged", function(e)
+        if (e:GetText() or "") == "" then s.gewaehlt = nil end
+    end)
 
     local hinweis = S.Text(s, 11, C.dim, "LEFT")
     hinweis:SetPoint("TOPLEFT", s, "TOPLEFT", 16, -96)
@@ -593,7 +603,10 @@ local function starterBauen()
         z:SetScript("OnEnter", function(x) x.hover:SetShown(true) end)
         z:SetScript("OnLeave", function(x) x.hover:SetShown(false) end)
         z:SetScript("OnClick", function(x)
-            if x.link then s.eingabe:SetText(x.link) end
+            if x.link then
+                s.eingabe:SetText(x.link)
+                s.gewaehlt = x.link
+            end
         end)
         z:Hide()
         s.zeilen[i] = z
@@ -603,7 +616,7 @@ local function starterBauen()
     s.leer:SetWidth(316)
     s.leer:SetText(L["Nichts zum Verteilen gefunden: kein Beutefenster offen und nichts im Rucksack, das noch tauschbar ist."])
 
-    s.fehler = S.Text(s, 12, C.bad, "LEFT")
+    s.fehler = S.Text(s, 12, C.bad, "LEFT", true)
     s.fehler:SetPoint("BOTTOMLEFT", s, "BOTTOMLEFT", 16, 52)
     s.fehler:SetWidth(328)
 
@@ -935,7 +948,13 @@ end
 -- Shift-Klick auf einen Gegenstand fuegt den Link ein, solange das Feld den Fokus hat.
 local function linkEinfuegen(text)
     if starter and starter:IsShown() and starter.eingabe:HasFocus() and type(text) == "string" then
-        starter.eingabe:Insert(text)
+        local link = linkAus(text)
+        if link then
+            starter.eingabe:SetText(link)
+            starter.gewaehlt = link
+        else
+            starter.eingabe:Insert(text)
+        end
     end
 end
 if hooksecurefunc then
