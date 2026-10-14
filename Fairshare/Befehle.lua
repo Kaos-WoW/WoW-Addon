@@ -1,5 +1,5 @@
 --[[----------------------------------------------------------------------
-    Befehle.lua  —  /lh
+    Befehle.lua  —  /fs
 
     ⭐ **Kein Befehl darf still scheitern.** WoW verschluckt Laufzeitfehler
     in Addons, solange scriptErrors aus ist — und das ist die
@@ -17,7 +17,7 @@ local L = ns.L
 
 local Kern, Quelle, Fenster = ns.Kern, ns.Quelle, ns.Fenster
 
-local PRAEFIX = "|cff1B6B57Loot-Historie|r: "
+local PRAEFIX = "|cff1B6B57Fairshare|r: "
 local GELB = "|cffffff78"
 local GRAU = "|cff8E9A94"
 local ROT  = "|cffff5555"
@@ -29,24 +29,24 @@ local befehle = {}
 
 local function hilfe()
     sag(L["Befehle:"])
-    print(L["  |cffffff78/lh|r              – Fenster öffnen und schließen"])
-    print(L["  |cffffff78/lh verlauf|r      – wer bekam was, wann"])
-    print(L["  |cffffff78/lh einstellungen|r – das Einstellungsfenster"])
-    print(L["  |cffffff78/lh demo|r         – Fenster mit Beispieldaten (nichts wird gespeichert)"])
-    print(L["  |cffffff78/lh liste|r        – dieselbe Auswertung im Chat, |cffffff78liste 4|r für 4 Wochen"])
-    print(L["  |cffffff78/lh <Name>|r       – Einzelvergaben eines Spielers im Chat"])
-    print(L["  |cffffff78/lh abgleich|r     – Historien der Gruppe zusammenführen (|cffffff78abgleich status|r zeigt den Stand)"])
-    print(L["  |cffffff78/lh rolle|r        – wer schreibt gerade mit, und warum"])
-    print(L["  |cffffff78/lh gruppe|r       – Kader und Raidgruppen (|cffffff78gruppe hilfe|r)"])
-    print(L["  |cffffff78/lh bereiche|r     – Garguls Würfelbereiche prüfen (|cffffff78bereiche setzen|r)"])
-    print(L["  |cffffff78/lh auto|r         – Fenster bei Wurfbeginn automatisch öffnen (an/aus)"])
-    print(L["  |cffffff78/lh import|r       – Garguls bisherige Aufzeichnungen übernehmen"])
-    print(L["  |cffffff78/lh filter|r       – ab welcher Qualität und wo mitgeschrieben wird"])
-    print(L["  |cffffff78/lh gilde|r        – Diagnose: was die Gildenliste liefert (Namen, Ränge)"])
-    print(L["  |cffffff78/lh stand|r        – Diagnose: eigene Historie und Mitschrift"])
-    print(L["  |cffffff78/lh muster|r       – Diagnose: Textvorlagen für eigene Erkennung"])
-    print(L["  |cffffff78/lh darstellung|r  – Diagnose: Einstellungsfenster zeichnet nicht richtig"])
-    print(L["  |cffffff78/lh test|r         – Selbsttests der Auswertung"])
+    print(L["  |cffffff78/fs|r              – Fenster öffnen und schließen"])
+    print(L["  |cffffff78/fs verlauf|r      – wer bekam was, wann"])
+    print(L["  |cffffff78/fs einstellungen|r – das Einstellungsfenster"])
+    print(L["  |cffffff78/fs demo|r         – Fenster mit Beispieldaten (nichts wird gespeichert)"])
+    print(L["  |cffffff78/fs liste|r        – dieselbe Auswertung im Chat, |cffffff78liste 4|r für 4 Wochen"])
+    print(L["  |cffffff78/fs <Name>|r       – Einzelvergaben eines Spielers im Chat"])
+    print(L["  |cffffff78/fs abgleich|r     – Historien der Gruppe zusammenführen (|cffffff78abgleich status|r zeigt den Stand)"])
+    print(L["  |cffffff78/fs rolle|r        – wer schreibt gerade mit, und warum"])
+    print(L["  |cffffff78/fs gruppe|r       – Kader und Raidgruppen (|cffffff78gruppe hilfe|r)"])
+    print(L["  |cffffff78/fs bereiche|r     – Garguls Würfelbereiche prüfen (|cffffff78bereiche setzen|r)"])
+    print(L["  |cffffff78/fs auto|r         – Fenster bei Wurfbeginn automatisch öffnen (an/aus)"])
+    print(L["  |cffffff78/fs import|r       – Garguls bisherige Aufzeichnungen übernehmen"])
+    print(L["  |cffffff78/fs filter|r       – ab welcher Qualität und wo mitgeschrieben wird"])
+    print(L["  |cffffff78/fs gilde|r        – Diagnose: was die Gildenliste liefert (Namen, Ränge)"])
+    print(L["  |cffffff78/fs stand|r        – Diagnose: eigene Historie und Mitschrift"])
+    print(L["  |cffffff78/fs muster|r       – Diagnose: Textvorlagen für eigene Erkennung"])
+    print(L["  |cffffff78/fs darstellung|r  – Diagnose: Einstellungsfenster zeichnet nicht richtig"])
+    print(L["  |cffffff78/fs test|r         – Selbsttests der Auswertung"])
 end
 
 -- =====================================================================
@@ -77,7 +77,7 @@ befehle["filter"] = function(arg)
     elseif arg == "wurf" or arg == "roll" then
         d.nurGewuerfelt = not d.nurGewuerfelt
     elseif arg ~= "" then
-        sag(L["Nutzung: |cffffff78/lh filter 0-5|r (Qualität), |cffffff78raid|instanz|überall|r (Ort) oder |cffffff78wurf|r (nur Ausgewürfeltes)"])
+        sag(L["Nutzung: |cffffff78/fs filter 0-5|r (Qualität), |cffffff78raid|instanz|überall|r (Ort) oder |cffffff78wurf|r (nur Ausgewürfeltes)"])
         return
     end
 
@@ -135,7 +135,7 @@ befehle["stand"] = function()
         print("  " .. GRAU .. tostring(wert) .. " – " .. L["nichts zu übernehmen."] .. "|r")
         return
     end
-    print(string.format(L["  |cff8E9A94Garguls Bestand: %d Einträge – |r|cffffff78/lh import|r|cff8E9A94 übernimmt ihn.|r"], wert))
+    print(string.format(L["  |cff8E9A94Garguls Bestand: %d Einträge – |r|cffffff78/fs import|r|cff8E9A94 übernimmt ihn.|r"], wert))
 end
 
 befehle["state"] = befehle["stand"]
@@ -184,7 +184,7 @@ befehle["auto"] = function()
     if an then
         sag(L["Fenster öffnet sich automatisch, sobald ein Wurf startet."])
     else
-        sag(L["Automatisches Öffnen aus. |cffffff78/lh|r öffnet es von Hand."])
+        sag(L["Automatisches Öffnen aus. |cffffff78/fs|r öffnet es von Hand."])
     end
 end
 
@@ -274,7 +274,7 @@ befehle["bereiche"] = function(arg)
     sag(B.ok and (GRUEN .. L["Würfelbereiche stimmen."] .. "|r") or (ROT .. L["Würfelbereiche passen nicht."] .. "|r"))
     print(string.format(L["  |cff8E9A94Gargul kennt: %s|r"], table.concat(B.bereiche, ", ")))
     if not B.ok then
-        print(L["  |cffffff78/lh bereiche setzen|r|cff8E9A94 stellt 1-100 (Haupt) und 1-50 (Zweit) ein.|r"])
+        print(L["  |cffffff78/fs bereiche setzen|r|cff8E9A94 stellt 1-100 (Haupt) und 1-50 (Zweit) ein.|r"])
     end
 end
 befehle["brackets"] = befehle["bereiche"]
@@ -290,14 +290,14 @@ befehle["gruppe"] = function(arg)
 
     if was == "hilfe" or was == "help" or was == "?" then
         sag(L["Gruppen:"])
-        print(L["  |cffffff78/lh gruppe|r                   – alle Gruppen"])
-        print(L["  |cffffff78/lh gruppe neu <Name>|r        – Gruppe anlegen (Kader)"])
-        print(L["  |cffffff78/lh gruppe aktiv <Name>|r      – aktive Gruppe; ohne Namen: keine"])
-        print(L["  |cffffff78/lh gruppe kader A, B, C|r     – Namen zum Kader (Komma!)"])
-        print(L["  |cffffff78/lh gruppe sync|r              – Kader mit den Gildenrängen abgleichen (hinzufügen und entfernen)"])
-        print(L["  |cffffff78/lh gruppe raenge|r            – Gildenränge anzeigen; |cffffff78raenge <Nr>|r wählt oder streicht einen"])
-        print(L["  |cffffff78/lh gruppe entfernen <Name>|r  – Name aus dem Kader"])
-        print(L["  |cffffff78/lh gruppe loeschen <Name>|r   – Gruppe löschen"])
+        print(L["  |cffffff78/fs gruppe|r                   – alle Gruppen"])
+        print(L["  |cffffff78/fs gruppe neu <Name>|r        – Gruppe anlegen (Kader)"])
+        print(L["  |cffffff78/fs gruppe aktiv <Name>|r      – aktive Gruppe; ohne Namen: keine"])
+        print(L["  |cffffff78/fs gruppe kader A, B, C|r     – Namen zum Kader (Komma!)"])
+        print(L["  |cffffff78/fs gruppe sync|r              – Kader mit den Gildenrängen abgleichen (hinzufügen und entfernen)"])
+        print(L["  |cffffff78/fs gruppe raenge|r            – Gildenränge anzeigen; |cffffff78raenge <Nr>|r wählt oder streicht einen"])
+        print(L["  |cffffff78/fs gruppe entfernen <Name>|r  – Name aus dem Kader"])
+        print(L["  |cffffff78/fs gruppe loeschen <Name>|r   – Gruppe löschen"])
         return
     end
 
@@ -345,7 +345,7 @@ befehle["gruppe"] = function(arg)
     else
         local Namen = G.Namen()
         if #Namen == 0 then
-            sag(L["Noch keine Gruppe. |cffffff78/lh gruppe neu 40er|r legt eine an, |cffffff78/lh gruppe hilfe|r zeigt alles."])
+            sag(L["Noch keine Gruppe. |cffffff78/fs gruppe neu 40er|r legt eine an, |cffffff78/fs gruppe hilfe|r zeigt alles."])
             return
         end
         local aktiv = G.AktivName()
@@ -426,9 +426,9 @@ end
 
 -- =====================================================================
 
-SLASH_LOOTHISTORIE1 = "/lh"
-SLASH_LOOTHISTORIE2 = "/loothistorie"
-SlashCmdList["LOOTHISTORIE"] = function(eingabe)
+SLASH_FAIRSHARE1 = "/fs"
+SLASH_FAIRSHARE2 = "/fairshare"
+SlashCmdList["FAIRSHARE"] = function(eingabe)
     local wort, rest = (eingabe or ""):match("^%s*(%S*)%s*(.-)%s*$")
     wort = wort or ""
 
@@ -447,7 +447,7 @@ SlashCmdList["LOOTHISTORIE"] = function(eingabe)
     end
 
     if not ok then
-        print(PRAEFIX .. ROT .. string.format(L["Fehler in /lh %s"], wort) .. "|r")
+        print(PRAEFIX .. ROT .. string.format(L["Fehler in /fs %s"], wort) .. "|r")
         print(ROT .. tostring(fehler) .. "|r")
         print(GRAU .. L["Bitte diese zwei Zeilen weitergeben."] .. "|r")
     end
@@ -462,9 +462,9 @@ rahmen:SetScript("OnEvent", function(self)
         local n = 0
         for _ in pairs(ns.Erfassung.Historie()) do n = n + 1 end
         if n > 0 then
-            sag(string.format(L["%d Vergaben aufgezeichnet. |cffffff78/lh|r öffnet die Übersicht."], n))
+            sag(string.format(L["%d Vergaben aufgezeichnet. |cffffff78/fs|r öffnet die Übersicht."], n))
         else
-            sag(L["|cff8E9A94Noch keine Vergabe aufgezeichnet – |r|cffffff78/lh demo|r|cff8E9A94 zeigt die Anzeige trotzdem.|r"])
+            sag(L["|cff8E9A94Noch keine Vergabe aufgezeichnet – |r|cffffff78/fs demo|r|cff8E9A94 zeigt die Anzeige trotzdem.|r"])
         end
     end)
 end)

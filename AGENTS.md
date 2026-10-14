@@ -1,9 +1,15 @@
-# Loot-Historie — Projektnotizen
+# Fairshare — Projektnotizen
 
 Addon für die Gilde **Resurrected** (Thunderstrike EU). Es beantwortet:
 **Wer hat über die Wochen wie viele Gegenstände bekommen — und wer bekam
 wann was?** Damit der Plündermeister im Moment der Vergabe schnell und
 begründet entscheiden kann.
+
+**Name:** Fairshare, Befehl `/fs` (bis 14.10.2026 „Loot-Historie“, `/lh`; der Name sagte zu wenig, das Addon schreibt
+mit, gleicht ab, verwaltet Gruppen). Ordner `Fairshare/`, SavedVariables `FairshareDB`, Nachrichtenpräfix
+`FSHARE`. ⚠️ **Der Umzug der gespeicherten Daten** (`LootHistorie.lua` → `Fairshare.lua`, Variable umbenannt)
+macht `deploy.ps1` einmalig und **nur bei beendetem WoW** (sonst bricht es ab, ohne etwas zu ändern); die alte
+Datei bleibt als Sicherung. Spätere Umbenennungen brauchen denselben Weg.
 
 Stand 14.10.2026, Version 0.1.0 (noch nicht veröffentlicht). Nur für Forever.
 
@@ -13,7 +19,7 @@ Stand 14.10.2026, Version 0.1.0 (noch nicht veröffentlicht). Nur für Forever.
 
 ⭐ **Eigene Historie, ein Schreiber, Abgleich ohne Überschreiben.**
 
-* **Das Addon führt eine eigene Historie** (`LootHistorieDB.vergaben`,
+* **Das Addon führt eine eigene Historie** (`FairshareDB.vergaben`,
   Eintrag je Kennung). Es braucht kein anderes Addon.
 * **Nur einer schreibt mit** — Entscheid des Gildenleiters: der
   **Plündermeister**, und gibt es keinen, der **Raidleiter** (Rückfall).
@@ -51,7 +57,7 @@ das nur liest, weder Haupt/Zweit noch Gruppen noch Abgleich leisten kann.
 | `Stil.lua` | Bausteine im KaosUI-Look (Farben, runde Ecken, Knopf, Schalter, Segmentwahl, Bildlauf) | ja |
 | `Einstellungen.lua` | das Einstellungsfenster (Karten und Zeilen, drei Seiten) | ja |
 | `Fenster.lua` | die Übersicht im KaosUI-Look: Liste, Verlauf, Spielerdetail, Wurf-Modus | ja |
-| `Befehle.lua` | `/lh` | ja |
+| `Befehle.lua` | `/fs` | ja |
 | `Tests.lua` | Prüfstand für `Kern.lua` | **nein** |
 
 Alles Rechnerische steht in `Kern.lua` und wird dort getestet. Jede
@@ -79,7 +85,7 @@ der das Addon nachweislich hat (Hallo-Meldung) oder man selbst ist.
 * Bis die Hallo-Meldungen da sind (wenige Sekunden nach dem Beitritt),
   schreibt zur Not auch der Leiter mit. **Doppelt ist besser als gar nicht**;
   der Abgleich fängt Doppelte ab, eine fehlende Vergabe nicht.
-* `/lh rolle` zeigt Kandidaten und Grund; Einstellung `schreiben`:
+* `/fs rolle` zeigt Kandidaten und Grund; Einstellung `schreiben`:
   `auto` | `immer` | `nie`.
 * Die Beutemethode kommt versionsbewusst aus `GetLootMethod()` oder
   `C_PartyInfo.GetLootMethod()` (Zahl, 2 = Plündermeister).
@@ -89,7 +95,7 @@ der das Addon nachweislich hat (Hallo-Meldung) oder man selbst ist.
 
 ## Abgleich (`Abgleich.lua`)
 
-Addon-Nachrichten, Präfix `LHIST`, Takt 0,25 s (Blizzards Drosselung).
+Addon-Nachrichten, Präfix `FSHARE`, Takt 0,25 s (Blizzards Drosselung).
 
 | Typ | Inhalt | Wer darf senden |
 |---|---|---|
@@ -124,14 +130,14 @@ Eingehendes wird in `Kern.Dekodieren` geprüft (Länge, Zahlen, Zeitraum, Art).
 `E` kommt nur von Gildenmitgliedern in der Gruppe, `L` und `Q` zusätzlich nur
 von Plündermeister/Leiter/Assistent. Kann ein Absender nicht einer Einheit
 zugeordnet werden, wird er verworfen: lieber einen Abgleich verpassen als
-fremde Daten annehmen. `/lh abgleich status` zeigt den Rohnamen des letzten
+fremde Daten annehmen. `/fs abgleich status` zeigt den Rohnamen des letzten
 Absenders und seine Zuordnung.
 
 ### ⚠️ Ungemessen im Spiel
 
 * **Absendername** in `CHAT_MSG_ADDON` bei Nachnamen: `Kern.GleicherSpieler`
   fängt „mit/ohne Nachname" und „mit/ohne Realm" ab; ob Forever noch anders
-  formatiert, zeigt erst `/lh abgleich status`.
+  formatiert, zeigt erst `/fs abgleich status`.
 * **Einschränkung von Addon-Nachrichten in Instanzen/Kampf** (Mainline-Linie
   seit 12.0). Gedrosselte oder gesperrte Nachrichten werden bis zu sechsmal
   später wiederholt.
@@ -144,7 +150,7 @@ Absenders und seine Zuordnung.
 * **Würfelbereiche:** Gargul bringt MS 1–100 und OS 1–99 mit. Die Gilde
   würfelt **100 / 50**. `Quelle.GargulBereiche()` prüft, `…Setzen()` stellt
   `RollTracking.Brackets` um (Einstellung, kein Eingriff in den Code);
-  `/lh bereiche`. Sonst ordnet Gargul die 50er-Würfe nicht ein.
+  `/fs bereiche`. Sonst ordnet Gargul die 50er-Würfe nicht ein.
 * **Ereignisse:** `GL.ITEM_AWARDED` → eintragen; `GL.ITEM_AWARD_EDITED` →
   Gewinner/Haupt-Zweit nachziehen; `GL.ITEM_UNAWARDED` → `zurueck` setzen
   (nicht löschen, sonst brächte der Abgleich es zurück) und verteilen.
@@ -179,7 +185,7 @@ Entscheid des Gildenleiters: **so wenige Handgriffe wie möglich.** Es gibt nur 
   Abgänge (> 40 % und > 4 bei ≥ 10 im Kader) → erst nachfragen (gleiche Taste nochmal binnen 2 min), beim
   automatischen Lauf (20 s nach dem Anmelden, je Gruppe abschaltbar) wird dann nur hinzugefügt. Von Hand
   entfernen: Feld „Name entfernen"; wer nur durch einen Rang im Kader steht, kommt beim nächsten Sync zurück.
-* ✅ **Gemessen** (`/lh gilde`, 14.10.2026): Die Gildenliste liefert **Vor- und Nachname plus Gildenrang**.
+* ✅ **Gemessen** (`/fs gilde`, 14.10.2026): Die Gildenliste liefert **Vor- und Nachname plus Gildenrang**.
   `Kern.GleicherSpieler` fängt trotzdem Kurz- und Langform ab.
 * Alte Einträge mit `modus = "raid"` werden wie ein Kader gelesen; das Feld wird ignoriert.
 * Der **Abgleich läuft von selbst** (Einstellung `autoAbgleich`, Standard an): Merkt Leiter oder Plündermeister
@@ -218,17 +224,17 @@ nichts bekam, steht nirgends — außer in Kader oder Raidgruppe.
 
 Auf Stufe 60 ist offen, ob in den Raids überhaupt Episches fällt (in
 Zul'Gurub ist das meiste blau). **Ein verpasster Drop ist unwiederbringlich,
-eine Zeile zu viel nur lästig.** `/lh filter 4` hebt die Schwelle. Dazu der
+eine Zeile zu viel nur lästig.** `/fs filter 4` hebt die Schwelle. Dazu der
 **Ort** (`raid` | `instanz` | `überall`) und `filter wurf` (nur
 Ausgewürfeltes, Standard aus).
 
 ### Das Einstellungsfenster sieht aus wie das von KaosUI
 
-Eigenes Fenster neben der Übersicht (`/lh einstellungen` oder Knopf *Einstellungen*): Kopf mit
+Eigenes Fenster neben der Übersicht (`/fs einstellungen` oder Knopf *Einstellungen*): Kopf mit
 Logo und Versionskästchen, Seitenleiste, Karten mit Zeilen, Fußleiste. Petrol `#1f8f80` als Akzent,
 Inter Medium als Schrift (**SIL OFL**, `Media/Fonts/LICENSE-Inter.txt`), Symbole aus Tabler Icons
 (**MIT**, `Media/Icons/LICENSE-Tabler.txt`). Beides stammt aus KaosUI, **die Bausteine sind aber neu
-geschrieben** (`Stil.lua`) — Loot-Historie hängt nicht von KaosUI ab.
+geschrieben** (`Stil.lua`) — Fairshare hängt nicht von KaosUI ab.
 
 Eine Zeile ist eine Datentabelle (`art` = schalter | segment | knopf | eingabe | info, dazu
 `label`, `beschr`, `get`/`set`); Texte und Zustand setzt `update()`, die Höhen rechnet
@@ -251,7 +257,7 @@ parste und der Wert zudem für verschiedene Mengen gleich wurde. Wie WoW sich ve
 Das Addon spricht die Sprache des Clients: **deDE = Deutsch, jeder andere Client = Englisch.** Wie bei
 KaosUI sind die **deutschen Sätze die Schlüssel** (`L["Wer schreibt mit"]`); `Locale.lua` hält die englische
 Fassung, auf einem deutschen Client liefert `L[]` den Schlüssel selbst. Befehlsworte gelten deutsch **und**
-englisch (`/lh history`, `settings`, `list`, `sync`, `group`, `brackets`, `role`, `state`, `patterns`,
+englisch (`/fs history`, `settings`, `list`, `sync`, `group`, `brackets`, `role`, `state`, `patterns`,
 `appearance`). Datumsformate sind selbst Schlüssel (`L["%d.%m.%Y"]` → `%m/%d/%Y`).
 
 ⚠️ Jeder neue Text braucht einen Eintrag. `python tests/texte.py --streng` prüft, dass kein Schlüssel fehlt,
@@ -268,13 +274,13 @@ Ursache nicht belegt ist: (1) Textfelder mit Schriftvorlage `GameFontNormal` anl
 nie ein nacktes Feld mit der neuen Datei (so macht es KaosUI); (2) `SetFont` auswerten, bei `false` auf
 `STANDARD_TEXT_FONT`; (3) umbrechende Texte nie mit Breite 0 setzen; (4) die Seitenframes bekommen die echte
 Höhe statt 1; (5) `Stil.Auffrischen()` setzt nach dem ersten Zeigen alle Texte leer und wieder neu
-(KaosUI-Lehre: erst ein geänderter Text zeichnet). **Diagnose: `/lh darstellung`** (Schrift, Größe, Farbe,
+(KaosUI-Lehre: erst ein geänderter Text zeichnet). **Diagnose: `/fs darstellung`** (Schrift, Größe, Farbe,
 Sichtbarkeit der ersten Zeilen). Hilft nichts davon, mit dieser Ausgabe weitersuchen.
 
 ### Fenstergröße und Ebenen (14.10.2026)
 
 Beide Fenster sind in der Größe verstellbar (Griff unten rechts, `Stil.Verstellbar`); Größe und Lage liegen in
-`LootHistorieDB.fenster.uebersicht` / `.einstellungen` und werden auf die Grenzen gebracht. Der Anker ist **oben
+`FairshareDB.fenster.uebersicht` / `.einstellungen` und werden auf die Grenzen gebracht. Der Anker ist **oben
 links**, nie die Mitte (sonst springt das Fenster beim Ziehen). Die Übersicht rechnet Zeilenzahl (bis 40) und
 Spaltenbreiten aus der Fenstergröße; die Einstellungen legen die Karten bei jeder Breite neu.
 
@@ -293,7 +299,7 @@ jedem Aufbau frisch.
 ## Arbeitsweise
 
 ```
-python luacheck.py LootHistorie/*.lua     # Blockstruktur, echter Tokenizer
+python luacheck.py Fairshare/*.lua     # Blockstruktur, echter Tokenizer
 pip install lupa                          # einmalig
 python tests/rechenkern.py                # Kern + Tests.lua in echtem Lua 5.1
 python tests/szenarien.py                 # mehrere virtuelle Clients, auch ein englischer Client

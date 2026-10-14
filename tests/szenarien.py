@@ -282,7 +282,7 @@ keinFehler("Reiterwechsel")
 
 fest(g["__klick"]("Einstellungen") is True, "Knopf Einstellungen im Hauptfenster")
 fest(ns.Einstellungen.Sichtbar() is True, "Einstellungsfenster ist offen")
-fest(len(list(g["__text"]("Loot-Historie").values())) > 0, "Kopf mit Namen")
+fest(len(list(g["__text"]("Fairshare").values())) > 0, "Kopf mit Namen")
 fest(len(list(g["__text"]("0.1.0 · Forever").values())) > 0, "Versions-Kaestchen")
 fest(len(list(g["__text"]("Mitschreiben").values())) > 0, "Karte Mitschreiben")
 fest(len(list(g["__text"]("Vergaben aufzeichnen").values())) > 0, "Zeile Vergaben aufzeichnen")
@@ -336,7 +336,7 @@ fest(len(list(g["__text"]("Beispieldaten").values())) > 0, "Beispielmodus")
 g["__klick"]("Beispiel aus")
 keinFehler("Knoepfe")
 
-sl = g["SlashCmdList"]["LOOTHISTORIE"]
+sl = g["SlashCmdList"]["FAIRSHARE"]
 for befehl in ["", "verlauf", "rolle", "gruppe", "gruppe hilfe", "gruppe neu 20er", "gruppe aktiv 20er",
                "gruppe art", "gruppe kader A, B", "gruppe fuellen", "gruppe aktiv", "gruppe loeschen 20er",
                "abgleich status", "abgleich", "bereiche", "bereiche setzen", "stand", "liste", "liste 4",
@@ -344,7 +344,7 @@ for befehl in ["", "verlauf", "rolle", "gruppe", "gruppe hilfe", "gruppe neu 20e
                "demo", "demo", "import", "sync"]:
     sl(befehl)
 keinFehler("alle Befehle")
-fest(any("Prüfungen" in x and "0 fehlgeschlagen" in x for x in ausgabe()), "/lh test: alles bestanden")
+fest(any("Prüfungen" in x and "0 fehlgeschlagen" in x for x in ausgabe()), "/fs test: alles bestanden")
 
 print("== 12. Gargul-Anbindung (Attrappe von Gargul) ==")
 w = gruppe(2)
@@ -413,7 +413,7 @@ fest(hat("Roll ranges") and hat("Open by itself when a roll starts"), "Gargul-Se
 g["__klick"]("Groups")
 fest(hat("New group") and hat("No group yet"), "Gruppen-Seite auf Englisch")
 ns.Einstellungen.Verstecken()
-sl = g["SlashCmdList"]["LOOTHISTORIE"]
+sl = g["SlashCmdList"]["FAIRSHARE"]
 for befehl in ["help", "history", "settings", "list", "list 4", "Timo", "role", "group", "group help", "group new 40",
                "group active 40", "group type", "group roster A, B", "group fill", "group remove A", "group delete 40",
                "sync status", "brackets", "brackets set", "state", "patterns", "appearance", "filter", "filter 4",
@@ -439,7 +439,7 @@ for i in range(60):
     w.setze(0, "v%d" % i, {"awardedTo": "Spieler%d" % (i % 25), "itemID": 7000 + i, "timestamp": int(w.t) - i * 3600})
 ns.Fenster.Zeigen(False)
 ns.Einstellungen.Zeigen()
-haupt, einst = g["LootHistorieFenster"], g["LootHistorieEinstellungen"]
+haupt, einst = g["FairshareFenster"], g["FairshareEinstellungen"]
 fest(einst._strata == "FULLSCREEN_DIALOG", "Einstellungsfenster liegt auf der hoeheren Stufe")
 fest(haupt._strata == "DIALOG", "Uebersicht liegt auf der niedrigeren Stufe")
 fest(einst._level > haupt._level, "und hat die hoehere Ebene (%s > %s)" % (einst._level, haupt._level))
@@ -456,29 +456,29 @@ fest(not [x for x in g["__ausgabe"].values() if "Fehler" in str(x) or "rror" in 
 # Gespeichert wird beim Loslassen des Griffs
 haupt.SetSize(haupt, 900, 700)
 haupt.speichern()
-st = g["LootHistorieDB"]["fenster"]["uebersicht"]
+st = g["FairshareDB"]["fenster"]["uebersicht"]
 fest(st["b"] == 900 and st["h"] == 700, "Groesse der Uebersicht gemerkt (%s x %s)" % (st["b"], st["h"]))
 einst.SetSize(einst, 820, 640)
 einst.speichern()
-st2 = g["LootHistorieDB"]["fenster"]["einstellungen"]
+st2 = g["FairshareDB"]["fenster"]["einstellungen"]
 fest(st2["b"] == 820 and st2["h"] == 640, "Groesse der Einstellungen gemerkt")
 
 # Beim naechsten Laden wird sie wieder angewandt (neuer Client mit denselben Daten)
 w2 = gruppe(2)
 c2 = w2.clients[0]
-c2["g"]["LootHistorieDB"] = c2["lua"].table_from({"fenster": c2["lua"].table_from(
+c2["g"]["FairshareDB"] = c2["lua"].table_from({"fenster": c2["lua"].table_from(
     {"uebersicht": c2["lua"].table_from({"b": 1000, "h": 650, "x": 50, "y": 700})})})
 c2["ns"].Fenster.Zeigen(False)
-f2 = c2["g"]["LootHistorieFenster"]
+f2 = c2["g"]["FairshareFenster"]
 fest(f2._w == 1000 and f2._h == 650, "gemerkte Groesse wird beim Oeffnen angewandt (%s x %s)" % (f2._w, f2._h))
 
 # Zu kleine oder zu grosse gemerkte Werte werden begrenzt
 w3 = gruppe(2)
 c3 = w3.clients[0]
-c3["g"]["LootHistorieDB"] = c3["lua"].table_from({"fenster": c3["lua"].table_from(
+c3["g"]["FairshareDB"] = c3["lua"].table_from({"fenster": c3["lua"].table_from(
     {"uebersicht": c3["lua"].table_from({"b": 10, "h": 99999})})})
 c3["ns"].Fenster.Zeigen(False)
-f3 = c3["g"]["LootHistorieFenster"]
+f3 = c3["g"]["FairshareFenster"]
 fest(f3._w == 700 and f3._h == 1100, "unsinnige gemerkte Werte werden auf die Grenzen gesetzt (%s x %s)" % (f3._w, f3._h))
 
 print("== 15. Mitgliederabgleich: Raenge, hinzufuegen und entfernen ==")
@@ -588,7 +588,7 @@ fest("Handname Eins" not in namen(), "von Hand entfernt")
 # Migration: alter Stand (nur `kader`) gilt als Handarbeit
 G.Anlegen("alt")
 alt = G.Holen("alt")
-g["LootHistorieDB"]["gruppen"]["alt"] = lua.table_from({"name": "alt", "kader": lua.table_from({1: "Alter Eins", 2: "Alter Zwei"})})
+g["FairshareDB"]["gruppen"]["alt"] = lua.table_from({"name": "alt", "kader": lua.table_from({1: "Alter Eins", 2: "Alter Zwei"})})
 G.Aktivieren("alt")
 G.RangSetzen("alt", 3, True)
 G.Synchronisieren("alt")

@@ -4,7 +4,7 @@
     Dunkle, flache Flaechen, Petrol als Akzent, Inter als Schrift, runde
     Ecken ohne Grafikdatei. Dasselbe Aussehen wie das Optionsfenster von
     KaosUI, aber **ohne Abhaengigkeit zu KaosUI**: Die Bausteine sind hier
-    neu geschrieben, damit Loot-Historie allein funktioniert.
+    neu geschrieben, damit Fairshare allein funktioniert.
 
     ⚠️ Nur eigene Frames, keine Blizzard-Vorlagen (kein UIDropDownMenu,
     kein UIPanelButtonTemplate) — ein Teil weniger, das beim naechsten
@@ -36,7 +36,7 @@ do
     halter:Hide()
     local fs = halter:CreateFontString(nil, "OVERLAY")
     fs:SetFont(SCHRIFT, 13, "")
-    fs:SetText("Loot-Historie äöü")
+    fs:SetText("Fairshare äöü")
 end
 
 -- =====================================================================
@@ -411,14 +411,14 @@ end
 --  Mittenanker waechst ein Fenster beim Ziehen nach beiden Seiten und
 --  springt. (Erfahrung KaosUI.)
 --
---  @param schluessel  Name der Ablage in LootHistorieDB.fenster
+--  @param schluessel  Name der Ablage in FairshareDB.fenster
 --  @param m           { b, h, minB, minH, maxB, maxH, dx, dy }  Vorgabe und Grenzen
 --  @param beiAenderung  wird bei jeder Groessenaenderung gerufen
 function Stil.Verstellbar(win, schluessel, m, beiAenderung)
-    LootHistorieDB = LootHistorieDB or {}
-    LootHistorieDB.fenster = LootHistorieDB.fenster or {}
-    local st = LootHistorieDB.fenster[schluessel] or {}
-    LootHistorieDB.fenster[schluessel] = st
+    FairshareDB = FairshareDB or {}
+    FairshareDB.fenster = FairshareDB.fenster or {}
+    local st = FairshareDB.fenster[schluessel] or {}
+    FairshareDB.fenster[schluessel] = st
 
     local b = begrenze(st.b or m.b, m.minB, m.maxB)
     local h = begrenze(st.h or m.h, m.minH, m.maxH)

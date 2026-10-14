@@ -78,9 +78,9 @@ local SPALTEN = { "a", "b", "c", "d", "e" }
 -- =====================================================================
 
 local function db()
-    LootHistorieDB = LootHistorieDB or {}
-    if LootHistorieDB.autoOeffnen == nil then LootHistorieDB.autoOeffnen = true end
-    return LootHistorieDB
+    FairshareDB = FairshareDB or {}
+    if FairshareDB.autoOeffnen == nil then FairshareDB.autoOeffnen = true end
+    return FairshareDB
 end
 
 function Fenster.AutoOeffnen()
@@ -197,11 +197,11 @@ local function kopfBauen()
     S.Form(logo, 5, C.ac)
     local l = S.Text(logo, 13, C.white, "CENTER")
     l:SetPoint("CENTER", 1, 0)
-    l:SetText("L")
+    l:SetText("F")
 
     local name = S.Text(k, 14, C.tx, "LEFT")
     name:SetPoint("LEFT", logo, "RIGHT", 10, 0)
-    name:SetText("Loot-Historie")
+    name:SetText("Fairshare")
 
     local tag = CreateFrame("Frame", nil, k)
     tag:SetHeight(17)
@@ -224,7 +224,7 @@ end
 local function baueFenster()
     if rahmen then return end
 
-    rahmen = CreateFrame("Frame", "LootHistorieFenster", UIParent)
+    rahmen = CreateFrame("Frame", "FairshareFenster", UIParent)
     -- Stufe fest und niedriger als beim Einstellungsfenster (das liegt auf
     -- FULLSCREEN_DIALOG, Ebene 200): So liegt es nie darunter.
     rahmen:SetFrameStrata("DIALOG")
@@ -233,7 +233,7 @@ local function baueFenster()
     rahmen:SetMovable(true)
     rahmen:EnableMouse(true)
     S.Kasten(rahmen, 10, C.bg, C.ln)
-    tinsert(UISpecialFrames, "LootHistorieFenster")   -- ESC schliesst
+    tinsert(UISpecialFrames, "FairshareFenster")   -- ESC schliesst
 
     kopfBauen()
 
@@ -266,7 +266,7 @@ local function baueFenster()
     abgleichBtn:SetPoint("RIGHT", einstellBtn, "LEFT", -8, 0)
     abgleichBtn:SetScript("OnClick", function()
         local ok, grund = ns.Abgleich.Starten()
-        if not ok then print("|cff1B6B57Loot-Historie|r: |cffff5555" .. tostring(grund) .. "|r") end
+        if not ok then print("|cff1B6B57Fairshare|r: |cffff5555" .. tostring(grund) .. "|r") end
     end)
 
     -- Zeile 2: Hinweis oder Zurueck links, Gruppe rechts
@@ -705,7 +705,7 @@ function Fenster.GargulAnbinden()
         return false, L["Gargul hat keine Ereignis-Schnittstelle"]
     end
 
-    GL.Events:register("LootHistorieWurfStart", "GL.ROLLOFF_STARTED", function()
+    GL.Events:register("FairshareWurfStart", "GL.ROLLOFF_STARTED", function()
         if Fenster.AutoOeffnen() then
             Fenster.Zeigen(false)
         else
@@ -714,26 +714,26 @@ function Fenster.GargulAnbinden()
     end)
 
     -- Jeder eingehende Wurf aendert die Reihenfolge.
-    GL.Events:register("LootHistorieWurf", "GL.ROLLOFF_ROLL_ACCEPTED", function()
+    GL.Events:register("FairshareWurf", "GL.ROLLOFF_ROLL_ACCEPTED", function()
         Fenster.Aktualisieren()
     end)
 
-    GL.Events:register("LootHistorieWurfEnde", "GL.ROLLOFF_STOPPED", function()
+    GL.Events:register("FairshareWurfEnde", "GL.ROLLOFF_STOPPED", function()
         Fenster.Aktualisieren()
     end)
 
     -- ⭐ Eine Vergabe in Gargul landet auch in unserer Historie — mit
     -- Haupt/Zweitbedarf und Wurf, die der Chat nie liefert. Ob wir sie
     -- eintragen duerfen, entscheidet die Rolle (nur der Schreiber).
-    GL.Events:register("LootHistorieVergabe", "GL.ITEM_AWARDED", function(_, Eintrag)
+    GL.Events:register("FairshareVergabe", "GL.ITEM_AWARDED", function(_, Eintrag)
         pcall(ns.Erfassung.GargulVergabe, Eintrag)
         Fenster.Aktualisieren()
     end)
-    GL.Events:register("LootHistorieVergabeGeaendert", "GL.ITEM_AWARD_EDITED", function(_, Eintrag)
+    GL.Events:register("FairshareVergabeGeaendert", "GL.ITEM_AWARD_EDITED", function(_, Eintrag)
         pcall(ns.Erfassung.GargulAenderung, Eintrag)
         Fenster.Aktualisieren()
     end)
-    GL.Events:register("LootHistorieVergabeZurueck", "GL.ITEM_UNAWARDED", function(_, Eintrag)
+    GL.Events:register("FairshareVergabeZurueck", "GL.ITEM_UNAWARDED", function(_, Eintrag)
         pcall(ns.Erfassung.GargulZurueck, Eintrag)
         Fenster.Aktualisieren()
     end)

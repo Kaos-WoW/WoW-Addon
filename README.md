@@ -1,4 +1,4 @@
-# Loot-Historie
+# Fairshare
 
 WoW-Addon für die Gilde **Resurrected**. Es zeigt, **wer über die Wochen wie
 viele Gegenstände bekommen hat** — und wer wann was bekam. Damit der
@@ -31,25 +31,25 @@ Das Addon spricht die **Sprache des Clients**: deutscher Client Deutsch, jeder a
 
 ## Benutzen
 
-`/lh` öffnet das Fenster. Oben: **Spieler** (Liste), **Verlauf** (wer bekam
+`/fs` öffnet das Fenster. Oben: **Spieler** (Liste), **Verlauf** (wer bekam
 was, wann), **Gruppe**, **Abgleichen**, **Einstellungen** (eigenes Fenster im Look von
 KaosUI).
 
 | Befehl | Zweck |
 |---|---|
-| `/lh` | Fenster öffnen und schließen |
-| `/lh verlauf` | wer bekam was, wann |
-| `/lh einstellungen` | das Einstellungsfenster |
-| `/lh demo` | Beispieldaten ansehen — nichts wird gespeichert |
-| `/lh liste` | dieselbe Auswertung im Chat, `liste 4` für vier Wochen |
-| `/lh <Name>` | Einzelvergaben eines Spielers |
-| `/lh abgleich` | Historien der Gruppe zusammenführen (`abgleich status`: Stand) |
-| `/lh rolle` | wer schreibt gerade mit, und warum |
-| `/lh gruppe` | Kader und Raidgruppen (`gruppe hilfe`) |
-| `/lh bereiche` | Garguls Würfelbereiche prüfen (`bereiche setzen`) |
-| `/lh filter` | ab welcher Qualität und wo mitgeschrieben wird |
-| `/lh stand` | Diagnose |
-| `/lh test` | Selbsttests |
+| `/fs` | Fenster öffnen und schließen |
+| `/fs verlauf` | wer bekam was, wann |
+| `/fs einstellungen` | das Einstellungsfenster |
+| `/fs demo` | Beispieldaten ansehen — nichts wird gespeichert |
+| `/fs liste` | dieselbe Auswertung im Chat, `liste 4` für vier Wochen |
+| `/fs <Name>` | Einzelvergaben eines Spielers |
+| `/fs abgleich` | Historien der Gruppe zusammenführen (`abgleich status`: Stand) |
+| `/fs rolle` | wer schreibt gerade mit, und warum |
+| `/fs gruppe` | Kader und Raidgruppen (`gruppe hilfe`) |
+| `/fs bereiche` | Garguls Würfelbereiche prüfen (`bereiche setzen`) |
+| `/fs filter` | ab welcher Qualität und wo mitgeschrieben wird |
+| `/fs stand` | Diagnose |
+| `/fs test` | Selbsttests |
 
 **Hauptbedarf** bestimmt die Reihenfolge, **Zweitbedarf** steht daneben und
 zählt nicht mit — wer ein Stück für die Zweitrolle bekommt, hat keinen
@@ -69,7 +69,7 @@ Entwicklungsnotizen, Begründungen und Fallstricke stehen in
 [`AGENTS.md`](AGENTS.md). Vor dem Ausrollen:
 
 ```
-python luacheck.py LootHistorie/*.lua       # Blockstruktur
+python luacheck.py Fairshare/*.lua       # Blockstruktur
 pip install lupa                            # einmalig: Lua 5.1 für Python
 python tests/rechenkern.py                  # Selbsttests ohne Spiel
 python tests/szenarien.py                   # mehrere virtuelle Clients, Abgleich, Oberfläche, englischer Client

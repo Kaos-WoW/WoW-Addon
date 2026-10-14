@@ -21,7 +21,7 @@ import re
 import sys
 
 HIER = os.path.dirname(os.path.abspath(__file__))
-QUELLE = os.path.join(HIER, "..", "LootHistorie")
+QUELLE = os.path.join(HIER, "..", "Fairshare")
 
 # Dateien, deren Texte nicht uebersetzt werden (Entwicklerwerkzeug)
 # Kern.lua: reine Rechnerei, die Gruende (z. B. "entzaubert") sind intern.
@@ -33,7 +33,7 @@ ERLAUBT = {
     "überall", "löschen", " · Forever",
     "kein Bedarfswurf", "kein Schlachtzug", "keine Instanz", "Qualität zu niedrig",
     "unvollständig", "ohne Gegenstand",
-    "Järgerlie", "Zorn des Verräters", "Loot-Historie äöü",
+    "Järgerlie", "Zorn des Verräters", "Fairshare äöü",
     "keine Seite",
     "  %s  |cff8E9A94(%s, %s)|r",
 }

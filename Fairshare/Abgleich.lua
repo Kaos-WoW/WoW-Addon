@@ -41,14 +41,14 @@ ns.Abgleich = Abgleich
 
 local Kern = ns.Kern
 
-local PRAEFIX    = "LHIST"
+local PRAEFIX    = "FSHARE"
 local VERSION    = 1
 local PAKETLAENGE = 215      -- Nutzlast je Nachricht; der Kopf kommt dazu
 local TAKT       = 0.25      -- Sekunden zwischen zwei Nachrichten
 local MAXEINTRAEGE = 600     -- je Abgleich und Spieler
 local SITZUNGSDAUER = 900    -- so lange gilt ein Abgleich als offen
 
-local MELDUNG = "|cff1B6B57Loot-Historie|r: "
+local MELDUNG = "|cff1B6B57Fairshare|r: "
 
 -- =====================================================================
 --  Zugriff
@@ -188,7 +188,7 @@ end
 
 local function popupZeigen(anzahl, namen)
     if not popup then
-        popup = CreateFrame("Frame", "LootHistorieAbgleich", UIParent, "BackdropTemplate")
+        popup = CreateFrame("Frame", "FairshareAbgleich", UIParent, "BackdropTemplate")
         popup:SetSize(380, 150)
         popup:SetPoint("TOP", UIParent, "TOP", 0, -140)
         popup:SetFrameStrata("DIALOG")
@@ -201,7 +201,7 @@ local function popupZeigen(anzahl, namen)
 
         local kopf = popup:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
         kopf:SetPoint("TOP", popup, "TOP", 0, -18)
-        kopf:SetText("Loot-Historie")
+        kopf:SetText("Fairshare")
 
         popup.text = popup:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
         popup.text:SetPoint("TOPLEFT", popup, "TOPLEFT", 22, -46)

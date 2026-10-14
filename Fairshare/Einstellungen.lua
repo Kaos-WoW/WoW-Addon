@@ -591,11 +591,11 @@ local function kopfBauen()
     S.Form(logo, 5, C.ac)
     local l = S.Text(logo, 13, C.white, "CENTER")
     l:SetPoint("CENTER", 1, 0)
-    l:SetText("L")
+    l:SetText("F")
 
     local name = S.Text(kopf, 14, C.tx, "LEFT")
     name:SetPoint("LEFT", logo, "RIGHT", 10, 0)
-    name:SetText("Loot-Historie")
+    name:SetText("Fairshare")
 
     local tag = CreateFrame("Frame", nil, kopf)
     tag:SetHeight(17)
@@ -668,7 +668,7 @@ end
 local kruemel, titel, beschr, fussText
 
 local function fensterBauen()
-    win = CreateFrame("Frame", "LootHistorieEinstellungen", UIParent)
+    win = CreateFrame("Frame", "FairshareEinstellungen", UIParent)
     -- ⭐ Immer UEBER der Uebersicht: andere Ebene UND hoeher gelegene
     -- Rahmenstufe. Nur die Ebene zu waehlen genuegt nicht — die Unterelemente
     -- beider Fenster haben sonst gleiche Stufen und mischen sich beim
@@ -680,7 +680,7 @@ local function fensterBauen()
     win:SetMovable(true)
     S.Kasten(win, 10, C.bg, C.ln)
     win:Hide()
-    tinsert(UISpecialFrames, "LootHistorieEinstellungen")   -- ESC schliesst
+    tinsert(UISpecialFrames, "FairshareEinstellungen")   -- ESC schliesst
 
     kopfBauen()
 
@@ -795,7 +795,7 @@ function Einstellungen.Aktualisieren()
             "  ·  " .. tostring(grund))
     end)
     if not ok then
-        print("|cff1B6B57Loot-Historie|r: |cffff5555" ..
+        print("|cff1B6B57Fairshare|r: |cffff5555" ..
             string.format(L["Fehler in den Einstellungen: %s"], tostring(fehler)) .. "|r")
     end
 end

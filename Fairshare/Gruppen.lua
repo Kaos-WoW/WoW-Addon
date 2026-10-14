@@ -188,7 +188,7 @@ end
 --- Alle Gildenmitglieder.
 --  Forever liest ueber C_Club, Anniversary/Classic ueber GetGuildRosterInfo
 --  (so hat es schon die erste Fassung dieses Projekts gemessen).
---  Gemessen mit `/lh gilde` (14.10.2026): Forever liefert Vor- UND Nachname
+--  Gemessen mit `/fs gilde` (14.10.2026): Forever liefert Vor- UND Nachname
 --  plus Gildenrang.
 --  @return Liste aus { name, rang, rangIndex } oder nil und ein Grund
 function Gruppen.GildenMitglieder()
@@ -356,11 +356,11 @@ function Gruppen.AutoSynchronisieren()
 
     local hinzu, weg, uebersprungen = Gruppen.Synchronisieren(name, true)
     if hinzu and (hinzu > 0 or (weg or 0) > 0) then
-        print("|cff1B6B57Loot-Historie|r: " ..
+        print("|cff1B6B57Fairshare|r: " ..
             string.format(L["Kader „%s“: %d neu, %d entfernt."], name, hinzu, weg or 0))
     end
     if uebersprungen then
-        print("|cff1B6B57Loot-Historie|r: " ..
+        print("|cff1B6B57Fairshare|r: " ..
             string.format(L["Kader „%s“: Entfernen übersprungen (zu viele auf einmal) – bitte in den Einstellungen prüfen."], name))
     end
 end

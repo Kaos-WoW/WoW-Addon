@@ -30,7 +30,7 @@ ns.Erfassung = Erfassung
 
 local Kern = ns.Kern
 
-local PRAEFIX = "|cff1B6B57Loot-Historie|r: "
+local PRAEFIX = "|cff1B6B57Fairshare|r: "
 
 -- Wie lange ein Wurf einer spaeteren Beutemeldung zugeordnet wird.
 local WURFGEDAECHTNIS = 600   -- Sekunden
@@ -40,8 +40,8 @@ local WURFGEDAECHTNIS = 600   -- Sekunden
 -- =====================================================================
 
 local function db()
-    LootHistorieDB = LootHistorieDB or {}
-    local d = LootHistorieDB
+    FairshareDB = FairshareDB or {}
+    local d = FairshareDB
     d.vergaben = d.vergaben or {}
     -- Kennungen von Doppelgaengern, die verworfen wurden (siehe
     -- Kern.Zusammenfuehren). Sie zaehlen in der Pruefsumme mit.

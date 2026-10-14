@@ -10,7 +10,7 @@ import sys
 
 from lupa import lua51
 
-A = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "LootHistorie")
+A = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Fairshare")
 
 lua = lua51.LuaRuntime(unpack_returned_tuples=True)
 lade = lua.eval("function(code, name) return loadstring(code, name) end")
@@ -22,7 +22,7 @@ for datei in ["Kern.lua", "Tests.lua"]:
     if isinstance(r, tuple):
         print("SYNTAXFEHLER in", datei, r[1])
         sys.exit(1)
-    r("LootHistorie", ns)
+    r("Fairshare", ns)
 
 gut, schlecht = ns.Tests.Alle(lua.eval("false"))
 print("bestanden:", gut, " fehlgeschlagen:", schlecht)

@@ -7,7 +7,7 @@
     liess einen echten Regelverstoss durch, weil der Sollwert aus der
     Implementierung stammte.
 
-    Laeuft im Spiel ueber /lh test und ohne Client in jedem Lua.
+    Laeuft im Spiel ueber /fs test und ohne Client in jedem Lua.
 ------------------------------------------------------------------------]]
 
 local _, ns = ...
@@ -635,7 +635,7 @@ function Tests.Alle(ausgeben)
 
     if ausgeben ~= false then
         for _, m in ipairs(meldungen) do print(m) end
-        print(string.format(L["|cff1B6B57Loot-Historie|r: %d Prüfungen, %d bestanden, %d fehlgeschlagen"],
+        print(string.format(L["|cff1B6B57Fairshare|r: %d Prüfungen, %d bestanden, %d fehlgeschlagen"],
             gut + schlecht, gut, schlecht))
     end
     return gut, schlecht
