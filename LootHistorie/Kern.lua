@@ -673,13 +673,4 @@ function Kern.Verlauf(historie, seit, gruppe)
     return liste
 end
 
---- Welche Namen muessen in der Liste stehen, auch ohne Vergabe?
---  @param gruppe  { modus = "kader"|"raid", kader = { ... } }
---  @param raid    Namen der aktuellen Gruppe
-function Kern.Pflichtnamen(gruppe, raid)
-    if type(gruppe) ~= "table" then return {} end
-    if gruppe.modus == "raid" then return raid or {} end
-    return gruppe.kader or {}
-end
-
 return ns

@@ -431,7 +431,7 @@ local function seiteGruppen(P)
             beschr = function()
                 local g = G.Holen(G.Namen()[i])
                 if not g then return "" end
-                return string.format(L["%d Namen im Kader"], #(g.kader or {}))
+                return string.format(L["%d Namen im Kader"], #G.Namensliste(g))
             end,
             knopf = { text = function() return G.Namen()[i] == G.AktivName() and L["Aktiv"] or L["Aktivieren"] end,
                 art = "primary",
@@ -452,26 +452,26 @@ local function seiteGruppen(P)
     local aktiv = function() return G.AktivName() ~= nil end
     local k2 = karte(P, function() return string.format(L["Aktive Gruppe: %s"], tostring(G.AktivName() or "")) end,
         L["Der Kader steht ohne Gruppe in der Liste. In einer Gruppe zählen nur die, die dabei sind."], aktiv)
-    zeile(k2, { art = "knopf", label = L["Kader auffüllen"],
+    zeile(k2, { art = "knopf", label = L["Mitglieder synchronisieren"],
         beschr = function()
-            return Meldung.kader or L["Nimmt neue Spieler auf: aus den gewählten Gildenrängen und aus deiner Gruppe. Entfernt nie jemanden."]
+            return Meldung.kader or L["Mit gewählten Gildenrängen ist der Kader genau deren Mitglieder: Neue kommen dazu, Ausgetretene fallen weg. Von Hand ergänzte Namen bleiben. Ohne Ränge werden nur Spieler aus deiner Gruppe aufgenommen."]
         end,
-        knopf = { text = L["Auffüllen"], art = "primary",
+        knopf = { text = L["Synchronisieren"], art = "primary",
             klick = function()
-                local n, grund = G.Auffuellen(G.AktivName())
-                if n then
-                    Meldung.kader = farbig(C.ok, string.format(L["%d neue Spieler aufgenommen"], n))
+                local neu, weg = G.Synchronisieren(G.AktivName())
+                if neu then
+                    Meldung.kader = farbig(C.ok, string.format(L["%d neu, %d entfernt"], neu, weg or 0))
                 else
-                    Meldung.kader = farbig(C.bad, tostring(grund))
+                    Meldung.kader = farbig(C.bad, tostring(weg))
                 end
             end } })
-    zeile(k2, { art = "schalter", label = L["Beim Anmelden automatisch auffüllen"],
+    zeile(k2, { art = "schalter", label = L["Beim Anmelden automatisch synchronisieren"],
         beschr = L["Nur wirksam, wenn unten Gildenränge gewählt sind."],
         get = function() local g = G.Aktiv() return g and g.auto ~= false end,
         set = function(v) local g = G.Aktiv() if g then g.auto = v end end })
     zeile(k2, { art = "eingabe", label = L["Namen hinzufügen"],
         beschr = function()
-            return Meldung.namen or L["Mit Komma trennen – Nachnamen enthalten Leerzeichen."]
+            return Meldung.namen or L["Mit Komma trennen – Nachnamen enthalten Leerzeichen. Diese Namen bleiben immer erhalten."]
         end,
         knopf = { text = L["Hinzufügen"],
             klick = function(text)
@@ -480,7 +480,7 @@ local function seiteGruppen(P)
             end } })
     zeile(k2, { art = "eingabe", label = L["Name entfernen"],
         beschr = function()
-            return Meldung.entfernt or L["Wer die Gilde verlassen hat, wird von Hand entfernt."]
+            return Meldung.entfernt or L["Wer nur durch einen Rang im Kader steht, kommt beim nächsten Abgleich zurück – dafür den Rang abwählen."]
         end,
         knopf = { text = L["Entfernen"],
             klick = function(text)
@@ -489,14 +489,14 @@ local function seiteGruppen(P)
             end } })
     zeile(k2, { art = "info", label = L["Kader"],
         beschr = function()
-            local g = G.Aktiv()
-            if not g or #(g.kader or {}) == 0 then return L["Noch leer."] end
+            local liste = G.Namensliste(G.Aktiv())
+            if #liste == 0 then return L["Noch leer."] end
             local teile = {}
-            for i, n in ipairs(g.kader) do
+            for i, n in ipairs(liste) do
                 if i > 16 then teile[#teile + 1] = "…" break end
                 teile[#teile + 1] = n
             end
-            return string.format(L["%d Namen: %s"], #g.kader, table.concat(teile, ", "))
+            return string.format(L["%d Namen: %s"], #liste, table.concat(teile, ", "))
         end })
     zeile(k2, { art = "knopf", label = L["Gruppe löschen"],
         beschr = function()
@@ -516,7 +516,7 @@ local function seiteGruppen(P)
 
     -- Gildenraenge: wer in diesen Raengen ist, kommt beim Auffuellen in den Kader
     local k3 = karte(P, L["Gildenränge für den Kader"],
-        L["Wer in einem gewählten Rang ist, wird beim Auffüllen in den Kader aufgenommen."], aktiv)
+        L["Wer in einem gewählten Rang ist, gehört zum Kader. Wer den Rang oder die Gilde verlässt, fällt beim Synchronisieren heraus."], aktiv)
     zeile(k3, { art = "info", sichtbar = function() return not G.Raenge() end,
         label = L["Gildenliste nicht geladen"],
         beschr = function() local _, grund = G.Raenge() return tostring(grund or "") end })

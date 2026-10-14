@@ -23,8 +23,8 @@ Das Addon spricht die **Sprache des Clients**: deutscher Client Deutsch, jeder a
   Klick auf *Abgleichen* führt sie zusammen — es kommt nur hinzu, nichts wird
   ersetzt.
 * **Gruppen** (z. B. „40er", „10er") sind eine Beschriftung mit einem Kader. **In einer Gruppe zeigt die
-  Übersicht nur die Spieler, die bei dir sind**; ohne Gruppe den Kader. *Auffüllen* nimmt neue Spieler aus den
-  gewählten **Gildenrängen** und aus deiner Gruppe auf und entfernt nie jemanden. Jede Vergabe merkt sich ihre
+  Übersicht nur die Spieler, die bei dir sind**; ohne Gruppe den Kader. Der **Member sync** gleicht den Kader mit den
+  gewählten **Gildenrängen** ab: Neue kommen dazu, Ausgetretene fallen weg, von Hand ergänzte Namen bleiben. Jede Vergabe merkt sich ihre
   Gruppe, die Ansicht lässt sich umschalten.
 * **Der Abgleich läuft von selbst**: Wer mit dir in einer Gruppe steht, bekommt deine Daten, und du bekommst
   seine — nur Hinzufügen, nichts wird überschrieben.

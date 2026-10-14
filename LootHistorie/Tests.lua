@@ -141,6 +141,38 @@ local function testPflichtnamen()
     gleich("Pflichtnamen zaehlen keine Vergabe", gesamt, 1)
 end
 
+--- Mit `nur` zaehlen und erscheinen ausschliesslich diese Namen.
+local function testNur()
+    local H = {
+        a = { awardedTo = "Timo Rot",  timestamp = 1000 },
+        b = { awardedTo = "Timo Rot",  timestamp = 2000 },
+        c = { awardedTo = "Lina",      timestamp = 3000 },
+        d = { awardedTo = "Fremder",   timestamp = 4000 },
+        e = { awardedTo = "Moe Blau",  timestamp = 5000, OS = true },
+    }
+    local nur = { "Timo Rot", "Lina", "Neuling Gruen" }
+    local liste, gesamt = Kern.Bilanz(H, 0, nur, nur)
+
+    gleich("nur die drei, auch einer ohne Vergabe", #liste, 3)
+    gleich("die Summe zaehlt nur diese (3 von 5)", gesamt, 3)
+    local namen = {}
+    for _, z in ipairs(liste) do namen[z.name] = z end
+    gleich("Fremde fehlen", namen.Fremder, nil)
+    gleich("wer nicht dabei ist, fehlt auch mit Zweitbedarf", namen["Moe Blau"], nil)
+    gleich("Neuling ohne Vergabe steht drin", namen["Neuling Gruen"] and namen["Neuling Gruen"].haupt, 0)
+    gleich("Timo hat seine zwei", namen["Timo Rot"] and namen["Timo Rot"].haupt, 2)
+
+    -- Ein Name ohne Nachnamen in der Historie gehoert zum vollen Namen der Gruppe
+    local H2 = { x = { awardedTo = "Timo", timestamp = 10 }, y = { awardedTo = "Timo Rot", timestamp = 20 } }
+    local l2 = Kern.Bilanz(H2, 0, { "Timo Rot" }, { "Timo Rot" })
+    gleich("Kurzname und voller Name sind eine Zeile", #l2, 1)
+    gleich("beide Vergaben landen dort", l2[1].haupt, 2)
+    gleich("angezeigt wird der volle Name", l2[1].name, "Timo Rot")
+
+    -- Ohne `nur` bleibt alles wie bisher
+    gleich("ohne nur zaehlt jeder", #Kern.Bilanz(H, 0), 4)
+end
+
 local function testWurfReihenfolge()
     local liste = {
         { name = "Viel",   haupt = 9, zweit = 0, letzte = 500 },
@@ -571,16 +603,6 @@ local function testVerlauf()
     gleich("Bilanz je Gruppe: zwei Spieler", #liste, 2)
 end
 
-local function testPflichtnamen2()
-    local kader = { modus = "kader", kader = { "A", "B", "C" } }
-    local raid  = { modus = "raid",  kader = { "A" } }
-
-    gleich("Kader: die Liste", #Kern.Pflichtnamen(kader, { "X" }), 3)
-    gleich("Raidgruppe: wer gerade da ist", Kern.Pflichtnamen(raid, { "X", "Y" })[2], "Y")
-    gleich("Raidgruppe ohne Gruppe", #Kern.Pflichtnamen(raid, nil), 0)
-    gleich("keine Gruppe", #Kern.Pflichtnamen(nil, { "X" }), 0)
-end
-
 -- =====================================================================
 
 function Tests.Alle(ausgeben)
@@ -598,12 +620,12 @@ function Tests.Alle(ausgeben)
     testPakete()
     testSchreiber()
     testVerlauf()
-    testPflichtnamen2()
 
     testZaehlt()
     testNamen()
     testBilanz()
     testPflichtnamen()
+    testNur()
     testWurfReihenfolge()
     testSpieler()
     testMuster()

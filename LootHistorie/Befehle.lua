@@ -294,7 +294,7 @@ befehle["gruppe"] = function(arg)
         print(L["  |cffffff78/lh gruppe neu <Name>|r        – Gruppe anlegen (Kader)"])
         print(L["  |cffffff78/lh gruppe aktiv <Name>|r      – aktive Gruppe; ohne Namen: keine"])
         print(L["  |cffffff78/lh gruppe kader A, B, C|r     – Namen zum Kader (Komma!)"])
-        print(L["  |cffffff78/lh gruppe fuellen|r           – Kader auffüllen (Gildenränge und Gruppe, nur hinzufügen)"])
+        print(L["  |cffffff78/lh gruppe sync|r              – Kader mit den Gildenrängen abgleichen (hinzufügen und entfernen)"])
         print(L["  |cffffff78/lh gruppe raenge|r            – Gildenränge anzeigen; |cffffff78raenge <Nr>|r wählt oder streicht einen"])
         print(L["  |cffffff78/lh gruppe entfernen <Name>|r  – Name aus dem Kader"])
         print(L["  |cffffff78/lh gruppe loeschen <Name>|r   – Gruppe löschen"])
@@ -330,12 +330,12 @@ befehle["gruppe"] = function(arg)
         if not name then sag(ROT .. L["Keine Gruppe aktiv."] .. "|r") return end
         local n = G.KaderErgaenzen(name, rest)
         sag(string.format(L["%d Namen ergänzt."], n or 0))
-    elseif was == "fuellen" or was == "fill" then
+    elseif was == "sync" or was == "synchronisieren" or was == "fuellen" or was == "fill" then
         local name = G.AktivName()
         if not name then sag(ROT .. L["Keine Gruppe aktiv."] .. "|r") return end
-        local n, grund = G.Auffuellen(name)
-        if not n then sag(ROT .. tostring(grund) .. "|r") return end
-        sag(string.format(L["Kader von %s: %d neue Spieler aufgenommen."], name, n))
+        local neu, weg = G.Synchronisieren(name)
+        if not neu then sag(ROT .. tostring(weg) .. "|r") return end
+        sag(string.format(L["Kader „%s“: %d neu, %d entfernt."], name, neu, weg or 0))
     elseif was == "entfernen" or was == "remove" then
         local name = G.AktivName()
         if not name then sag(ROT .. L["Keine Gruppe aktiv."] .. "|r") return end
@@ -353,7 +353,7 @@ befehle["gruppe"] = function(arg)
         for _, n in ipairs(Namen) do
             local g = G.Holen(n)
             print(string.format("  %s%s|r  %s%s|r", n == aktiv and GELB or "", n, GRAU,
-                string.format(L["%d im Kader"], #(g.kader or {}))))
+                string.format(L["%d im Kader"], #G.Namensliste(g))))
         end
     end
 end

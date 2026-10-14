@@ -481,7 +481,7 @@ c3["ns"].Fenster.Zeigen(False)
 f3 = c3["g"]["LootHistorieFenster"]
 fest(f3._w == 700 and f3._h == 1100, "unsinnige gemerkte Werte werden auf die Grenzen gesetzt (%s x %s)" % (f3._w, f3._h))
 
-print("== 15. Kader auffuellen: nur hinzufuegen, Gildenraenge ==")
+print("== 15. Mitgliederabgleich: Raenge, hinzufuegen und entfernen ==")
 w = gruppe(3)
 w.ereignis("PLAYER_ENTERING_WORLD")
 w.weiter(15)
@@ -489,57 +489,111 @@ cl = w.clients[0]
 ns, g, lua = cl["ns"], cl["g"], cl["lua"]
 G = ns.Gruppen
 G.Anlegen("40er")
-G.KaderErgaenzen("40er", "Alt Eins, Alt Zwei, Yondaime")
+G.KaderErgaenzen("40er", "Handname Eins, Handname Zwei")
 
-# Fill allein, ohne Gruppe und ohne Raenge: nichts zu tun, nichts geloescht
-w.clients[0]["g"]["__welt"]["inGruppe"] = False
-n, grund = tup3(G.Auffuellen("40er"))
-fest(n is None, "ohne Gruppe und ohne Raenge: es passiert nichts (%s)" % grund)
-fest(sum(1 for _ in G.Holen("40er")["kader"].keys()) == 3, "der Kader ist unveraendert (3 Namen)")
-w.clients[0]["g"]["__welt"]["inGruppe"] = True
 
-# In der Gruppe: Gildenmitglieder der Gruppe kommen dazu, die alten bleiben
-n, grund = tup3(G.Auffuellen("40er"))
-kader = [str(x) for x in G.Holen("40er")["kader"].values()]
-fest(n == 3 and set(["Leiter Kaos", "Timo", "Lina"]) <= set(kader), "Gruppe wird hinzugefuegt (%s neu)" % n)
-fest(all(x in kader for x in ["Alt Eins", "Alt Zwei", "Yondaime"]), "die bisherigen Namen bleiben alle erhalten")
-n2, _ = tup3(G.Auffuellen("40er"))
-fest(n2 == 0, "zweites Auffuellen bringt nichts Neues")
+def namen():
+    return sorted(str(x) for x in G.Namensliste(G.Holen("40er")).values())
+
+
+# Ohne Gruppe und ohne Raenge: nichts zu tun, nichts geloescht
+g["__welt"]["inGruppe"] = False
+r = tup3(G.Synchronisieren("40er"))
+fest(r[0] is None, "ohne Gruppe und ohne Raenge: es passiert nichts (%s)" % (r[1],))
+fest(len(namen()) == 2, "der Kader ist unveraendert (2 Namen)")
+g["__welt"]["inGruppe"] = True
+
+# Ohne Raenge, in einer Gruppe: nur hinzufuegen (Gildenmitglieder der Gruppe)
+neu, weg = tup3(G.Synchronisieren("40er"))
+fest(neu == 3 and weg == 0, "ohne Raenge nur hinzufuegen: %s neu, %s entfernt" % (neu, weg))
+fest(all(x in namen() for x in ["Handname Eins", "Handname Zwei", "Timo"]), "die Handnamen bleiben")
 
 # Gildenraenge ueber C_Club
 lua.execute("""
+__gilde = {
+  [11] = { name = "Gildenleiter", guildRank = "Gildenmeister", guildRankOrder = 1 },
+  [12] = { name = "Raider Eins", guildRank = "Raider", guildRankOrder = 3 },
+  [13] = { name = "Raider Zwei", guildRank = "Raider", guildRankOrder = 3 },
+  [14] = { name = "Neuling", guildRank = "Anwaerter", guildRankOrder = 5 },
+}
 C_Club = {
   GetGuildClubId = function() return 1 end,
-  GetClubMembers = function() return { 11, 12, 13, 14 } end,
-  GetMemberInfo = function(club, id)
-    local t = {
-      [11] = { name = "Gildenleiter", guildRank = "Gildenmeister", guildRankOrder = 1 },
-      [12] = { name = "Raider Eins", guildRank = "Raider", guildRankOrder = 3 },
-      [13] = { name = "Raider Zwei", guildRank = "Raider", guildRankOrder = 3 },
-      [14] = { name = "Neuling", guildRank = "Anwaerter", guildRankOrder = 5 },
-    }
-    return t[id]
-  end,
+  GetClubMembers = function() local t = {} for id in pairs(__gilde) do t[#t + 1] = id end table.sort(t) return t end,
+  GetMemberInfo = function(club, id) return __gilde[id] end,
 }
 """)
 R = tup3(G.Raenge())[0]
 fest(R is not None and sum(1 for _ in R.keys()) == 3, "drei Gildenraenge erkannt")
 fest(R[1]["name"] == "Gildenmeister" and R[2]["name"] == "Raider" and R[3]["name"] == "Anwaerter",
      "Raenge vom hoechsten zum niedrigsten")
+
 G.RangSetzen("40er", 3, True)
-n3, _ = tup3(G.Auffuellen("40er"))
-kader = [str(x) for x in G.Holen("40er")["kader"].values()]
-fest("Raider Eins" in kader and "Raider Zwei" in kader and "Neuling" not in kader and "Gildenleiter" not in kader,
-     "nur der gewaehlte Rang wird aufgenommen (%s neu)" % n3)
-fest(all(x in kader for x in ["Alt Eins", "Alt Zwei", "Yondaime"]), "auch hier bleibt alles Bisherige")
-G.KaderEntfernen("40er", "Raider Zwei")
-fest("Raider Zwei" not in [str(x) for x in G.Holen("40er")["kader"].values()], "Entfernen geht von Hand")
-G.AutoAuffuellen()
-fest("Raider Zwei" in [str(x) for x in G.Holen("40er")["kader"].values()], "Auto-Auffuellen beim Anmelden holt ihn zurueck")
-G.Holen("40er")["auto"] = False
-G.KaderEntfernen("40er", "Raider Zwei")
-G.AutoAuffuellen()
-fest("Raider Zwei" not in [str(x) for x in G.Holen("40er")["kader"].values()], "Auto aus: nichts passiert von selbst")
+neu, weg = tup3(G.Synchronisieren("40er"))
+fest(neu == 2 and weg == 0, "gewaehlter Rang: zwei neu (%s neu, %s entfernt)" % (neu, weg))
+n = namen()
+fest("Raider Eins" in n and "Raider Zwei" in n and "Neuling" not in n and "Gildenleiter" not in n,
+     "nur der gewaehlte Rang kommt in den Kader")
+fest("Handname Eins" in n and "Handname Zwei" in n, "von Hand ergaenzte Namen bleiben")
+
+# Austritt: Raider Zwei verlaesst die Gilde -> beim Abgleich entfernt
+lua.execute("__gilde[13] = nil")
+G.RangSetzen("40er", 3, True)
+neu, weg = tup3(G.Synchronisieren("40er"))
+fest(neu == 0 and weg == 1, "Austritt wird erkannt: %s neu, %s entfernt" % (neu, weg))
+n = namen()
+fest("Raider Zwei" not in n and "Raider Eins" in n, "Raider Zwei ist aus dem Kader")
+fest("Handname Eins" in n, "Handnamen bleiben trotzdem")
+
+# Neuer Raider kommt dazu, Rangwechsel zu "Neuling" -> faellt heraus
+lua.execute("__gilde[15] = { name = 'Neuer Raider', guildRank = 'Raider', guildRankOrder = 3 }")
+lua.execute("__gilde[12].guildRank = 'Anwaerter'; __gilde[12].guildRankOrder = 5")
+neu, weg = tup3(G.Synchronisieren("40er"))
+n = namen()
+fest("Neuer Raider" in n and "Raider Eins" not in n, "neues Mitglied drin, Rangwechsel faellt heraus (%s neu, %s weg)" % (neu, weg))
+
+# Niemand im gewaehlten Rang: lieber nichts anfassen
+G.RangSetzen("40er", 3, False)
+G.RangSetzen("40er", 9, True)
+vorher = namen()
+r = tup3(G.Synchronisieren("40er"))
+fest(r[0] is None and namen() == vorher, "leerer Rang: nichts geaendert (%s)" % (r[1],))
+G.RangSetzen("40er", 9, False)
+G.RangSetzen("40er", 3, True)
+
+# Schutz vor halb geladener Gildenliste: viele auf einmal entfernen -> nachfragen
+lua.execute("""
+for i = 20, 33 do __gilde[i] = { name = "Kader " .. i, guildRank = "Raider", guildRankOrder = 3 } end
+""")
+G.Synchronisieren("40er")
+fest(sum(1 for x in namen() if x.startswith("Kader ")) == 14, "vierzehn weitere aufgenommen")
+lua.execute("for i = 20, 33 do __gilde[i] = nil end")
+vorher = len(namen())
+r = tup3(G.Synchronisieren("40er"))
+fest(r[0] is None and len(namen()) == vorher, "viele Abgaenge auf einmal: es fragt erst nach")
+r2 = tup3(G.Synchronisieren("40er"))
+fest(r2[0] == 0 and r2[1] == 14, "zweiter Klick fuehrt es aus (%s neu, %s entfernt)" % (r2[0], r2[1]))
+
+# Automatisch beim Anmelden: kein Nachfragen, bei Auffaelligkeit wird nichts entfernt
+lua.execute("for i = 20, 33 do __gilde[i] = { name = 'Kader ' .. i, guildRank = 'Raider', guildRankOrder = 3 } end")
+G.Synchronisieren("40er")
+lua.execute("for i = 20, 33 do __gilde[i] = nil end")
+vorher = len(namen())
+G.AutoSynchronisieren()
+fest(len(namen()) == vorher, "automatisch: auffaellig viele Abgaenge werden NICHT entfernt")
+
+# Entfernen von Hand
+G.KaderEntfernen("40er", "Handname Eins")
+fest("Handname Eins" not in namen(), "von Hand entfernt")
+
+# Migration: alter Stand (nur `kader`) gilt als Handarbeit
+G.Anlegen("alt")
+alt = G.Holen("alt")
+g["LootHistorieDB"]["gruppen"]["alt"] = lua.table_from({"name": "alt", "kader": lua.table_from({1: "Alter Eins", 2: "Alter Zwei"})})
+G.Aktivieren("alt")
+G.RangSetzen("alt", 3, True)
+G.Synchronisieren("alt")
+fest("Alter Eins" in sorted(str(x) for x in G.Namensliste(G.Holen("alt")).values()),
+     "alte Namen ueberleben den ersten Abgleich")
 
 print("== 16. Liste in der Gruppe: nur wer dabei ist ==")
 w = gruppe(3)

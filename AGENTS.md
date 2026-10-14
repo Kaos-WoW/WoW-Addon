@@ -168,13 +168,19 @@ Entscheid des Gildenleiters: **so wenige Handgriffe wie möglich.** Es gibt nur 
   auch mit null Vergaben; die Summe zählt nur sie. Ein Name der Historie ohne Nachnamen wird dem vollen Namen
   der Gruppe zugeschlagen (eine Zeile). Der Knopf *Alle Spieler zeigen* im Fuß hebt das auf. **Ohne Gruppe**
   stehen alle Spieler der Historie plus der Kader der aktiven Gruppe in der Liste.
-* ⭐ **Auffüllen erweitert nur, es entfernt nie jemanden.** Quellen: Mitglieder der gewählten **Gildenränge**
-  (Forever: `C_Club.GetClubMembers`/`GetMemberInfo`, sonst `GetGuildRosterInfo`) und Gildenmitglieder der
-  aktuellen Gruppe (Gäste nicht). **Ohne Gruppe und ohne Ränge tut es nichts** (früher hatte es den Kader auf
-  den Spieler selbst gekürzt). Wer die Gilde verlässt, wird von Hand entfernt (Einstellungen oder
-  `/lh gruppe entfernen`). Beim Anmelden füllt es einmal still auf (20 s Verzögerung, abschaltbar je Gruppe).
-* ⚠️ **Ungemessen:** wie Forever die Namen der Gildenliste schreibt (Nachname, Realm). `Kern.GleicherSpieler`
-  fängt beides ab; **`/lh gilde`** zeigt, was ankommt.
+* ⭐ **Member sync** (`Gruppen.Synchronisieren`, vorher „Fill"; Entscheid 14.10.2026 „es geht nach
+  vordefinierten Gildenrängen, also ist Entfernen sicher"): Sind **Gildenränge** gewählt, ist der Kader **genau
+  deren Mitglieder** — Neue kommen dazu, Ausgetretene und Rangwechsler fallen weg. Quelle: Forever
+  `C_Club.GetClubMembers`/`GetMemberInfo`, sonst `GetGuildRosterInfo`. Zwei Listen je Gruppe: `kader` (vom
+  Sync verwaltet) und `extra` (von Hand, **bleibt immer**); sichtbar ist die Vereinigung. Ältere Stände mit nur
+  `kader` gelten beim ersten Zugriff als `extra` (nichts geht verloren). **Ohne Ränge** nimmt es nur
+  Gildenmitglieder der Gruppe auf (nach `extra`), **ohne Gruppe tut es nichts**.
+  ⚠️ Schutz vor halb geladener Gildenliste: niemand in den gewählten Rängen → nichts ändern; auffällig viele
+  Abgänge (> 40 % und > 4 bei ≥ 10 im Kader) → erst nachfragen (gleiche Taste nochmal binnen 2 min), beim
+  automatischen Lauf (20 s nach dem Anmelden, je Gruppe abschaltbar) wird dann nur hinzugefügt. Von Hand
+  entfernen: Feld „Name entfernen"; wer nur durch einen Rang im Kader steht, kommt beim nächsten Sync zurück.
+* ✅ **Gemessen** (`/lh gilde`, 14.10.2026): Die Gildenliste liefert **Vor- und Nachname plus Gildenrang**.
+  `Kern.GleicherSpieler` fängt trotzdem Kurz- und Langform ab.
 * Alte Einträge mit `modus = "raid"` werden wie ein Kader gelesen; das Feld wird ignoriert.
 * Der **Abgleich läuft von selbst** (Einstellung `autoAbgleich`, Standard an): Merkt Leiter oder Plündermeister
   eine Abweichung, startet er nach 4 s einen Abgleich, höchstens alle 2 Minuten. Aus: nur Hinweisfenster.
