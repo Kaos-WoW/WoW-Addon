@@ -5,10 +5,10 @@
     Events. Dadurch laeuft diese Datei im Spiel UND in einem gewoehnlichen
     Lua-Interpreter, und der Pruefstand kann sie ohne Client testen.
 
-    ⭐ **Das Addon fuehrt keine eigene Datenbank.** Die Vergaben liegen in
-    Garguls `AwardHistory`, dauerhaft und nach Pruefsumme abgelegt. Wir
-    lesen, zaehlen, zeigen an — und schreiben nie. Was es nicht gibt, kann
-    auch nicht auseinanderlaufen.
+    ⭐ **Alles Rechnerische liegt hier**, auch das Zusammenfuehren zweier
+    Historien, die Pruefsummen fuer den Abgleich und die Wahl des
+    Schreibers. Dadurch ist es ohne Client pruefbar — und genau die Teile,
+    bei denen ein Fehler still Daten verfaelscht, haben ihre Tests.
 
     Jede Funktion bekommt die Historie als Parameter. Dadurch laesst sich
     dieselbe Auswertung mit Beispieldaten fuettern, ohne irgendwo etwas
@@ -44,6 +44,7 @@ function Kern.Zaehlt(e)
     if not e.awardedTo or e.awardedTo == "" then return false, "ohne Gewinner" end
     if e.awardedTo == Kern.ENTZAUBERT then return false, "entzaubert" end
     if e.isBonusLoot then return false, "Bonus-Beute" end
+    if e.zurueck then return false, "zurückgenommen" end
     if not tonumber(e.timestamp) then return false, "ohne Zeitstempel" end
     return true
 end
@@ -279,6 +280,377 @@ end
 function Kern.Seit(jetzt, wochen)
     if not wochen or wochen <= 0 then return 0 end
     return jetzt - wochen * Kern.WOCHE
+end
+
+-- =====================================================================
+--  Spieler vergleichen
+-- =====================================================================
+
+--- Sind das derselbe Spieler?
+--
+--  ⚠️ Forever kennt Nachnamen („Yondaime Kaos"). Manche Quellen nennen sie,
+--  andere nur den Vornamen. Fehlt auf EINER Seite der Nachname, genuegt der
+--  gleiche Vorname. Haben beide einen, muessen sie ganz uebereinstimmen —
+--  sonst waeren „Yondaime Kaos" und „Yondaime Nuhkomm" derselbe.
+--  Der Preis: Fehlt der Nachname, treffen zwei Gleichvornamige aufeinander.
+function Kern.GleicherSpieler(a, b)
+    local ka, kb = Kern.Schluessel(a), Kern.Schluessel(b)
+    if not ka or not kb then return false end
+    if ka == kb then return true end
+
+    local la, lb = ka:find(" ", 1, true), kb:find(" ", 1, true)
+    if (la and lb) or (not la and not lb) then return false end
+    return ka:match("^(%S+)") == kb:match("^(%S+)")
+end
+
+-- =====================================================================
+--  Kennungen und Pruefsummen
+-- =====================================================================
+
+local MODUL = 4294967296   -- 2^32
+
+--- Einfacher Textwert, 32 Bit. Kein Schutz, nur zum Vergleichen.
+function Kern.Hash(text)
+    local h = 5381
+    text = tostring(text)
+    for i = 1, #text do
+        h = (h * 33 + text:byte(i)) % MODUL
+    end
+    return h
+end
+
+--- Pruefsumme einer Historie.
+--
+--  ⭐ Reihenfolgeunabhaengig (Summe), damit zwei Spieler mit denselben
+--  Eintraegen dieselbe Zahl bekommen, egal wie ihre Tabelle gewachsen ist.
+--
+--  ⚠️ `alias` sind Kennungen, die als Doppelgaenger verworfen wurden. Sie
+--  zaehlen MIT: Hat A „X" und kennt „Y" als Alias, B umgekehrt, kommt bei
+--  beiden dieselbe Summe heraus. Ohne das waeren sie fuer immer
+--  „verschieden", und der Abgleich liefe endlos.
+--
+--  @return Anzahl der Eintraege, Summe
+function Kern.Pruefsumme(historie, alias)
+    local n, summe = 0, 0
+    for id in pairs(historie or {}) do
+        n = n + 1
+        summe = (summe + Kern.Hash(id)) % MODUL
+    end
+    for id in pairs(alias or {}) do
+        summe = (summe + Kern.Hash(id)) % MODUL
+    end
+    return n, summe
+end
+
+--- Pruefsumme je Tag (Tagesschluessel kommt von `tagOf`).
+--  ⚠️ Der Aufrufer nimmt UTC, nicht die Ortszeit: Wer in einer anderen
+--  Zeitzone spielt, haette sonst andere Tage und damit nie dieselbe Summe.
+--  @return Tabelle Tag -> { n, summe }
+function Kern.Tagesstand(historie, alias, tagOf)
+    local tage = {}
+
+    for id, e in pairs(historie or {}) do
+        local t = tagOf(e.timestamp or 0)
+        local d = tage[t] or { n = 0, summe = 0 }
+        d.n = d.n + 1
+        d.summe = (d.summe + Kern.Hash(id)) % MODUL
+        tage[t] = d
+    end
+    for id, ziel in pairs(alias or {}) do
+        local e = (historie or {})[ziel]
+        if e then
+            local d = tage[tagOf(e.timestamp or 0)]
+            if d then d.summe = (d.summe + Kern.Hash(id)) % MODUL end
+        end
+    end
+    return tage
+end
+
+--- Welche Tage unterscheiden sich?  Beide Richtungen: ein Tag, den nur
+--  eine Seite kennt, zaehlt auch.
+--  @return sortierte Liste von Tagesschluesseln
+function Kern.AbweichendeTage(lokal, fremd)
+    local aus, liste = {}, {}
+    local function pruefe(t)
+        if aus[t] then return end
+        local a, b = lokal[t], fremd[t]
+        if not a or not b or a.n ~= b.n or a.summe ~= b.summe then
+            aus[t] = true
+            liste[#liste + 1] = t
+        end
+    end
+    for t in pairs(lokal) do pruefe(t) end
+    for t in pairs(fremd) do pruefe(t) end
+    table.sort(liste)
+    return liste
+end
+
+--- Tagesstand als Text:  "20261013:3:12345,20261014:1:99"
+function Kern.TageKodieren(tage)
+    local schluessel = {}
+    for t in pairs(tage) do schluessel[#schluessel + 1] = t end
+    table.sort(schluessel)
+    local teile = {}
+    for _, t in ipairs(schluessel) do
+        teile[#teile + 1] = string.format("%s:%d:%d", t, tage[t].n, tage[t].summe)
+    end
+    return table.concat(teile, ",")
+end
+
+function Kern.TageDekodieren(text)
+    local tage = {}
+    if type(text) ~= "string" then return tage end
+    for t, n, summe in text:gmatch("([^,:]+):(%d+):(%d+)") do
+        tage[t] = { n = tonumber(n), summe = tonumber(summe) }
+    end
+    return tage
+end
+
+-- =====================================================================
+--  Zusammenfuehren
+-- =====================================================================
+
+--- ⭐ Fuehrt eingehende Eintraege in eine Historie ein — ohne je etwas zu
+--  ueberschreiben oder zu loeschen.
+--
+--  Drei Wege fuer einen eingehenden Eintrag:
+--    * Kennung schon bekannt (als Eintrag oder Alias)   -> vorhanden
+--    * gleicher Spieler und Gegenstand nahe beieinander -> Doppelgaenger;
+--      die Kennung wandert in `alias`, damit die Pruefsummen uebereinstimmen
+--    * sonst                                            -> neu
+--
+--  ⚠️ Der Doppelgaenger-Weg ist eine Annaeherung: Gewinnt jemand denselben
+--  Gegenstand zweimal binnen `fenster` Sekunden, geht der zweite verloren.
+--  Das ist selten; systematisches Doppelzaehlen waere schlimmer.
+--
+--  Eine Ausnahme von „nichts aendern": Meldet der Eingehende einen Eintrag
+--  als **zurueckgenommen**, wird das uebernommen. Das Merkmal kann nur von
+--  „nein" auf „ja" wechseln und nie zurueck — so ist es ein Zusammenfuehren
+--  und kein Ueberschreiben, und alle Seiten kommen zum selben Ergebnis.
+--
+--  @param eingehend  Liste aus { id =, e = }
+--  @return neu, doppelt, vorhanden, abgelehnt, zurueckgenommen
+function Kern.Zusammenfuehren(historie, alias, eingehend, fenster)
+    fenster = fenster or 180
+    local neu, doppelt, vorhanden, abgelehnt, zurueckgenommen = 0, 0, 0, 0, 0
+
+    -- Index Spieler:Gegenstand -> { { id, zeit }, ... }
+    local Index = {}
+    local function schluessel(e)
+        return (Kern.Schluessel(e.awardedTo) or "?") .. ":" .. tostring(e.itemID)
+    end
+    local function merke(id, e)
+        local k = schluessel(e)
+        Index[k] = Index[k] or {}
+        Index[k][#Index[k] + 1] = { id = id, zeit = e.timestamp }
+    end
+    for id, e in pairs(historie) do
+        if e.awardedTo and e.itemID then merke(id, e) end
+    end
+
+    for _, X in ipairs(eingehend or {}) do
+        local id, e = X.id, X.e
+        if type(id) ~= "string" or type(e) ~= "table"
+           or not e.awardedTo or e.awardedTo == ""
+           or not tonumber(e.itemID) or not tonumber(e.timestamp) then
+            abgelehnt = abgelehnt + 1
+        elseif historie[id] or alias[id] then
+            vorhanden = vorhanden + 1
+            local ziel = historie[id] or historie[alias[id]]
+            if e.zurueck and ziel and not ziel.zurueck then
+                ziel.zurueck = true
+                zurueckgenommen = zurueckgenommen + 1
+            end
+        else
+            local treffer
+            for _, B in ipairs(Index[schluessel(e)] or {}) do
+                if math.abs((B.zeit or 0) - e.timestamp) <= fenster then
+                    treffer = B.id
+                    break
+                end
+            end
+
+            if treffer then
+                alias[id] = treffer
+                doppelt = doppelt + 1
+            else
+                historie[id] = e
+                merke(id, e)
+                neu = neu + 1
+            end
+        end
+    end
+
+    return neu, doppelt, vorhanden, abgelehnt, zurueckgenommen
+end
+
+-- =====================================================================
+--  Uebertragung
+-- =====================================================================
+
+-- Zeichen, die in Feldern nicht roh vorkommen duerfen: Feldtrenner `;`,
+-- Listentrenner `,` und `:`, Paketttrenner `~`, der Escape `%` selbst,
+-- `|` (Blizzards Escape im Chat) und Steuerzeichen.
+local function schuetze(s)
+    return (tostring(s or ""):gsub("[%%;,:~|%c]", function(c)
+        return string.format("%%%02X", c:byte())
+    end))
+end
+
+local function entschuetze(s)
+    return (s:gsub("%%(%x%x)", function(h) return string.char(tonumber(h, 16)) end))
+end
+
+--- Ein Eintrag als Zeile.
+--  Felder: Kennung ; Name ; Gegenstand ; Zeit ; Art ; Gruppe ; Wurf ; Zurueck
+--  ⚠️ Der Verweis (itemLink) wird NICHT mitgeschickt: Er ist lang und
+--  enthaelt `|`. Der Empfaenger holt ihn ueber die Gegenstandsnummer.
+function Kern.Kodieren(id, e)
+    return table.concat({
+        schuetze(id),
+        schuetze(e.awardedTo),
+        tostring(tonumber(e.itemID) or 0),
+        tostring(tonumber(e.timestamp) or 0),
+        e.OS and "Z" or "H",
+        schuetze(e.gruppe),
+        e.wurf and tostring(tonumber(e.wurf) or "") or "",
+        e.zurueck and "1" or "",
+    }, ";")
+end
+
+--- Zeile -> id, Eintrag; oder nil und ein Grund.
+--  ⚠️ Alles, was von aussen kommt, wird geprueft: Namenslaenge, Zahlen,
+--  ein vernuenftiger Zeitraum. Eine kaputte oder boesartige Zeile darf
+--  hoechstens abgelehnt werden, nie die Historie verfaelschen.
+function Kern.Dekodieren(zeile, jetzt)
+    if type(zeile) ~= "string" then return nil, "kein Text" end
+    local id, name, item, zeit, art, gruppe, wurf, zurueck =
+        zeile:match("^([^;]*);([^;]*);([^;]*);([^;]*);([^;]*);([^;]*);([^;]*);([^;]*)$")
+    if not id then return nil, "Aufbau" end
+
+    id, name, gruppe = entschuetze(id), entschuetze(name), entschuetze(gruppe)
+    item, zeit = tonumber(item), tonumber(zeit)
+
+    if id == "" or #id > 80 then return nil, "Kennung" end
+    if name == "" or #name > 60 then return nil, "Name" end
+    if not item or item <= 0 or item > 10000000 then return nil, "Gegenstand" end
+    if not zeit or zeit < 1000000000 then return nil, "Zeit" end
+    if jetzt and zeit > jetzt + 2 * Kern.TAG then return nil, "Zeit in der Zukunft" end
+    if art ~= "H" and art ~= "Z" then return nil, "Art" end
+    if #gruppe > 40 then return nil, "Gruppe" end
+
+    return id, {
+        awardedTo = name,
+        itemID    = item,
+        timestamp = zeit,
+        OS        = (art == "Z") or nil,
+        gruppe    = gruppe ~= "" and gruppe or nil,
+        wurf      = tonumber(wurf),
+        zurueck   = (zurueck == "1") or nil,
+        empfangen = true,
+    }
+end
+
+--- Packt Zeilen in Nachrichten bis `grenze` Zeichen.
+--  Trenner ist `~` (innerhalb der Zeilen immer geschuetzt).
+--  ⚠️ Eine einzelne Zeile, die allein schon zu lang ist, bekommt eine
+--  eigene Nachricht und wird vom Sender abgelehnt — nicht gekappt: eine
+--  abgeschnittene Zeile waere ein falscher Eintrag.
+function Kern.Pakete(zeilen, grenze)
+    local pakete, aktuell = {}, nil
+    for _, z in ipairs(zeilen) do
+        if aktuell and (#aktuell + 1 + #z) <= grenze then
+            aktuell = aktuell .. "~" .. z
+        else
+            if aktuell then pakete[#pakete + 1] = aktuell end
+            aktuell = z
+        end
+    end
+    if aktuell then pakete[#pakete + 1] = aktuell end
+    return pakete
+end
+
+--- Gegenstueck zu Pakete.
+function Kern.Entpacken(paket)
+    local zeilen = {}
+    if type(paket) ~= "string" or paket == "" then return zeilen end
+    for z in (paket .. "~"):gmatch("(.-)~") do
+        if z ~= "" then zeilen[#zeilen + 1] = z end
+    end
+    return zeilen
+end
+
+-- =====================================================================
+--  Wer schreibt mit?
+-- =====================================================================
+
+--- ⭐ Wer in der Gruppe fuehrt die Historie?
+--
+--  Nur EINER soll mitschreiben. Sonst entstuende fuer jeden Drop ein
+--  Eintrag je Teilnehmer, und der Abgleich muesste sie wieder
+--  zusammenfuehren. Entscheid des Gildenleiters (14.10.2026): der
+--  Pluendermeister, und gibt es keinen, der Schlachtzugsleiter.
+--
+--  ⚠️ Die Wahl haengt daran, WER das Addon hat. Hat der Pluendermeister es
+--  nicht, springt die Reihenfolge weiter (Leiter, dann Assistenten) —
+--  sonst ginge der ganze Abend verloren.
+--
+--  @param kandidaten  geordnet: { { name =, ich = true/false }, ... }
+--  @param hat         Menge der Schluessel von Mitspielern MIT Addon
+--  @return der gewaehlte Kandidat, oder nil
+function Kern.Schreiber(kandidaten, hat)
+    hat = hat or {}
+    for _, k in ipairs(kandidaten or {}) do
+        if k.ich then return k end
+        local s = Kern.Schluessel(k.name)
+        if s and hat[s] then return k end
+    end
+    return nil
+end
+
+-- =====================================================================
+--  Ansichten
+-- =====================================================================
+
+--- Nur die Eintraege einer Gruppe. nil = alle (dieselbe Tabelle).
+function Kern.NachGruppe(historie, gruppe)
+    if not gruppe then return historie end
+    local aus = {}
+    for id, e in pairs(historie or {}) do
+        if e.gruppe == gruppe then aus[id] = e end
+    end
+    return aus
+end
+
+--- Der Verlauf: wer bekam was, wann. Neueste zuerst.
+--  @return Liste aus { zeit, name, zweit, eintrag }
+function Kern.Verlauf(historie, seit, gruppe)
+    local liste = {}
+    seit = seit or 0
+    for _, e in pairs(Kern.NachGruppe(historie, gruppe) or {}) do
+        if Kern.Zaehlt(e) and e.timestamp >= seit then
+            liste[#liste + 1] = {
+                zeit    = e.timestamp,
+                name    = Kern.Anzeigename(e.awardedTo),
+                zweit   = e.OS and true or false,
+                eintrag = e,
+            }
+        end
+    end
+    table.sort(liste, function(a, b)
+        if a.zeit ~= b.zeit then return a.zeit > b.zeit end
+        return a.name < b.name
+    end)
+    return liste
+end
+
+--- Welche Namen muessen in der Liste stehen, auch ohne Vergabe?
+--  @param gruppe  { modus = "kader"|"raid", kader = { ... } }
+--  @param raid    Namen der aktuellen Gruppe
+function Kern.Pflichtnamen(gruppe, raid)
+    if type(gruppe) ~= "table" then return {} end
+    if gruppe.modus == "raid" then return raid or {} end
+    return gruppe.kader or {}
 end
 
 return ns

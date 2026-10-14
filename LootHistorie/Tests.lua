@@ -242,10 +242,336 @@ local function testSeit()
     gleich("vier Wochen zurueck",  Kern.Seit(1000000, 4), 1000000 - 4 * Kern.WOCHE)
 end
 
+local function testGleicherSpieler()
+    gleich("mit und ohne Realm", Kern.GleicherSpieler("Yondaime Kaos", "Yondaime Kaos-Realm"), true)
+    gleich("ein Vorname ohne Nachname passt", Kern.GleicherSpieler("Yondaime", "Yondaime Kaos"), true)
+    gleich("andere Nachnamen sind andere Spieler",
+        Kern.GleicherSpieler("Yondaime Kaos", "Yondaime Nuhkomm"), false)
+    gleich("andere Namen", Kern.GleicherSpieler("Kaos", "Timo"), false)
+    gleich("leer passt zu nichts", Kern.GleicherSpieler(nil, "Kaos"), false)
+    gleich("Gross und klein", Kern.GleicherSpieler("KAOS", "kaos"), true)
+end
+
+local function testZurueck()
+    gleich("zurueckgenommen zaehlt nicht",
+        Kern.Zaehlt({ awardedTo = "Kaos", timestamp = 100, zurueck = true }), false)
+end
+
+local function testPruefsumme()
+    local A = { a = { timestamp = 1 }, b = { timestamp = 2 }, c = { timestamp = 3 } }
+    local B = { c = { timestamp = 3 }, a = { timestamp = 1 }, b = { timestamp = 2 } }
+
+    local nA, sA = Kern.Pruefsumme(A, {})
+    local nB, sB = Kern.Pruefsumme(B, {})
+    gleich("Anzahl", nA, 3)
+    -- ⭐ Dieselben Eintraege ergeben dieselbe Summe, egal in welcher Reihenfolge
+    gleich("Reihenfolge egal", sA, sB)
+
+    local _, sOhneC = Kern.Pruefsumme({ a = A.a, b = A.b }, {})
+    gleich("fehlender Eintrag aendert die Summe", sA ~= sOhneC, true)
+
+    local _, sAndere = Kern.Pruefsumme({ a = A.a, b = A.b, d = { timestamp = 3 } }, {})
+    gleich("anderer Eintrag aendert die Summe", sA ~= sAndere, true)
+
+    gleich("leere Historie", select(1, Kern.Pruefsumme({}, {})), 0)
+    gleich("Unfug ergibt leer", select(1, Kern.Pruefsumme(nil, nil)), 0)
+end
+
+local function testTagesstand()
+    local tagOf = function(t) return "d" .. math.floor(t / Kern.TAG) end
+    local H = {
+        a = { timestamp = 1 * Kern.TAG + 10 },
+        b = { timestamp = 1 * Kern.TAG + 20 },
+        c = { timestamp = 3 * Kern.TAG },
+    }
+    local st = Kern.Tagesstand(H, {}, tagOf)
+    gleich("Tag 1 hat zwei", st.d1.n, 2)
+    gleich("Tag 3 hat einen", st.d3.n, 1)
+    gleich("Tag 2 gibt es nicht", st.d2, nil)
+
+    -- Abweichung: beide Richtungen
+    local lokal = { d1 = { n = 2, summe = 5 }, d2 = { n = 1, summe = 7 } }
+    local fremd = { d1 = { n = 2, summe = 5 }, d2 = { n = 1, summe = 8 }, d3 = { n = 1, summe = 1 } }
+    local abw = Kern.AbweichendeTage(lokal, fremd)
+    gleich("zwei Tage weichen ab", #abw, 2)
+    gleich("abweichende Summe", abw[1], "d2")
+    gleich("Tag nur bei der Gegenseite", abw[2], "d3")
+    gleich("gleiche Staende: nichts",
+        #Kern.AbweichendeTage(lokal, { d1 = { n = 2, summe = 5 }, d2 = { n = 1, summe = 7 } }), 0)
+    gleich("Tag nur lokal zaehlt auch",
+        #Kern.AbweichendeTage({ d9 = { n = 1, summe = 1 } }, {}), 1)
+
+    -- Hin und zurueck
+    local text = Kern.TageKodieren(fremd)
+    local zurueck = Kern.TageDekodieren(text)
+    gleich("Tagestext: Anzahl Tage", (function() local n = 0 for _ in pairs(zurueck) do n = n + 1 end return n end)(), 3)
+    gleich("Tagestext: Summe bleibt", zurueck.d2.summe, 8)
+    gleich("Tagestext: Anzahl bleibt", zurueck.d1.n, 2)
+    gleich("Unfug ergibt leer", next(Kern.TageDekodieren(nil)), nil)
+end
+
+local ZEIT = 1700000000
+
+local function testZusammenfuehren()
+    local H = { alt = { awardedTo = "Kaos", itemID = 100, timestamp = ZEIT, gruppe = "40er" } }
+    local alias = {}
+
+    local neu, doppelt, vorhanden, abgelehnt = Kern.Zusammenfuehren(H, alias, {
+        { id = "x1", e = { awardedTo = "Timo", itemID = 200, timestamp = ZEIT + 50 } },
+        { id = "alt", e = { awardedTo = "Kaos", itemID = 100, timestamp = ZEIT, gruppe = "andere" } },
+        { id = "x2", e = { awardedTo = "", itemID = 1, timestamp = ZEIT } },
+        { id = "x3", e = { awardedTo = "Lina", itemID = "kein", timestamp = ZEIT } },
+    }, 180)
+    gleich("eine neue", neu, 1)
+    gleich("eine schon da", vorhanden, 1)
+    gleich("zwei abgelehnt", abgelehnt, 2)
+    gleich("kein Doppelgaenger", doppelt, 0)
+
+    -- ⭐ Nichts wird ueberschrieben
+    gleich("vorhandener Eintrag bleibt unveraendert", H.alt.gruppe, "40er")
+
+    -- Idempotent: zweimal dasselbe aendert nichts
+    local n2, _, v2 = Kern.Zusammenfuehren(H, alias, {
+        { id = "x1", e = { awardedTo = "Timo", itemID = 200, timestamp = ZEIT + 50 } },
+    }, 180)
+    gleich("zweites Einfuehren bringt nichts neues", n2, 0)
+    gleich("zweites Einfuehren: vorhanden", v2, 1)
+
+    -- Doppelgaenger: gleicher Spieler, gleiches Stueck, nahe Zeit, andere Kennung
+    local _, dop = Kern.Zusammenfuehren(H, alias, {
+        { id = "chat1", e = { awardedTo = "kaos", itemID = 100, timestamp = ZEIT + 60 } },
+    }, 180)
+    gleich("Doppelgaenger erkannt", dop, 1)
+    gleich("Doppelgaenger wird nicht eingefuegt", H.chat1, nil)
+    gleich("Doppelgaenger wird als Alias gemerkt", alias.chat1, "alt")
+
+    -- Dasselbe Stueck viel spaeter ist ein neuer Gewinn
+    local neu3 = Kern.Zusammenfuehren(H, alias, {
+        { id = "spaeter", e = { awardedTo = "Kaos", itemID = 100, timestamp = ZEIT + 7200 } },
+    }, 180)
+    gleich("spaeter derselbe Gegenstand ist neu", neu3, 1)
+
+    -- Anderer Gegenstand, gleiche Zeit: kein Doppelgaenger
+    local neu4 = Kern.Zusammenfuehren(H, alias, {
+        { id = "anders", e = { awardedTo = "Kaos", itemID = 101, timestamp = ZEIT + 10 } },
+    }, 180)
+    gleich("anderer Gegenstand ist neu", neu4, 1)
+end
+
+--- ⭐ Der entscheidende Fall: Zwei Spieler halten dasselbe Ereignis unter
+--  verschiedenen Kennungen. Nach dem Abgleich muessen die Pruefsummen
+--  gleich sein — sonst meldet das Addon ewig „weicht ab".
+local function testKonvergenz()
+    local A = { X = { awardedTo = "Kaos", itemID = 100, timestamp = ZEIT + 10 } }
+    local B = { Y = { awardedTo = "Kaos", itemID = 100, timestamp = ZEIT + 15 } }
+    local aliasA, aliasB = {}, {}
+
+    local _, sA0 = Kern.Pruefsumme(A, aliasA)
+    local _, sB0 = Kern.Pruefsumme(B, aliasB)
+    gleich("vorher verschieden", sA0 ~= sB0, true)
+
+    Kern.Zusammenfuehren(A, aliasA, { { id = "Y", e = B.Y } }, 180)
+    Kern.Zusammenfuehren(B, aliasB, { { id = "X", e = A.X } }, 180)
+
+    local nA, sA = Kern.Pruefsumme(A, aliasA)
+    local nB, sB = Kern.Pruefsumme(B, aliasB)
+    gleich("nachher gleiche Anzahl", nA, nB)
+    gleich("nachher gleiche Pruefsumme", sA, sB)
+    gleich("es bleibt ein Eintrag", nA, 1)
+
+    -- Und der Tagesstand stimmt ebenfalls ueberein
+    local tagOf = function(t) return "d" .. math.floor(t / Kern.TAG) end
+    local tA = Kern.Tagesstand(A, aliasA, tagOf)
+    local tB = Kern.Tagesstand(B, aliasB, tagOf)
+    gleich("Tagesstand gleich: keine abweichenden Tage", #Kern.AbweichendeTage(tA, tB), 0)
+end
+
+local function testKodieren()
+    local e = { awardedTo = "Yondaime Kaos", itemID = 32235, timestamp = ZEIT, OS = true,
+                gruppe = "40er; Test|x", wurf = 87 }
+    local zeile = Kern.Kodieren("blizz:12:3", e)
+
+    -- ⭐ Genau sieben Feldtrenner: alles andere muss geschuetzt sein
+    local trenner = select(2, zeile:gsub(";", ""))
+    gleich("sieben Feldtrenner", trenner, 7)
+    gleich("kein Paketttrenner im Text", zeile:find("~", 1, true), nil)
+    gleich("kein Chat-Escape im Text", zeile:find("|", 1, true), nil)
+
+    local id, z = Kern.Dekodieren(zeile, ZEIT + 100)
+    gleich("Kennung bleibt", id, "blizz:12:3")
+    gleich("Name mit Nachname bleibt", z and z.awardedTo, "Yondaime Kaos")
+    gleich("Gegenstand bleibt", z and z.itemID, 32235)
+    gleich("Zeit bleibt", z and z.timestamp, ZEIT)
+    gleich("Zweitbedarf bleibt", z and z.OS, true)
+    gleich("Gruppe mit Sonderzeichen bleibt", z and z.gruppe, "40er; Test|x")
+    gleich("Wurf bleibt", z and z.wurf, 87)
+
+    local _, haupt = Kern.Dekodieren(Kern.Kodieren("k", { awardedTo = "Timo", itemID = 5, timestamp = ZEIT }), ZEIT)
+    gleich("Hauptbedarf bleibt Hauptbedarf", haupt and haupt.OS, nil)
+
+    -- Abgelehnt: alles, was von aussen kommt und nicht stimmt
+    gleich("Unfug", (Kern.Dekodieren("blabla", ZEIT)), nil)
+    gleich("kein Text", (Kern.Dekodieren(nil, ZEIT)), nil)
+    gleich("Zeit zu klein", (Kern.Dekodieren("k;Kaos;100;5;H;;;", ZEIT)), nil)
+    gleich("Zeit in der Zukunft", (Kern.Dekodieren("k;Kaos;100;" .. (ZEIT + 3 * Kern.TAG) .. ";H;;;", ZEIT)), nil)
+    gleich("gueltig", (Kern.Dekodieren("k;Kaos;100;" .. ZEIT .. ";H;;;", ZEIT)), "k")
+    gleich("Gegenstand fehlt", (Kern.Dekodieren("k;Kaos;0;" .. ZEIT .. ";H;;;", ZEIT)), nil)
+    gleich("Art unbekannt", (Kern.Dekodieren("k;Kaos;100;" .. ZEIT .. ";X;;;", ZEIT)), nil)
+    gleich("leerer Name", (Kern.Dekodieren("k;;100;" .. ZEIT .. ";H;;;", ZEIT)), nil)
+    gleich("zu langer Name",
+        (Kern.Dekodieren("k;" .. string.rep("a", 61) .. ";100;" .. ZEIT .. ";H;;;", ZEIT)), nil)
+
+    -- Das Merkmal „zurueckgenommen" reist mit
+    local _, weg = Kern.Dekodieren(Kern.Kodieren("k", { awardedTo = "Timo", itemID = 5, timestamp = ZEIT, zurueck = true }), ZEIT)
+    gleich("zurueckgenommen bleibt", weg and weg.zurueck, true)
+    local _, nicht = Kern.Dekodieren(Kern.Kodieren("k", { awardedTo = "Timo", itemID = 5, timestamp = ZEIT }), ZEIT)
+    gleich("sonst nicht zurueckgenommen", nicht and nicht.zurueck, nil)
+end
+
+--- Zurueckgenommen wandert nur in eine Richtung: von nein auf ja.
+local function testZurueckgenommen()
+    local H = { a = { awardedTo = "Kaos", itemID = 1, timestamp = ZEIT } }
+    local alias = {}
+
+    local _, _, _, _, z = Kern.Zusammenfuehren(H, alias,
+        { { id = "a", e = { awardedTo = "Kaos", itemID = 1, timestamp = ZEIT, zurueck = true } } }, 180)
+    gleich("Rueckgabe wird uebernommen", H.a.zurueck, true)
+    gleich("eine Rueckgabe gezaehlt", z, 1)
+
+    -- Der umgekehrte Weg gibt es nicht: ein Eingehender ohne Merkmal
+    -- hebt die Rueckgabe nicht wieder auf.
+    Kern.Zusammenfuehren(H, alias, { { id = "a", e = { awardedTo = "Kaos", itemID = 1, timestamp = ZEIT } } }, 180)
+    gleich("Rueckgabe bleibt bestehen", H.a.zurueck, true)
+
+    -- Auch ueber einen Doppelgaenger-Alias
+    local H2 = { a = { awardedTo = "Kaos", itemID = 1, timestamp = ZEIT } }
+    local alias2 = { b = "a" }
+    Kern.Zusammenfuehren(H2, alias2,
+        { { id = "b", e = { awardedTo = "Kaos", itemID = 1, timestamp = ZEIT, zurueck = true } } }, 180)
+    gleich("Rueckgabe ueber den Alias", H2.a.zurueck, true)
+end
+
+local function testPakete()
+    local zeilen = { "aaaaaaaaaa", "bbbbbbbbbb", "cccccccccc", "dddddddddd", "eeeeeeeeee" }
+    local pakete = Kern.Pakete(zeilen, 25)
+
+    -- Je Paket passen zwei (10 + 1 + 10 = 21); ein drittes waeren 32 > 25.
+    gleich("drei Pakete", #pakete, 3)
+    local ok = true
+    for _, p in ipairs(pakete) do if #p > 25 then ok = false end end
+    gleich("kein Paket zu lang", ok, true)
+
+    local zurueck = {}
+    for _, p in ipairs(pakete) do
+        for _, z in ipairs(Kern.Entpacken(p)) do zurueck[#zurueck + 1] = z end
+    end
+    gleich("alle Zeilen kommen an", table.concat(zurueck, "|"), table.concat(zeilen, "|"))
+
+    -- ⚠️ Eine zu lange Zeile wird NICHT gekappt: abgeschnitten waere sie falsch
+    local lang = string.rep("x", 30)
+    local p2 = Kern.Pakete({ lang }, 25)
+    gleich("lange Zeile bleibt ganz", p2[1], lang)
+
+    gleich("leer ergibt nichts", #Kern.Pakete({}, 25), 0)
+    gleich("Entpacken von nichts", #Kern.Entpacken(nil), 0)
+end
+
+local function testSchreiber()
+    local ml     = { name = "Pluenderer", ich = false }
+    local leiter = { name = "Leiter",     ich = false }
+    local ich    = { name = "Ich",        ich = true  }
+
+    -- Der Pluendermeister hat das Addon: er schreibt.
+    gleich("Pluendermeister schreibt",
+        Kern.Schreiber({ ml, leiter, ich }, { pluenderer = true }), ml)
+
+    -- ⭐ Entscheid: Ohne Pluendermeister (oder ohne Addon bei ihm) der Leiter
+    gleich("ohne Addon beim Pluendermeister: der Leiter",
+        Kern.Schreiber({ ml, leiter, ich }, { leiter = true }), leiter)
+
+    -- Bin ich selbst der Pluendermeister, schreibe ich
+    gleich("ich als Pluendermeister",
+        Kern.Schreiber({ { name = "Ich", ich = true }, leiter }, { leiter = true }).ich, true)
+
+    -- Ein anderer mit Addon steht vor mir: ich schweige
+    gleich("ein anderer ist dran",
+        Kern.Schreiber({ ml, ich }, { pluenderer = true }), ml)
+
+    -- Noch keine Hallo-Meldungen: ich schreibe zur Not selbst (doppelt ist
+    -- besser als gar nicht, und der Abgleich faengt Doppelte ab)
+    gleich("ohne Wissen ueber die anderen schreibe ich selbst",
+        Kern.Schreiber({ ml, leiter, ich }, {}), ich)
+
+    -- Keiner hat das Addon
+    gleich("niemand hat das Addon", Kern.Schreiber({ ml, leiter }, {}), nil)
+    gleich("keine Kandidaten", Kern.Schreiber({}, {}), nil)
+    gleich("Unfug", Kern.Schreiber(nil, nil), nil)
+
+    -- Namen mit Realm oder Gross/Klein finden den Schluessel trotzdem
+    gleich("Schluessel wird normalisiert",
+        Kern.Schreiber({ { name = "Pluenderer-Realm", ich = false }, ich }, { pluenderer = true }).name,
+        "Pluenderer-Realm")
+end
+
+local function testVerlauf()
+    local H = {
+        a = { awardedTo = "Kaos",  itemID = 1, timestamp = 1000, gruppe = "40er" },
+        b = { awardedTo = "Timo",  itemID = 2, timestamp = 3000, gruppe = "10er", OS = true },
+        c = { awardedTo = "Lina",  itemID = 3, timestamp = 2000, gruppe = "40er" },
+        d = { awardedTo = Kern.ENTZAUBERT, itemID = 4, timestamp = 4000 },
+        e = { awardedTo = "Moe",   itemID = 5, timestamp = 2500, zurueck = true },
+    }
+
+    local alle = Kern.Verlauf(H, 0, nil)
+    gleich("Entzaubertes und Zurueckgenommenes fehlen", #alle, 3)
+    gleich("neueste zuerst", alle[1].name, "Timo")
+    gleich("dann die naechste", alle[2].name, "Lina")
+    gleich("aelteste zuletzt", alle[3].name, "Kaos")
+    gleich("Zweitbedarf gekennzeichnet", alle[1].zweit, true)
+
+    gleich("Zeitfenster", #Kern.Verlauf(H, 1500, nil), 2)
+
+    local nur40 = Kern.Verlauf(H, 0, "40er")
+    gleich("nur die Gruppe", #nur40, 2)
+    gleich("nur die Gruppe: neueste", nur40[1].name, "Lina")
+
+    gleich("unbekannte Gruppe ist leer", #Kern.Verlauf(H, 0, "99er"), 0)
+    gleich("ohne Gruppe dieselbe Tabelle", Kern.NachGruppe(H, nil), H)
+    gleich("Gruppenfilter schneidet", (function()
+        local n = 0 for _ in pairs(Kern.NachGruppe(H, "10er")) do n = n + 1 end return n end)(), 1)
+
+    -- Die Bilanz laeuft auch auf der gefilterten Historie
+    local liste = Kern.Bilanz(Kern.NachGruppe(H, "40er"), 0)
+    gleich("Bilanz je Gruppe: zwei Spieler", #liste, 2)
+end
+
+local function testPflichtnamen2()
+    local kader = { modus = "kader", kader = { "A", "B", "C" } }
+    local raid  = { modus = "raid",  kader = { "A" } }
+
+    gleich("Kader: die Liste", #Kern.Pflichtnamen(kader, { "X" }), 3)
+    gleich("Raidgruppe: wer gerade da ist", Kern.Pflichtnamen(raid, { "X", "Y" })[2], "Y")
+    gleich("Raidgruppe ohne Gruppe", #Kern.Pflichtnamen(raid, nil), 0)
+    gleich("keine Gruppe", #Kern.Pflichtnamen(nil, { "X" }), 0)
+end
+
 -- =====================================================================
 
 function Tests.Alle(ausgeben)
     gut, schlecht, meldungen = 0, 0, {}
+
+    testGleicherSpieler()
+    testZurueck()
+    testPruefsumme()
+    testTagesstand()
+    testZusammenfuehren()
+    testKonvergenz()
+    testKodieren()
+    testZurueckgenommen()
+    testPakete()
+    testSchreiber()
+    testVerlauf()
+    testPflichtnamen2()
 
     testZaehlt()
     testNamen()

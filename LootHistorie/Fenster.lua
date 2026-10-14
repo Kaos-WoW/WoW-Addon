@@ -1,11 +1,13 @@
 --[[----------------------------------------------------------------------
     Fenster.lua  —  Die Anzeige
 
-    Drei Zustaende im selben Fenster:
+    Zustaende im selben Fenster:
       * die Liste aller Spieler
+      * der Verlauf: wer bekam was, wann (neueste zuerst)
       * nach einem Klick die Einzelvergaben eines Spielers
       * waehrend eines Wurfs: die Wuerfelnden oben, hervorgehoben,
         **der mit den wenigsten Stuecken zuerst**
+      * die Einstellungen
 
     ⚠️ Bewusst ohne Bibliotheken und ohne Bildlaufleiste: ein fester Satz
     Zeilen plus Mausrad-Versatz. Das laeuft in jeder Client-Fassung gleich,
@@ -23,7 +25,7 @@ ns.Fenster = Fenster
 
 local Kern, Quelle = ns.Kern, ns.Quelle
 
-local BREITE, HOEHE = 580, 560
+local BREITE, HOEHE = 580, 586
 local ZEILEN        = 16
 local ZEILENHOEHE   = 24
 local SCHRIFT_PLUS  = 3      -- Punkte groesser als die Blizzard-Vorgabe
@@ -36,10 +38,20 @@ local ROT   = "|cffff5555"
 local HELL  = "|cffffffff"
 
 local rahmen, Zeile, kopf, fuss, titel, unterzeile, zurueckBtn, demoBtn, einstellBtn
+local listeBtn, verlaufBtn, gruppeBtn, abgleichBtn
 local Zeitraum = {}
 
 local zustand = { wochen = 0, beispiel = false, spieler = nil, versatz = 0, maxVersatz = 0,
-                  einstellungen = false }
+                  einstellungen = false, ansicht = "liste", gruppe = nil }
+
+-- Spaltenlagen je Ansicht: { x, Breite, Ausrichtung }
+local LAYOUT = {
+    liste   = { { 0, 160, "LEFT" }, { 166, 55, "RIGHT" }, { 228, 55, "RIGHT" },
+                { 294, 150, "LEFT" }, { 452, 60, "RIGHT" } },
+    verlauf = { { 0, 104, "LEFT" }, { 110, 150, "LEFT" }, { 266, 52, "LEFT" },
+                { 324, 224, "LEFT" }, { 0, 1, "LEFT" } },
+}
+local SPALTEN = { "a", "b", "c", "d", "e" }
 
 -- =====================================================================
 --  Einstellungen
@@ -69,9 +81,12 @@ end
 --  Daten
 -- =====================================================================
 
+--- Die Historie, eingeschraenkt auf die gewaehlte Gruppe.
 local function historie()
     if zustand.beispiel then return Quelle.Beispiel() end
-    return Quelle.Historie()
+    local H, grund = Quelle.Historie()
+    if not H then return nil, grund end
+    return Kern.NachGruppe(H, zustand.gruppe)
 end
 
 local function wurf()
@@ -111,7 +126,7 @@ end
 local function baueZeile(index)
     local z = CreateFrame("Button", nil, rahmen)
     z:SetSize(BREITE - 32, ZEILENHOEHE)
-    z:SetPoint("TOPLEFT", rahmen, "TOPLEFT", 16, -(120 + (index - 1) * ZEILENHOEHE))
+    z:SetPoint("TOPLEFT", rahmen, "TOPLEFT", 16, -(144 + (index - 1) * ZEILENHOEHE))
 
     z.hintergrund = z:CreateTexture(nil, "BACKGROUND")
     z.hintergrund:SetAllPoints(z)
@@ -204,7 +219,7 @@ local function baueFenster()
 
     zurueckBtn = CreateFrame("Button", nil, rahmen, "UIPanelButtonTemplate")
     zurueckBtn:SetSize(84, 22)
-    zurueckBtn:SetPoint("TOPLEFT", rahmen, "TOPLEFT", 16, -72)
+    zurueckBtn:SetPoint("TOPLEFT", rahmen, "TOPLEFT", 16, -98)
     zurueckBtn:SetText("Zurück")
     zurueckBtn:SetScript("OnClick", function()
         zustand.spieler = nil
@@ -213,14 +228,66 @@ local function baueFenster()
     end)
     zurueckBtn:Hide()
 
+    -- Zeile mit den Ansichten
+    listeBtn = CreateFrame("Button", nil, rahmen, "UIPanelButtonTemplate")
+    listeBtn:SetSize(84, 22)
+    listeBtn:SetPoint("TOPLEFT", rahmen, "TOPLEFT", 16, -72)
+    listeBtn:SetText("Spieler")
+    listeBtn:SetScript("OnClick", function()
+        zustand.ansicht = "liste"
+        zustand.spieler = nil
+        zustand.versatz = 0
+        Fenster.Aktualisieren()
+    end)
+
+    verlaufBtn = CreateFrame("Button", nil, rahmen, "UIPanelButtonTemplate")
+    verlaufBtn:SetSize(84, 22)
+    verlaufBtn:SetPoint("TOPLEFT", rahmen, "TOPLEFT", 104, -72)
+    verlaufBtn:SetText("Verlauf")
+    verlaufBtn:SetScript("OnClick", function()
+        zustand.ansicht = "verlauf"
+        zustand.spieler = nil
+        zustand.versatz = 0
+        Fenster.Aktualisieren()
+    end)
+
+    -- Gruppe wechseln: Alle -> erste -> zweite ... -> Alle
+    gruppeBtn = CreateFrame("Button", nil, rahmen, "UIPanelButtonTemplate")
+    gruppeBtn:SetSize(170, 22)
+    gruppeBtn:SetPoint("TOPLEFT", rahmen, "TOPLEFT", 192, -72)
+    gruppeBtn:SetScript("OnClick", function()
+        local Namen = ns.Gruppen and ns.Gruppen.Namen() or {}
+        if #Namen == 0 then return end
+        local naechste
+        if zustand.gruppe == nil then
+            naechste = Namen[1]
+        else
+            for i, n in ipairs(Namen) do
+                if n == zustand.gruppe then naechste = Namen[i + 1] break end
+            end
+        end
+        zustand.gruppe = naechste
+        zustand.versatz = 0
+        Fenster.Aktualisieren()
+    end)
+
+    abgleichBtn = CreateFrame("Button", nil, rahmen, "UIPanelButtonTemplate")
+    abgleichBtn:SetSize(104, 22)
+    abgleichBtn:SetPoint("TOPRIGHT", rahmen, "TOPRIGHT", -16, -72)
+    abgleichBtn:SetText("Abgleichen")
+    abgleichBtn:SetScript("OnClick", function()
+        local ok, grund = ns.Abgleich.Starten()
+        if not ok then print("|cff1B6B57Loot-Historie|r: |cffff5555" .. tostring(grund) .. "|r") end
+    end)
+
     unterzeile = groesser(rahmen:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall"))
-    unterzeile:SetPoint("TOPLEFT", rahmen, "TOPLEFT", 108, -78)
-    unterzeile:SetPoint("TOPRIGHT", rahmen, "TOPRIGHT", -16, -78)
+    unterzeile:SetPoint("TOPLEFT", rahmen, "TOPLEFT", 108, -103)
+    unterzeile:SetPoint("TOPRIGHT", rahmen, "TOPRIGHT", -16, -103)
     unterzeile:SetJustifyH("LEFT")
 
     kopf = CreateFrame("Frame", nil, rahmen)
     kopf:SetSize(BREITE - 32, 18)
-    kopf:SetPoint("TOPLEFT", rahmen, "TOPLEFT", 16, -102)
+    kopf:SetPoint("TOPLEFT", rahmen, "TOPLEFT", 16, -126)
     kopf.a = spalte(kopf,   0, 160)
     kopf.b = spalte(kopf, 166,  55, "RIGHT")
     kopf.c = spalte(kopf, 228,  55, "RIGHT")
@@ -254,6 +321,21 @@ end
 --  Anzeige
 -- =====================================================================
 
+--- Stellt die Spalten fuer eine Ansicht ein.
+local function ordneSpalten(name)
+    local L = LAYOUT[name] or LAYOUT.liste
+    local function setze(eltern, fs, def)
+        fs:ClearAllPoints()
+        fs:SetPoint("LEFT", eltern, "LEFT", def[1], 0)
+        fs:SetWidth(def[2])
+        fs:SetJustifyH(def[3])
+    end
+    for i, k in ipairs(SPALTEN) do
+        setze(kopf, kopf[k], L[i])
+        for j = 1, ZEILEN do setze(Zeile[j], Zeile[j][k], L[i]) end
+    end
+end
+
 local function leereZeilen(ab)
     for i = math.max(ab, 1), ZEILEN do
         local z = Zeile[i]
@@ -281,7 +363,14 @@ end
 
 local function zeigeListe(H)
     local W = wurf()
-    local pflicht = W and W.namen or nil
+
+    -- Wer in der Liste stehen muss, auch ohne Vergabe: die Wuerfelnden und
+    -- der Kader bzw. die Raidgruppe der gewaehlten (sonst aktiven) Gruppe.
+    local pflicht = {}
+    if W and W.namen then for _, n in ipairs(W.namen) do pflicht[#pflicht + 1] = n end end
+    if not zustand.beispiel and ns.Gruppen then
+        for _, n in ipairs(ns.Gruppen.Pflicht(zustand.gruppe)) do pflicht[#pflicht + 1] = n end
+    end
 
     local liste, gesamt, aeltester = Kern.Bilanz(H, seit(), pflicht)
 
@@ -372,6 +461,36 @@ local function zeigeSpieler(H)
     unterzeile:SetText("")
 end
 
+local function zeigeVerlauf(H)
+    setzeKopf("Wann", "Spieler", "Art", "Gegenstand", nil)
+
+    local liste = Kern.Verlauf(H, seit(), nil)
+    zustand.maxVersatz = math.max(0, #liste - ZEILEN)
+    if zustand.versatz > zustand.maxVersatz then zustand.versatz = zustand.maxVersatz end
+
+    local gezeigt = 0
+    for i = 1, ZEILEN do
+        local z = Zeile[i]
+        local e = liste[i + zustand.versatz]
+        if not e then break end
+        gezeigt = i
+
+        z.spielername = e.name
+        z.hintergrund:Hide()
+        z.a:SetText(date("%d.%m. %H:%M", e.zeit))
+        z.b:SetText(e.name)
+        z.c:SetText(e.zweit and (GRAU .. "Zweit|r") or "")
+        z.d:SetText(Quelle.Gegenstandstext(e.eintrag))
+        z.e:SetText("")
+    end
+    leereZeilen(gezeigt + 1)
+
+    local text = string.format("%d Vergaben, neueste zuerst", #liste)
+    if #liste > ZEILEN then text = text .. "   |   Mausrad blättert" end
+    fuss:SetText(text)
+    unterzeile:SetText("")
+end
+
 --- Liste samt Kopfzeile zeigen oder verbergen.
 local function inhaltZeigen(an)
     kopf:SetShown(an)
@@ -391,6 +510,7 @@ function Fenster.Aktualisieren()
         zurueckBtn:Hide()
         for _, b in ipairs(Zeitraum) do b:Hide() end
         demoBtn:Hide()
+        listeBtn:Hide(); verlaufBtn:Hide(); gruppeBtn:Hide(); abgleichBtn:Hide()
         fuss:SetText("")
         if ns.Einstellungen then ns.Einstellungen.Zeigen() end
         return
@@ -400,6 +520,27 @@ function Fenster.Aktualisieren()
     inhaltZeigen(true)
     for _, b in ipairs(Zeitraum) do b:Show() end
     demoBtn:Show()
+    listeBtn:Show(); verlaufBtn:Show(); gruppeBtn:Show(); abgleichBtn:Show()
+
+    listeBtn:SetEnabled(zustand.ansicht ~= "liste" or zustand.spieler ~= nil)
+    verlaufBtn:SetEnabled(zustand.ansicht ~= "verlauf")
+
+    -- Gruppenwahl
+    local Namen = ns.Gruppen and ns.Gruppen.Namen() or {}
+    if zustand.gruppe and not (ns.Gruppen and ns.Gruppen.Holen(zustand.gruppe)) then
+        zustand.gruppe = nil     -- die Gruppe wurde inzwischen geloescht
+    end
+    gruppeBtn:SetText("Gruppe: " .. (zustand.gruppe or (#Namen > 0 and "Alle" or "keine")))
+    gruppeBtn:SetEnabled(#Namen > 0 and not zustand.beispiel)
+
+    -- Abgleich: auffaellig, wenn Mitspieler abweichen
+    local abw = ns.Abgleich and ns.Abgleich.Abweichend or {}
+    if #abw > 0 then
+        abgleichBtn:SetText(GELB .. "Abgleichen (" .. #abw .. ")|r")
+    else
+        abgleichBtn:SetText("Abgleichen")
+    end
+    abgleichBtn:SetEnabled(not zustand.beispiel)
 
     for _, b in ipairs(Zeitraum) do b:SetEnabled(b.wochen ~= zustand.wochen) end
     demoBtn:SetText(zustand.beispiel and "Beispiel aus" or "Beispiel")
@@ -422,10 +563,26 @@ function Fenster.Aktualisieren()
         return
     end
 
-    Zeile[1].a:SetWidth(160)
-    Zeile[2].a:SetWidth(160)
+    ordneSpalten("liste")
 
-    if zustand.spieler then zeigeSpieler(H) else zeigeListe(H) end
+    if zustand.spieler then
+        ordneSpalten("liste")
+        zeigeSpieler(H)
+    elseif zustand.ansicht == "verlauf" then
+        ordneSpalten("verlauf")
+        zeigeVerlauf(H)
+    else
+        ordneSpalten("liste")
+        zeigeListe(H)
+    end
+
+    -- Wer schreibt gerade mit?
+    if ns.Rolle and not zustand.beispiel then
+        local darf, grund = ns.Rolle.IchSchreibe()
+        local text = fuss:GetText() or ""
+        local zusatz = darf and ("Du schreibst mit (" .. tostring(grund) .. ")") or tostring(grund)
+        fuss:SetText(text .. "   |   " .. zusatz)
+    end
 end
 
 -- =====================================================================
@@ -438,7 +595,15 @@ function Fenster.Zeigen(beispiel)
     zustand.spieler = nil
     zustand.versatz = 0
     zustand.einstellungen = false
+    zustand.ansicht = "liste"
     rahmen:Show()
+    Fenster.Aktualisieren()
+end
+
+--- Fenster in einer bestimmten Ansicht oeffnen ("liste" oder "verlauf").
+function Fenster.ZeigenAnsicht(ansicht)
+    Fenster.Zeigen(false)
+    zustand.ansicht = (ansicht == "verlauf") and "verlauf" or "liste"
     Fenster.Aktualisieren()
 end
 
@@ -493,8 +658,19 @@ function Fenster.GargulAnbinden()
         Fenster.Aktualisieren()
     end)
 
-    -- Eine frische Vergabe aendert die Zahlen sofort.
-    GL.Events:register("LootHistorieVergabe", "GL.ITEM_AWARDED", function()
+    -- ⭐ Eine Vergabe in Gargul landet auch in unserer Historie — mit
+    -- Haupt/Zweitbedarf und Wurf, die der Chat nie liefert. Ob wir sie
+    -- eintragen duerfen, entscheidet die Rolle (nur der Schreiber).
+    GL.Events:register("LootHistorieVergabe", "GL.ITEM_AWARDED", function(_, Eintrag)
+        pcall(ns.Erfassung.GargulVergabe, Eintrag)
+        Fenster.Aktualisieren()
+    end)
+    GL.Events:register("LootHistorieVergabeGeaendert", "GL.ITEM_AWARD_EDITED", function(_, Eintrag)
+        pcall(ns.Erfassung.GargulAenderung, Eintrag)
+        Fenster.Aktualisieren()
+    end)
+    GL.Events:register("LootHistorieVergabeZurueck", "GL.ITEM_UNAWARDED", function(_, Eintrag)
+        pcall(ns.Erfassung.GargulZurueck, Eintrag)
         Fenster.Aktualisieren()
     end)
 

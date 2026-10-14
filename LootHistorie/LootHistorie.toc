@@ -1,7 +1,7 @@
 ## Interface: 16001, 120100, 120105, 20506
 ## Title: Loot-Historie
-## Notes: Wer hat ueber Wochen wie viele Gegenstaende bekommen. Liest Garguls Vergabe-Historie. Befehl: /lh
-## Notes-deDE: Wer hat über Wochen wie viele Gegenstände bekommen. Liest Garguls Vergabe-Historie. Befehl: /lh
+## Notes: Wer hat ueber Wochen wie viele Gegenstaende bekommen, und wann. Fuehrt eine eigene Historie, Abgleich in der Gruppe. Befehl: /lh
+## Notes-deDE: Wer hat über Wochen wie viele Gegenstände bekommen, und wann. Führt eine eigene Historie, Abgleich in der Gruppe. Befehl: /lh
 ## Author: Kaos, xqp
 ## Version: 0.1.0
 ## OptionalDeps: Gargul
@@ -9,7 +9,10 @@
 
 Kern.lua
 Quelle.lua
+Rolle.lua
+Gruppen.lua
 Erfassung.lua
+Abgleich.lua
 Blizzbeute.lua
 Einstellungen.lua
 Fenster.lua

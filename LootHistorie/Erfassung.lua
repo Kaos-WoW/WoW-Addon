@@ -42,6 +42,11 @@ local function db()
     LootHistorieDB = LootHistorieDB or {}
     local d = LootHistorieDB
     d.vergaben = d.vergaben or {}
+    -- Kennungen von Doppelgaengern, die verworfen wurden (siehe
+    -- Kern.Zusammenfuehren). Sie zaehlen in der Pruefsumme mit.
+    d.alias = d.alias or {}
+    -- auto = Pluendermeister, sonst Leiter | immer | nie  (Rolle.lua)
+    if d.schreiben == nil then d.schreiben = "auto" end
     if d.erfassen         == nil then d.erfassen = true end
     if d.nurGewuerfelt    == nil then d.nurGewuerfelt = false end
 
@@ -269,10 +274,10 @@ function Erfassung.SchonErfasst(name, id, zeit, fenster)
     local k = Kern.Schluessel(name)
     if not k then return false end
 
-    for _, e in pairs(Erfassung.Historie()) do
+    for eid, e in pairs(Erfassung.Historie()) do
         if e.itemID == id and Kern.Schluessel(e.awardedTo or "") == k
            and math.abs((e.timestamp or 0) - zeit) <= fenster then
-            return true
+            return true, eid, e
         end
     end
     return false
@@ -281,17 +286,26 @@ end
 --- Traegt eine Vergabe ein.
 --  @param art      "haupt" | "zweit" | nil (dann aus dem gemerkten Wurf)
 --  @param kennung  eigener Schluessel; sonst aus Spieler, Stueck und Zeit
---  @return true wenn neu
-function Erfassung.Eintragen(name, link, zeit, art, kennung)
-    if not name or not link then return false end
+--  @param extra    optional { wurf = Zahl }
+--  @return true wenn neu, die Art; oder false und ein Grund
+--
+--  ⭐ Nur der gewaehlte Schreiber (Rolle.lua) traegt ein. Alle anderen
+--  bekommen die Eintraege ueber den Abgleich.
+function Erfassung.Eintragen(name, link, zeit, art, kennung, extra)
+    if not name or not link then return false, "unvollständig" end
+
+    if ns.Rolle then
+        local darf, grund = ns.Rolle.IchSchreibe()
+        if not darf then return false, grund end
+    end
 
     local id = tonumber(tostring(link):match("item:(%d+)"))
     local jetzt = zeit or (GetServerTime and GetServerTime()) or time()
     kennung = kennung or Erfassung.Kennung(name, id or link, jetzt)
 
     local V = Erfassung.Historie()
-    if V[kennung] then return false end
-    if Erfassung.SchonErfasst(name, id, jetzt) then return false end
+    if V[kennung] or db().alias[kennung] then return false, "schon vorhanden" end
+    if Erfassung.SchonErfasst(name, id, jetzt) then return false, "schon vorhanden" end
 
     art = art or Erfassung.BedarfVon(name)
 
@@ -304,9 +318,91 @@ function Erfassung.Eintragen(name, link, zeit, art, kennung)
         -- die zulasten des Empfaengers geht — und damit die sichere.
         OS        = (art == "zweit") or nil,
         selbstErfasst = true,
-        herkunft  = kennung:find("^blizz:") and "blizzard" or "chat",
+        herkunft  = (extra and extra.herkunft)
+                    or (kennung:find("^blizz:") and "blizzard" or "chat"),
+        gruppe    = ns.Gruppen and ns.Gruppen.AktivName() or nil,
+        wurf      = extra and extra.wurf or nil,
     }
-    return true, art
+
+    if ns.Abgleich then ns.Abgleich.Verteilen(kennung) end
+    return true, art, kennung
+end
+
+-- =====================================================================
+--  Gargul als Quelle
+-- =====================================================================
+
+--- ⭐ Eine Vergabe aus Gargul.
+--
+--  Gargul ist der Wuerfler, wir hoeren nur zu. Der Eintrag bringt mit, was
+--  der Chat nie liefert: die Kennung, ob es Haupt- oder Zweitbedarf war
+--  (`OS`) und die Wuerfe. Darum schlaegt er die Vermutung aus dem Chat.
+--
+--  ⚠️ Kam die Beutemeldung schon vorher an, liegt die Vergabe bereits da —
+--  dann wird sie berichtigt, nicht doppelt eingetragen.
+--
+--  @param A  Garguls AwardEntry
+function Erfassung.GargulVergabe(A)
+    if not db().erfassen or type(A) ~= "table" then return false, "aus" end
+
+    local zaehlt, grund = Kern.Zaehlt(A)
+    if not zaehlt then return false, grund end
+
+    local gegenstand = A.itemLink or (A.itemID and ("item:" .. A.itemID))
+    if not gegenstand then return false, "ohne Gegenstand" end
+
+    local ok, warum = Erfassung.Zaehlenswert(gegenstand, nil)
+    if not ok then return false, warum end
+
+    -- Der Wurf des Gewinners: der hoechste in der gewonnenen Klasse.
+    local wurf
+    for _, W in ipairs(A.Rolls or {}) do
+        if Kern.GleicherSpieler(W.player, A.awardedTo) then
+            local betrag = tonumber(W.amount)
+            if betrag and (not wurf or betrag > wurf) then wurf = betrag end
+        end
+    end
+
+    local itemID = A.itemID or tonumber(tostring(gegenstand):match("item:(%d+)"))
+    local zeit = tonumber(A.timestamp) or (GetServerTime and GetServerTime()) or time()
+
+    -- Schon durch die Beutemeldung erfasst? Dann berichtigen.
+    local da, eid, e = Erfassung.SchonErfasst(A.awardedTo, itemID, zeit)
+    if da and e then
+        e.OS = A.OS and true or nil
+        e.wurf = wurf or e.wurf
+        e.herkunft = "gargul"
+        return false, "berichtigt"
+    end
+
+    return Erfassung.Eintragen(A.awardedTo, gegenstand, zeit,
+        A.OS and "zweit" or "haupt", A.checksum, { wurf = wurf, herkunft = "gargul" })
+end
+
+--- Gargul hat eine Vergabe geaendert (anderer Gewinner, Haupt/Zweit).
+--  Die Kennung bleibt; nur die Felder werden nachgezogen.
+--  ⚠️ Das gilt nur hier. Andere Spieler haben den alten Stand und
+--  bekommen die Aenderung nicht — der Abgleich fuegt nur hinzu.
+function Erfassung.GargulAenderung(A)
+    if type(A) ~= "table" or not A.checksum then return false end
+    local e = Erfassung.Historie()[A.checksum]
+    if not e then return false end
+    if A.awardedTo and A.awardedTo ~= "" then e.awardedTo = A.awardedTo end
+    e.OS = A.OS and true or nil
+    return true
+end
+
+--- Gargul hat eine Vergabe zurueckgenommen.
+--  Der Eintrag bleibt liegen, zaehlt aber nicht mehr: Loeschen wuerde
+--  der Abgleich beim naechsten Mal wieder hereinbringen.
+function Erfassung.GargulZurueck(A)
+    if type(A) ~= "table" or not A.checksum then return false end
+    local e = Erfassung.Historie()[A.checksum]
+    if not e then return false end
+    e.zurueck = true
+    -- Den anderen mitteilen, damit sie ihn ebenfalls nicht mehr zaehlen.
+    if ns.Abgleich then ns.Abgleich.Verteilen(A.checksum) end
+    return true
 end
 
 -- =====================================================================

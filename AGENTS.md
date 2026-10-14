@@ -1,69 +1,171 @@
 # Loot-Historie — Projektnotizen
 
-Addon für die Gilde **Resurrected** (Thunderstrike EU). Es beantwortet eine
-einzige Frage: **Wer hat über die letzten Wochen wie viele Gegenstände
-bekommen?** Damit der Plündermeister im Moment der Vergabe schnell und
+Addon für die Gilde **Resurrected** (Thunderstrike EU). Es beantwortet:
+**Wer hat über die Wochen wie viele Gegenstände bekommen — und wer bekam
+wann was?** Damit der Plündermeister im Moment der Vergabe schnell und
 begründet entscheiden kann.
 
-Stand 25.09.2026, Version 0.1.0.
+Stand 14.10.2026, Version 0.1.0 (noch nicht veröffentlicht).
 
 ---
 
-## Das Prinzip
+## Das Prinzip (seit 14.10.2026)
 
-⭐ **Das Addon führt keine eigene Datenbank.** Es liest [Gargul](https://www.curseforge.com/wow/addons/gargul),
-wertet aus und zeigt an. Geschrieben wird nie.
+⭐ **Eigene Historie, ein Schreiber, Abgleich ohne Überschreiben.**
 
-Das ist keine Bequemlichkeit, sondern die tragende Entscheidung:
+* **Das Addon führt eine eigene Historie** (`LootHistorieDB.vergaben`,
+  Eintrag je Kennung). Es braucht kein anderes Addon.
+* **Nur einer schreibt mit** — Entscheid des Gildenleiters: der
+  **Plündermeister**, und gibt es keinen, der **Raidleiter** (Rückfall).
+  Alle anderen empfangen. Grund: Sähe jeder dieselbe Beutemeldung und
+  schriebe sie auf, gäbe es je Drop so viele Einträge wie Spieler im Raid.
+* **Gargul ist der Würfler, wir hören zu.** `GL.ITEM_AWARDED` bringt Kennung,
+  Haupt/Zweit (`OS`) und Wurf mit — das liefert der Chat nie. Ohne Gargul
+  liest das Addon Würfe und Beute selbst aus dem Chat.
+* **Jeder Eintrag hat eine feste Kennung**, Einfügen ist idempotent. So
+  lassen sich Historien zusammenführen, ohne etwas zu überschreiben.
 
-* Gargul hält die Vergaben in `Gargul.DB.AwardHistory`, dauerhaft, nach
-  Prüfsumme abgelegt, und **beschneidet sie nie**.
-* Gargul **verteilt jede Vergabe an die Gruppe** — beim Empfänger landet sie
-  über `storeReceivedAward` in dessen eigener Historie. Bei allen
-  Raidleitern wächst also dieselbe Liste.
-* Also braucht es **keinen Abgleich, keinen Import, keinen Export-String**.
-  Was es nicht gibt, kann nicht auseinanderlaufen.
+Vorbilder (CurseForge-Auswertung 14.10.2026, nur Funktionsweise, kein Code):
+RCLootCouncil „Improved History" und CLM gleichen per Prüfsumme ab und
+tauschen nur Abweichendes; CLM verwirft Nachrichten Unberechtigter still;
+Gargul vergibt je Vergabe eine Kennung und sendet sie live an die Gruppe.
 
-Gargul öffnet sich dafür ausdrücklich, in seiner `bootstrap.lua`:
-
-```lua
-_G.Gargul = GL; -- Open Gargul up to other developer integrations
-```
-
-⚠️ Fremde Innereien sind trotzdem ein Vertrag, den niemand unterschrieben
-hat. Ändert Gargul die Struktur, muss das **hier** auffallen und nicht in
-der Anzeige — darum liefert `Quelle.Gargul()` immer einen benennbaren
-Grund, und `/lh stand` macht ihn sichtbar.
+Davor (25.09.–13.10.): „Das Addon liest nur Garguls Historie". Das wurde
+verworfen, weil Gargul in Forever Nachnamen nicht kennt und weil ein Addon,
+das nur liest, weder Haupt/Zweit noch Gruppen noch Abgleich leisten kann.
 
 ---
 
-## Dateien
+## Dateien (Ladereihenfolge der TOC)
 
 | Datei | Zweck | WoW-API? |
 |---|---|---|
-| `Kern.lua` | Filtern, Zählen, Sortieren | **nein** |
-| `Quelle.lua` | Garguls Historie, Gegenstandstexte, Beispieldaten | ja |
-| `Fenster.lua` | die Anzeige | ja |
+| `Kern.lua` | Zählen, Sortieren, Zusammenführen, Prüfsummen, Kodierung, Schreiberwahl | **nein** |
+| `Quelle.lua` | Garguls Historie, Würfelbereiche, Gegenstandstexte, Beispieldaten | ja |
+| `Rolle.lua` | Gruppe lesen: wer ist Plündermeister/Leiter, schreibe ich mit | ja |
+| `Gruppen.lua` | Kader und Raidgruppen | ja |
+| `Erfassung.lua` | Chat, Würfe, Einstellungen, Eintragen, Gargul-Vergaben | ja |
+| `Abgleich.lua` | Hallo, Live-Meldung, Abgleich, Hinweis-Fenster | ja |
+| `Blizzbeute.lua` | Blizzards `C_LootHistory` als zweite Quelle | ja |
+| `Einstellungen.lua` | Einstellungsseiten im Fenster | ja |
+| `Fenster.lua` | Liste, Verlauf, Spielerdetail, Wurf-Modus | ja |
 | `Befehle.lua` | `/lh` | ja |
 | `Tests.lua` | Prüfstand für `Kern.lua` | **nein** |
 
-`Kern.lua` und `Tests.lua` sind API-frei und laufen auch ohne Client.
-Jede Auswertung nimmt die Historie **als Parameter** — dadurch lassen sich
-Beispieldaten durch dieselbe Anzeige schicken, ohne irgendwo etwas
-abzulegen.
+Alles Rechnerische steht in `Kern.lua` und wird dort getestet. Jede
+Auswertung nimmt die Historie **als Parameter**, dadurch laufen Beispieldaten
+durch dieselbe Anzeige, ohne dass irgendwo etwas abgelegt wird.
+
+### Eintragsform
+
+```
+awardedTo, itemID, itemLink, timestamp, OS (Zweitbedarf), gruppe, wurf,
+herkunft ("chat" | "blizzard" | "gargul" | "gargul-import" | "abgleich" | "gruppe"),
+zurueck (zurückgenommen)
+```
+
+Dieselben Feldnamen wie bei Gargul, damit beide ohne Umrechnen lesbar sind.
 
 ---
 
-## Befehle
+## Schreiber (`Rolle.lua`, `Kern.Schreiber`)
 
-| Befehl | Zweck |
-|---|---|
-| `/lh` | Fenster öffnen und schließen |
-| `/lh demo` | Fenster mit Beispieldaten — **nichts wird gespeichert** |
-| `/lh liste` | dieselbe Auswertung im Chat, `liste 4` für vier Wochen |
-| `/lh <Name>` | Einzelvergaben eines Spielers im Chat |
-| `/lh stand` | Diagnose: liegt Garguls Historie vor, wie viel ist auswertbar |
-| `/lh test` | Selbsttests der Auswertung |
+Rangfolge: **Plündermeister → Leiter → Assistenten**. Gewählt wird der erste,
+der das Addon nachweislich hat (Hallo-Meldung) oder man selbst ist.
+
+* Ohne Gruppe schreibt man selbst mit (Test, Solo-Instanz).
+* Bis die Hallo-Meldungen da sind (wenige Sekunden nach dem Beitritt),
+  schreibt zur Not auch der Leiter mit. **Doppelt ist besser als gar nicht**;
+  der Abgleich fängt Doppelte ab, eine fehlende Vergabe nicht.
+* `/lh rolle` zeigt Kandidaten und Grund; Einstellung `schreiben`:
+  `auto` | `immer` | `nie`.
+* Die Beutemethode kommt versionsbewusst aus `GetLootMethod()` oder
+  `C_PartyInfo.GetLootMethod()` (Zahl, 2 = Plündermeister).
+  ⚠️ **Ob Forever überhaupt Plündermeister kennt, ist ungemessen.**
+
+---
+
+## Abgleich (`Abgleich.lua`)
+
+Addon-Nachrichten, Präfix `LHIST`, Takt 0,25 s (Blizzards Drosselung).
+
+| Typ | Inhalt | Wer darf senden |
+|---|---|---|
+| `H` | Hallo: Version, Anzahl, Prüfsumme | jeder in der Gruppe |
+| `L` | eine neue Vergabe live | Plündermeister, Leiter, Assistent |
+| `Q` | Tagesstand des Leiters (Prüfsumme je Tag, UTC) | Plündermeister, Leiter, Assistent |
+| `N` | „diese Tage weichen bei mir ab" | jeder in der Gruppe |
+| `E` | Einträge dieser Tage | jeder in Gruppe **und Gilde** |
+
+Ablauf: Weicht beim Hallo jemand ab, bekommt der Leiter ein Hinweis-Fenster
+(einmal je Zusammensetzung der Abweichler). **Abgleichen** → `Q`; jeder
+vergleicht, meldet abweichende Tage (`N`) und schickt seine Einträge dazu
+(`E`); der Leiter schickt die gemeldeten Tage nach. Wer in seiner zufälligen
+Wartezeit hört, dass es schon da ist, schweigt.
+
+### Warum das konvergiert
+
+* **Einfügen ist idempotent** (`Kern.Zusammenfuehren`): Kennung bekannt →
+  nichts. Überschrieben wird nie.
+* **Doppelgänger** (gleicher Spieler, gleicher Gegenstand, ≤ 180 s,
+  verschiedene Kennung, z. B. Chat gegen Gargul) werden nicht eingefügt, ihre
+  Kennung wandert in `alias`. **Die Prüfsumme zählt Alias-Kennungen mit** —
+  ohne das wären A {X, Alias Y} und B {Y, Alias X} ewig „verschieden".
+* Der einzige veränderliche Wert ist `zurueck`: Er wechselt nur von nein auf
+  ja (monoton) und wird deshalb mitgeführt. Andere Änderungen (anderer
+  Gewinner nach einer Gargul-Bearbeitung) wandern **nicht** — der Abgleich
+  fügt nur hinzu.
+
+### Sicherheit
+
+Eingehendes wird in `Kern.Dekodieren` geprüft (Länge, Zahlen, Zeitraum, Art).
+`E` kommt nur von Gildenmitgliedern in der Gruppe, `L` und `Q` zusätzlich nur
+von Plündermeister/Leiter/Assistent. Kann ein Absender nicht einer Einheit
+zugeordnet werden, wird er verworfen: lieber einen Abgleich verpassen als
+fremde Daten annehmen. `/lh abgleich status` zeigt den Rohnamen des letzten
+Absenders und seine Zuordnung.
+
+### ⚠️ Ungemessen im Spiel
+
+* **Absendername** in `CHAT_MSG_ADDON` bei Nachnamen: `Kern.GleicherSpieler`
+  fängt „mit/ohne Nachname" und „mit/ohne Realm" ab; ob Forever noch anders
+  formatiert, zeigt erst `/lh abgleich status`.
+* **Einschränkung von Addon-Nachrichten in Instanzen/Kampf** (Mainline-Linie
+  seit 12.0). Gedrosselte oder gesperrte Nachrichten werden bis zu sechsmal
+  später wiederholt.
+* `UnitIsInMyGuild`: fehlt es, gilt der Absender als Mitglied.
+
+---
+
+## Gargul
+
+* **Würfelbereiche:** Gargul bringt MS 1–100 und OS 1–99 mit. Die Gilde
+  würfelt **100 / 50**. `Quelle.GargulBereiche()` prüft, `…Setzen()` stellt
+  `RollTracking.Brackets` um (Einstellung, kein Eingriff in den Code);
+  `/lh bereiche`. Sonst ordnet Gargul die 50er-Würfe nicht ein.
+* **Ereignisse:** `GL.ITEM_AWARDED` → eintragen; `GL.ITEM_AWARD_EDITED` →
+  Gewinner/Haupt-Zweit nachziehen; `GL.ITEM_UNAWARDED` → `zurueck` setzen
+  (nicht löschen, sonst brächte der Abgleich es zurück) und verteilen.
+* Kam die Beutemeldung vor Gargul, wird der Eintrag **berichtigt**, nicht
+  verdoppelt (`herkunft = "gargul"`).
+* **Gargul 8.0.1 (03.10.2026) hat offiziellen Forever-Support**, kennt aber
+  weiterhin keine Nachnamen (kein Treffer für „surname"). Lizenz bleibt
+  **All Rights Reserved**: nur Ereignisse und die Historie lesen,
+  **keinen Code übernehmen**, nichts davon ins Repo.
+
+---
+
+## Gruppen (`Gruppen.lua`)
+
+* **Kader**: feste Namensliste (der ganze 40er-Kader) — steht in der Liste,
+  auch ohne Vergabe.
+* **Raidgruppe**: wer gerade im Schlachtzug steht (kleinere Raids).
+* Jede Vergabe trägt die beim Eintragen aktive Gruppe. Gezählt wird über
+  alles; die Ansicht schaltet auf eine Gruppe oder alle um. **Ob ein 10er
+  für die 40er-Statistik zählt, ist damit eine Frage der Ansicht**, nicht der
+  Aufzeichnung.
+* Namen mit Nachnamen: Kader-Einträge werden nur an Kommas/Zeilenumbrüchen
+  getrennt, nie an Leerzeichen.
 
 ---
 
@@ -74,62 +176,38 @@ abzulegen.
 Wer ein Stück für die Zweitrolle bekommt, hat damit keinen Anspruch
 verbraucht. Es steht trotzdem in der Liste, weil die Leitung es sehen will —
 aber die Reihenfolge richtet sich allein nach Hauptbedarf. Aus demselben
-Grund folgt **„Zuletzt" nur dem Hauptbedarf**: ein Zweitbedarfsstück von
-gestern sagt über den Anspruch nichts aus.
+Grund folgt **„Zuletzt" nur dem Hauptbedarf**.
 
-### Drei Arten von Einträgen fallen heraus
+### Vier Arten von Einträgen fallen heraus
 
-`Kern.Zaehlt` siebt aus, jeweils aus eigenem Grund: **entzaubert** (ging an
-niemanden, Gargul trägt `||de||` als Gewinner ein), **Bonus-Beute**
-(zusätzliche Beute außerhalb der Vergabe) und **unvollständig** (ohne
-Gewinner oder Zeitstempel nicht auswertbar).
+`Kern.Zaehlt`: **entzaubert**, **Bonus-Beute**, **zurückgenommen**,
+**unvollständig** (ohne Gewinner oder Zeitstempel).
 
-### ⚠️ Der Realm wird abgeschnitten
+### Nachnamen in Forever
 
-Gargul schreibt den Gewinner mal mit, mal ohne Realm — je nachdem, ob die
-Vergabe lokal entstand oder über die Gruppe hereinkam. Ohne
-Vereinheitlichung stünde derselbe Spieler zweimal in der Liste. Das setzt
-**eine Gilde auf einem Realm** voraus; zwei Gleichnamige von verschiedenen
-Realms liefen zusammen.
+`UnitName` liefert `name, surname` (nicht den Realm). Der volle Name ist
+`GetUnitName(unit, true)` („Yondaime Kaos"). Muster aus Textvorlagen bauen
+`%s` zu `(.-)`, nie zu `(%S+)`. `Kern.Schluessel` schneidet nur am `-` ab;
+`Kern.GleicherSpieler` lässt den Nachnamen auf **einer** Seite fehlen.
 
 ### ⚠️ „Raidtage" ist keine Anwesenheit
 
 Gezählt werden Kalendertage mit mindestens einer Vergabe. Wer da war und
-nichts bekam, steht in Garguls Daten **nirgends**. Die Zahl taugt als
-Bezugsgröße für „viel" und „wenig", nicht als Teilnahmenachweis.
-
-Damit hat das Addon eine bewusste Lücke: **eine reine Gegenstandszahl misst
-nicht, wer erscheint.** Wer jede Woche mitgeht und fünf Stücke gewonnen hat,
-steht unter jemandem, der zweimal da war und nichts bekam. Für ein Werkzeug,
-das einem *Menschen* zuarbeitet, ist das in Ordnung — die Leitung weiß, wer
-da ist. Als automatische Rangfolge wäre es das nicht.
+nichts bekam, steht nirgends — außer in Kader oder Raidgruppe.
 
 ### Erfasst wird ab Selten, nicht ab Episch
 
-Auf Stufe 60 ist offen, ob in den Raids überhaupt Episches fällt — in
-Zul'Gurub etwa ist das meiste blau. Die Asymmetrie entscheidet: **ein
-verpasster Drop ist unwiederbringlich, eine Zeile zu viel nur lästig.**
-`/lh filter 4` hebt die Schwelle, wenn sich zeigt, dass die Raids episch
-abwerfen.
-
-Dazu zwei weitere Riegel. **Der Ort** kennt drei Stufen:
-`filter raid` (Standard, nur Schlachtzüge), `filter instanz` (auch
-Fünfergruppen — zum Erproben des Ablaufs in einer Gildengruppe) und
-`filter überall` (ohne Einschränkung; dann zählen auch Weltdrops und
-Questbelohnungen mit). **`filter wurf`** zählt nur, was auch ausgewürfelt
-wurde — Standard **aus**, weil ohne Bedarfswurf zugeteilte Stücke sonst
-verlorengingen.
-
-⚠️ Die Ortsangabe löste den früheren Schalter `nurRaid` ab. `db()` zieht
-gespeicherte Altbestände nach — siehe die allgemeine Regel zu
-SavedVariables als Versionsgrenze.
+Auf Stufe 60 ist offen, ob in den Raids überhaupt Episches fällt (in
+Zul'Gurub ist das meiste blau). **Ein verpasster Drop ist unwiederbringlich,
+eine Zeile zu viel nur lästig.** `/lh filter 4` hebt die Schwelle. Dazu der
+**Ort** (`raid` | `instanz` | `überall`) und `filter wurf` (nur
+Ausgewürfeltes, Standard aus).
 
 ### Das Fenster kommt ohne Bibliotheken aus
 
-Fester Satz Zeilen plus Mausrad-Versatz statt Bildlaufleiste. Ein Teil
-weniger, das beim nächsten Patch bricht. Es hält keinen Zustand über die
-Sitzung hinaus und liest bei jedem Aufbau frisch — dadurch kann es nie
-etwas Veraltetes zeigen.
+Fester Satz Zeilen plus Mausrad-Versatz. Ein Teil weniger, das beim nächsten
+Patch bricht. Es hält keinen Zustand über die Sitzung hinaus und liest bei
+jedem Aufbau frisch.
 
 ---
 
@@ -137,27 +215,39 @@ etwas Veraltetes zeigen.
 
 ```
 python luacheck.py LootHistorie/*.lua     # Blockstruktur, echter Tokenizer
-.\deploy.ps1                               # in alle vorhandenen Clients
+pip install lupa                          # einmalig
+python tests/rechenkern.py                # Kern + Tests.lua in echtem Lua 5.1
+python tests/szenarien.py                 # mehrere virtuelle Clients
+.\deploy.ps1                              # in alle vorhandenen Clients
 ```
 
-⚠️ **Es gibt kein Lua auf dem Rechner** — die Tests laufen nur im Spiel über
-`/lh test`. `luacheck.py` prüft **Struktur, keine Semantik**; ein
-`nil`-Zugriff findet er nicht.
+⭐ **`tests/szenarien.py` ersetzt „kein Lua auf dem Rechner".** Es lädt das
+komplette Addon (auch Fenster und Einstellungen, mit Attrappen für Frames)
+mehrfach in getrennten Lua-Zuständen, verbindet sie über einen simulierten
+Nachrichtenkanal samt Uhr und prüft: Schreiberwahl, Live-Meldung, vollen
+Abgleich in beide Richtungen, Doppelgänger, Sicherheitsregeln, Gargul-
+Ereignisse, Gruppen, jeden Knopf und jeden Befehl. Es prüft **nicht**, wie
+etwas aussieht und wie sich der echte Client verhält (Nachrichtenformat der
+Absendernamen, Drosselung, Plündermeister in Forever).
 
-### Die Lehren aus dem Vorgängerprojekt
+⚠️ In der Attrappe lässt sich nur testen, was die Attrappe nachbildet.
+Neue WoW-API-Aufrufe brauchen eine Zeile in `STUBS` (`tests/sim.py`), sonst
+fehlen sie dort — und im Spiel nicht.
+
+### Lehren
 
 * ⭐ **Kein Befehl darf still scheitern.** WoW verschluckt Laufzeitfehler,
-  solange `scriptErrors` aus ist — und das ist die Voreinstellung. Der
-  Slash-Dispatcher läuft deshalb über `pcall` und druckt die Meldung in den
-  Chat. **Nicht zurückbauen.**
+  solange `scriptErrors` aus ist. Der Slash-Dispatcher läuft über `pcall`.
+  **Nicht zurückbauen.**
 * ⭐ **Erwartungswerte aus der Regel herleiten, nie aus der Funktion
-  daneben.** Ein Test, dessen Sollwert aus der Implementierung stammt, prüft
-  nichts. Das hat einmal einen echten Verstoß durchgelassen.
-* ⚠️ **Version an Fähigkeiten erkennen, nie an der Nummer.** In Forever
-  fehlen `GetItemInfo` und Verwandte als Globals, es gibt nur `C_Item.*`.
-  Also `if C_Item and C_Item.GetItemInfo`, nicht `if isTBC`.
-* Deutsche Sprache in Kommentaren, Ausgaben und Bezeichnern. Das ist
-  gewollt, nicht Zufall.
+  daneben.**
+* ⚠️ **Version an Fähigkeiten erkennen, nie an der Nummer** (`C_Item` gegen
+  Global).
+* ⚠️ **SavedVariables sind eine Versionsgrenze**: umbenannte Felder brauchen
+  einen Nachziehpfad (`db()` in `Erfassung.lua`).
+* **Fremde Daten nie vertrauen**: alles Eingehende prüfen und im Zweifel
+  verwerfen.
+* Deutsche Sprache in Kommentaren, Ausgaben und Bezeichnern. Gewollt.
 
 ---
 
@@ -169,53 +259,26 @@ Eine Quelle, eine TOC, beide Clients:
 ## Interface: 16001, 120100, 120105, 20506
 ```
 
-* **TBC Anniversary** (`_anniversary_`) — hier raidet die Gilde, hier läuft
-  Gargul aus CurseForge.
+* **TBC Anniversary** (`_anniversary_`) — hier raidet die Gilde.
 * **WoW Forever Beta** (`_classic_beta_`) — Mainline-Unterbau 12.1.5.
-  ⚠️ Gargul gibt es dort **nicht offiziell**; es liegt nur als lokale
-  Testkopie mit angepasster Interface-Nummer. Siehe unten.
 
-### ⚠️ Gargul auf Forever
-
-Gargul steht unter **All Rights Reserved** (`## X-License: ARR`) und
-untersagt Änderungen ohne schriftliche Erlaubnis. Die Kopie im Beta-Client
-ist eine **rein lokale Testkopie**: kopiert, eine Interface-Zeile je TOC
-geändert, Lua unangetastet. **Nicht weitergeben, nicht hochladen, nicht ins
-Repo.** Für den Dauerbetrieb muss der Autor gefragt werden — sein Discord
-steht in Garguls README.
-
-Dass so wenig nötig war, liegt an Gargul selbst: `Utils/Shims.lua` deckt die
-Mainline-Umstellungen bereits ab (`C_Item`, `C_Container`, `C_AddOns`,
-`C_CurrencyInfo`, `C_PartyInfo` samt Enum→Zeichenkette für `GetLootMethod`).
-**Deshalb darf dieses Addon keine fehlenden Globals selbst definieren** —
-Garguls Weichen prüfen `Global or C_Namespace.Name` und nähmen sonst den
-falschen Weg.
-
-Drei Aufrufe führt Gargul **nicht** über seine Weichen, alle in
-Randfunktionen: `GetItemCount` (`BagInspector.lua:76`),
-`GetDetailedItemLevelInfo` (`GDKP.lua:39`), `GetGuildRosterInfo`
-(`User.lua:247`). Sie fallen erst auf, wenn genau diese Funktionen laufen.
+Gargul läuft in beiden (in Forever seit 8.0.1 offiziell). **Dieses Addon darf
+keine fehlenden Globals selbst definieren** — Garguls Weichen prüfen
+`Global or C_Namespace.Name` und nähmen sonst den falschen Weg.
 
 ---
 
 ## Vorgeschichte
 
-Davor stand ein deutlich größeres System: **`Prio = Einsatz ÷ Rüstwert`**,
-Konten in der Offiziersnotiz, Verfall, Regelwerk mit zehn Paragrafen. Der
-Gildenleiter hat es am 25.09.2026 als zu komplex verworfen.
-
-Der vollständige Stand liegt im Tag **`prio-system-stand`** (Commit
-`0727bf7`) und ist jederzeit zurückholbar:
+Davor stand ein größeres System: **`Prio = Einsatz ÷ Rüstwert`**, Konten in
+der Offiziersnotiz, Verfall, Regelwerk mit zehn Paragrafen. Der Gildenleiter
+hat es am 25.09.2026 als zu komplex verworfen. Stand im Tag
+**`prio-system-stand`** (Commit `0727bf7`):
 
 ```
 git checkout prio-system-stand -- .
 ```
 
-Was davon gültig bleibt, steht oben unter „Die Lehren". Zwei Befunde aus
-dieser Zeit sind weiterhin wichtig:
-
 * **Offiziersnotizen sind in Forever für Addons nicht beschreibbar.**
-  `C_GuildInfo.SetNote` ist geschützt; ein Aufruf aus Addon-Code endet als
-  `ADDON_ACTION_BLOCKED`. Lesen geht.
+  `C_GuildInfo.SetNote` ist geschützt.
 * **SavedVariables laden seit Build 70009 (25.09.2026) wieder zurück.**
-  Davor wurden sie geschrieben, aber beim Start nicht gelesen.

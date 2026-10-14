@@ -126,6 +126,59 @@ function Quelle.GargulImport(fenster)
 end
 
 -- =====================================================================
+--  Garguls Wuerfelbereiche
+-- =====================================================================
+
+--- ⭐ Die Gilde wuerfelt 100 fuer Haupt- und 50 fuer Zweitbedarf. Gargul
+--  bringt 100 und 99 mit. Weicht der Bereich ab, erkennt Gargul die Wuerfe
+--  der Raider nicht (oder ordnet sie falsch ein), und unsere Erfassung
+--  wuerde sich darauf verlassen.
+--
+--  Jeder Bereich bei Gargul: { Name, min, max, Rang, istZweitbedarf, +1 }
+
+local SOLL = {
+    { "MS", 1, 100, 2, false, false },
+    { "OS", 1, 50,  3, true,  false },
+}
+
+--- @return { ok = bool, haupt = bool, zweit = bool, bereiche = { ... } }
+--          oder nil und ein Grund
+function Quelle.GargulBereiche()
+    local GL = rawget(_G, "Gargul")
+    if not (GL and GL.Settings and GL.Settings.get) then
+        return nil, "Gargul ist nicht bereit"
+    end
+
+    local ok, B = pcall(GL.Settings.get, GL.Settings, "RollTracking.Brackets", {})
+    if not ok or type(B) ~= "table" then return nil, "Einstellung nicht lesbar" end
+
+    local haupt, zweit, alle = false, false, {}
+    for _, b in ipairs(B) do
+        if type(b) == "table" then
+            alle[#alle + 1] = string.format("%s %s-%s", tostring(b[1]), tostring(b[2]), tostring(b[3]))
+            local art = ns.Kern.Bedarfsart(b[2], b[3])
+            if art == "haupt" then haupt = true end
+            if art == "zweit" then zweit = true end
+        end
+    end
+    return { ok = haupt and zweit, haupt = haupt, zweit = zweit, bereiche = alle }
+end
+
+--- Stellt Garguls Bereiche auf 100/50.
+--  ⚠️ Das ist eine Einstellung bei Gargul, kein Eingriff in seinen Code.
+--  Eigene weitere Bereiche gehen dabei verloren.
+function Quelle.GargulBereicheSetzen()
+    local GL = rawget(_G, "Gargul")
+    if not (GL and GL.Settings and GL.Settings.set) then return false, "Gargul ist nicht bereit" end
+
+    local kopie = {}
+    for i, b in ipairs(SOLL) do kopie[i] = { b[1], b[2], b[3], b[4], b[5], b[6] } end
+    local ok, fehler = pcall(GL.Settings.set, GL.Settings, "RollTracking.Brackets", kopie)
+    if not ok then return false, tostring(fehler) end
+    return true
+end
+
+-- =====================================================================
 --  Der laufende Wurf
 -- =====================================================================
 
