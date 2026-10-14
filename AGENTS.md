@@ -11,7 +11,7 @@ auf, gleicht ab, verwaltet Gruppen). Ordner `Fairshare/`, SavedVariables `Fairsh
 macht `deploy.ps1` einmalig und **nur bei beendetem WoW** (sonst bricht es ab, ohne etwas zu ändern); die alte
 Datei bleibt als Sicherung. Spätere Umbenennungen brauchen denselben Weg.
 
-Stand 14.10.2026, Version 0.1.1 (Testfassung für die Gildenleitung, nicht veröffentlicht). Nur für Forever.
+Stand 14.10.2026, Version 0.1.2 (Testfassung für die Gildenleitung, nicht veröffentlicht). Nur für Forever.
 
 ---
 

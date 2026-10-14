@@ -1,4 +1,4 @@
-Fairshare 0.1.1 (Testfassung)  -  Faire Beuteverteilung fuer WoW Forever
+Fairshare 0.1.2 (Testfassung)  -  Faire Beuteverteilung fuer WoW Forever
 ===========================================================================
 
 INSTALLATION
@@ -11,8 +11,8 @@ INSTALLATION
 
       ...\AddOns\Fairshare\Fairshare.toc
 
-    (Der Ordner muss genau "Fairshare" heissen, nicht "Fairshare-0.1.1".)
-    Wer schon 0.1.0 hat: den alten Ordner "Fairshare" ersetzen. Die Daten
+    (Der Ordner muss genau "Fairshare" heissen, nicht "Fairshare-0.1.2".)
+    Wer schon 0.1.0 oder 0.1.1 hat: den alten Ordner "Fairshare" ersetzen. Die Daten
     (Historie, Einstellungen) bleiben erhalten, sie liegen in WTF.
  3. WoW starten. Neue Dateien: ein /reload reicht NICHT, WoW muss ganz
     neu gestartet werden. Auf dem Charakterbildschirm unter "AddOns" muss
