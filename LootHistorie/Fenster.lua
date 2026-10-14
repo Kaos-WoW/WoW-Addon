@@ -43,10 +43,10 @@ local ROT   = S.Code(C.bad)
 
 local rahmen, kopfZeile, tafel, fuss, unterzeile, kopfTag
 local zeilen = {}
-local ansichtSeg, zeitSeg, abgleichBtn, einstellBtn, gruppeBtn, zurueckBtn, beispielBtn
+local ansichtSeg, zeitSeg, abgleichBtn, einstellBtn, gruppeBtn, zurueckBtn, beispielBtn, nurBtn
 
 local zustand = { wochen = 0, beispiel = false, spieler = nil, versatz = 0, maxVersatz = 0,
-                  ansicht = "liste", gruppe = nil }
+                  ansicht = "liste", gruppe = nil, alleSpieler = false }
 
 -- Spaltenlagen je Ansicht, abhaengig von der Zeilenbreite w:
 -- { x, Breite, Ausrichtung }. Von rechts gerechnet, die erste Spalte
@@ -112,6 +112,15 @@ end
 local function wurf()
     if zustand.beispiel then return Quelle.BeispielWurf() end
     return Quelle.Wurf()
+end
+
+--- ⭐ In einer Gruppe zeigt die Liste nur die Spieler, die gerade dabei sind.
+--  Ohne Gruppe (oder auf Wunsch, oder bei Beispieldaten) gilt alles.
+--  @return Liste der Namen, oder nil fuer „alle"
+local function nurGruppe()
+    if zustand.beispiel or zustand.alleSpieler or not ns.Rolle then return nil end
+    if not (IsInGroup and IsInGroup()) then return nil end
+    return ns.Rolle.Namen()
 end
 
 local function seit()
@@ -322,9 +331,18 @@ local function baueFenster()
     beispielBtn = S.Knopf(f, L["Beispiel"], "link", 22)
     beispielBtn:SetPoint("RIGHT", f, "RIGHT", -16, 0)
 
+    -- Nur die Gruppe / alle Spieler (nur sichtbar, solange man in einer Gruppe ist)
+    nurBtn = S.Knopf(f, L["Alle Spieler zeigen"], "link", 22)
+    nurBtn:SetPoint("RIGHT", beispielBtn, "LEFT", -16, 0)
+    nurBtn:SetScript("OnClick", function()
+        zustand.alleSpieler = not zustand.alleSpieler
+        zustand.versatz = 0
+        Fenster.Aktualisieren()
+    end)
+
     fuss = S.Text(f, 11, C.mu, "LEFT")
     fuss:SetPoint("LEFT", f, "LEFT", 16, 0)
-    fuss:SetPoint("RIGHT", beispielBtn, "LEFT", -12, 0)
+    fuss:SetPoint("RIGHT", nurBtn, "LEFT", -12, 0)
     beispielBtn:SetScript("OnClick", function()
         zustand.beispiel = not zustand.beispiel
         zustand.spieler = nil
@@ -406,15 +424,21 @@ end
 local function zeigeListe(H)
     local W = wurf()
 
-    -- Wer in der Liste stehen muss, auch ohne Vergabe: die Wuerfelnden und
-    -- der Kader bzw. die Raidgruppe der gewaehlten (sonst aktiven) Gruppe.
+    -- In einer Gruppe: genau die Spieler, die dabei sind (auch mit null
+    -- Vergaben). Sonst: die Wuerfelnden und der Kader der gewaehlten
+    -- (sonst aktiven) Gruppe stehen in jedem Fall drin.
+    local nur = nurGruppe()
     local pflicht = {}
-    if W and W.namen then for _, n in ipairs(W.namen) do pflicht[#pflicht + 1] = n end end
-    if not zustand.beispiel and ns.Gruppen then
-        for _, n in ipairs(ns.Gruppen.Pflicht(zustand.gruppe)) do pflicht[#pflicht + 1] = n end
+    if nur then
+        for _, n in ipairs(nur) do pflicht[#pflicht + 1] = n end
+    else
+        if W and W.namen then for _, n in ipairs(W.namen) do pflicht[#pflicht + 1] = n end end
+        if not zustand.beispiel and ns.Gruppen then
+            for _, n in ipairs(ns.Gruppen.Pflicht(zustand.gruppe)) do pflicht[#pflicht + 1] = n end
+        end
     end
 
-    local liste, gesamt, aeltester = Kern.Bilanz(H, seit(), pflicht)
+    local liste, gesamt, aeltester = Kern.Bilanz(H, seit(), pflicht, nur)
 
     local istWuerfler
     if W then
@@ -461,6 +485,7 @@ local function zeigeListe(H)
         text = text .. "   |   " .. string.format(L["älteste Aufzeichnung %s"], date(L["%d.%m.%Y"], aeltester))
     end
     if #liste > zeilenSicht then text = text .. "   |   " .. L["Mausrad blättert"] end
+    if nur then text = text .. "   |   " .. L["nur Spieler aus deiner Gruppe"] end
     fuss:SetText(text)
 
     if W then
@@ -571,6 +596,10 @@ function Fenster.Aktualisieren()
         abgleichBtn:SetLabel(L["Abgleichen"])
     end
     abgleichBtn:SetAktiv(not zustand.beispiel)
+
+    local imGruppe = IsInGroup and IsInGroup() and true or false
+    nurBtn:SetShown(imGruppe and not zustand.beispiel and zustand.ansicht == "liste" and zustand.spieler == nil)
+    nurBtn:SetLabel(zustand.alleSpieler and L["Nur Gruppe zeigen"] or L["Alle Spieler zeigen"])
 
     zurueckBtn:SetShown(zustand.spieler ~= nil)
     unterzeile:ClearAllPoints()

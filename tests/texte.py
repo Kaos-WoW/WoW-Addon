@@ -35,6 +35,7 @@ ERLAUBT = {
     "unvollständig", "ohne Gegenstand",
     "Järgerlie", "Zorn des Verräters", "Loot-Historie äöü",
     "keine Seite",
+    "  %s  |cff8E9A94(%s, %s)|r",
 }
 ERLAUBT_TEIL = ("GetUnitName(player", "Karte %d:", "Zeile %d:")
 

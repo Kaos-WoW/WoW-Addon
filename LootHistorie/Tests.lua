@@ -387,6 +387,31 @@ local function testKonvergenz()
     gleich("Tagesstand gleich: keine abweichenden Tage", #Kern.AbweichendeTage(tA, tB), 0)
 end
 
+--- ⭐ Pruefsummen reichen bis 2^32. Eine abgeschnittene Zahl (-2147483648) liess
+--  im Abgleich ganze Tage verschwinden.
+local function testGrosseSummen()
+    local tage = {
+        d1 = { n = 4, summe = 4227332184 },
+        d2 = { n = 2, summe = 2147483648 },
+        d3 = { n = 1, summe = 17 },
+    }
+    local text = Kern.TageKodieren(tage)
+    gleich("kein Minuszeichen im Tagestext", text:find("-", 1, true), nil)
+    local zurueck = Kern.TageDekodieren(text)
+    gleich("grosse Summe bleibt (4227332184)", zurueck.d1 and zurueck.d1.summe, 4227332184)
+    gleich("Summe genau 2^31 bleibt", zurueck.d2 and zurueck.d2.summe, 2147483648)
+    gleich("kleine Summe bleibt", zurueck.d3 and zurueck.d3.summe, 17)
+    gleich("alle drei Tage kommen an", (function() local n = 0 for _ in pairs(zurueck) do n = n + 1 end return n end)(), 3)
+    gleich("kein Unterschied zwischen Sender und Empfaenger", #Kern.AbweichendeTage(tage, zurueck), 0)
+
+    -- Eine echte Historie mit vielen Eintraegen landet sicher ueber 2^31
+    local H = {}
+    for i = 1, 200 do H["eintrag-" .. i] = { timestamp = 1700000000 + i } end
+    local _, summe = Kern.Pruefsumme(H, {})
+    local hin = Kern.TageDekodieren(Kern.TageKodieren({ x = { n = 200, summe = summe } }))
+    gleich("echte Pruefsumme uebersteht die Uebertragung", hin.x and hin.x.summe, summe)
+end
+
 local function testKodieren()
     local e = { awardedTo = "Yondaime Kaos", itemID = 32235, timestamp = ZEIT, OS = true,
                 gruppe = "40er; Test|x", wurf = 87 }
@@ -567,6 +592,7 @@ function Tests.Alle(ausgeben)
     testTagesstand()
     testZusammenfuehren()
     testKonvergenz()
+    testGrosseSummen()
     testKodieren()
     testZurueckgenommen()
     testPakete()

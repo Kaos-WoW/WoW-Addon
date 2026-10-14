@@ -228,12 +228,18 @@ function Rolle.Absender(sender)
     return false, nil
 end
 
---- Namen der aktuellen Gruppe.
-function Rolle.Namen()
+--- Namen der aktuellen Gruppe (ohne Gruppe: nur man selbst).
+--  @param nurGilde  nur Mitglieder der eigenen Gilde (keine Gaeste).
+--                   ⚠️ Fehlt die Pruefung im Client, gelten alle als Mitglied.
+function Rolle.Namen(nurGilde)
     local liste = {}
     for _, E in ipairs(einheiten()) do
         local n = nameVon(E.unit)
-        if n and n ~= "" and n ~= UNKNOWN then liste[#liste + 1] = n end
+        if n and n ~= "" and n ~= UNKNOWN then
+            local drin = true
+            if nurGilde and UnitIsInMyGuild then drin = UnitIsInMyGuild(E.unit) and true or false end
+            if drin then liste[#liste + 1] = n end
+        end
     end
     return liste
 end

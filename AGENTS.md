@@ -157,17 +157,28 @@ Absenders und seine Zuordnung.
 
 ---
 
-## Gruppen (`Gruppen.lua`)
+## Gruppen und Kader (`Gruppen.lua`, Modell vom 14.10.2026)
 
-* **Kader**: feste Namensliste (der ganze 40er-Kader) — steht in der Liste,
-  auch ohne Vergabe.
-* **Raidgruppe**: wer gerade im Schlachtzug steht (kleinere Raids).
-* Jede Vergabe trägt die beim Eintragen aktive Gruppe. Gezählt wird über
-  alles; die Ansicht schaltet auf eine Gruppe oder alle um. **Ob ein 10er
-  für die 40er-Statistik zählt, ist damit eine Frage der Ansicht**, nicht der
-  Aufzeichnung.
-* Namen mit Nachnamen: Kader-Einträge werden nur an Kommas/Zeilenumbrüchen
-  getrennt, nie an Leerzeichen.
+Entscheid des Gildenleiters: **so wenige Handgriffe wie möglich.** Es gibt nur noch **eine** Art Gruppe
+(vorher Kader und Raidgruppe).
+
+* Eine Gruppe ist eine **Beschriftung** („40er", „10er") und ein **Kader** (Namensliste). Jede Vergabe trägt
+  die beim Eintragen aktive Gruppe; die Ansicht lässt sich auf eine Gruppe einschränken.
+* ⭐ **In einer Gruppe zeigt die Übersicht nur die Spieler, die bei dir sind** (`Kern.Bilanz(..., pflicht, nur)`),
+  auch mit null Vergaben; die Summe zählt nur sie. Ein Name der Historie ohne Nachnamen wird dem vollen Namen
+  der Gruppe zugeschlagen (eine Zeile). Der Knopf *Alle Spieler zeigen* im Fuß hebt das auf. **Ohne Gruppe**
+  stehen alle Spieler der Historie plus der Kader der aktiven Gruppe in der Liste.
+* ⭐ **Auffüllen erweitert nur, es entfernt nie jemanden.** Quellen: Mitglieder der gewählten **Gildenränge**
+  (Forever: `C_Club.GetClubMembers`/`GetMemberInfo`, sonst `GetGuildRosterInfo`) und Gildenmitglieder der
+  aktuellen Gruppe (Gäste nicht). **Ohne Gruppe und ohne Ränge tut es nichts** (früher hatte es den Kader auf
+  den Spieler selbst gekürzt). Wer die Gilde verlässt, wird von Hand entfernt (Einstellungen oder
+  `/lh gruppe entfernen`). Beim Anmelden füllt es einmal still auf (20 s Verzögerung, abschaltbar je Gruppe).
+* ⚠️ **Ungemessen:** wie Forever die Namen der Gildenliste schreibt (Nachname, Realm). `Kern.GleicherSpieler`
+  fängt beides ab; **`/lh gilde`** zeigt, was ankommt.
+* Alte Einträge mit `modus = "raid"` werden wie ein Kader gelesen; das Feld wird ignoriert.
+* Der **Abgleich läuft von selbst** (Einstellung `autoAbgleich`, Standard an): Merkt Leiter oder Plündermeister
+  eine Abweichung, startet er nach 4 s einen Abgleich, höchstens alle 2 Minuten. Aus: nur Hinweisfenster.
+  So bekommen alle, die später wieder mit dir in einer Gruppe stehen, deine Daten und du ihre.
 
 ---
 
@@ -220,6 +231,14 @@ eine Zeile in `seiteErfassung`/`seiteGargul`/`seiteGruppen`.
 
 ⚠️ Die Optik ist nur im Spiel prüfbar; `tests/szenarien.py` prüft, dass jede Zeile, jeder Knopf und
 jede Seite ohne Fehler läuft und speichert.
+
+### ⭐ Zahlen über 2^31 nie mit `%d` formatieren
+
+Prüfsummen reichen bis 2^32. `string.format("%d", 3000000000)` lieferte in der Simulation (Lua mit 32-Bit-`long`)
+**-2147483648**; der Abgleich verlor dadurch ganze Tage, weil die Gegenseite die Zahl mit Minuszeichen nicht
+parste und der Wert zudem für verschiedene Mengen gleich wurde. Wie WoW sich verhält, ist ungemessen — also
+überall `%.0f` (Übertragung) oder `tostring`. Test: `testGrosseSummen`. Gefunden hat es erst das Szenario
+„Automatisch abgleichen" mit zwölf Einträgen.
 
 ### Sprache (seit 14.10.2026)
 

@@ -270,7 +270,21 @@ function Abgleich.Pruefen()
        and ns.Rolle.Berechtigt(eigenerName())
        and not (InCombatLockdown and InCombatLockdown()) then
         letzteSignatur = signatur
-        popupZeigen(#liste, liste)
+        if db().autoAbgleich ~= false and C_Timer then
+            -- ⭐ Von selbst abgleichen. Kurz warten, bis alle Hallo-Meldungen da
+            -- sind, und nur, wenn dann noch jemand abweicht. Hoechstens alle
+            -- zwei Minuten: ein Abgleich, der nicht alles ausgleicht, soll
+            -- nicht endlos laufen.
+            C_Timer.After(4, function()
+                if #Abgleich.Abweichend == 0 then return end
+                if (time() - (Abgleich.letzterAuto or 0)) < 120 then return end
+                Abgleich.letzterAuto = time()
+                local ok, grund = Abgleich.Starten()
+                if not ok and grund then print(MELDUNG .. "|cffff5555" .. tostring(grund) .. "|r") end
+            end)
+        else
+            popupZeigen(#liste, liste)
+        end
     end
     fensterAktualisieren()
 end
@@ -291,7 +305,7 @@ local function halloSenden()
     end
     hallo.n, hallo.summe, hallo.zuletzt = n, summe, time()
 
-    einreihen(string.format("H;%d;%d;%d", VERSION, n, summe))
+    einreihen(string.format("H;%d;%d;%.0f", VERSION, n, summe))   -- %.0f: siehe Kern.TageKodieren
 end
 
 --- Hallo in ein paar Sekunden — mehrere Ausloeser ergeben eines.
@@ -566,15 +580,15 @@ end
 function Abgleich.Diagnose()
     local n, summe = Abgleich.Stand()
     local zeilen = {}
-    zeilen[#zeilen + 1] = string.format(L["Eigener Stand: %d Einträge, Prüfsumme %d, %d Doppelgänger vermerkt"],
-        n, summe, (function() local c = 0 for _ in pairs(alias()) do c = c + 1 end return c end)())
+    zeilen[#zeilen + 1] = string.format(L["Eigener Stand: %d Einträge, Prüfsumme %s, %d Doppelgänger vermerkt"],
+        n, string.format("%.0f", summe), (function() local c = 0 for _ in pairs(alias()) do c = c + 1 end return c end)())
     zeilen[#zeilen + 1] = string.format(L["Kanal: %s"], tostring(kanal() or L["keiner (nicht in einer Gruppe)"]))
 
     local anz = 0
     for _, P in pairs(Bekannt) do
         anz = anz + 1
-        zeilen[#zeilen + 1] = string.format(L["  %s: %d Einträge, Prüfsumme %d%s%s"],
-            P.name, P.n, P.summe,
+        zeilen[#zeilen + 1] = string.format(L["  %s: %d Einträge, Prüfsumme %s%s%s"],
+            P.name, P.n, string.format("%.0f", P.summe),
             (P.n == n and P.summe == summe) and (" " .. L["|cff55ff55gleich|r"]) or (" " .. L["|cffffff78weicht ab|r"]),
             P.gilde and "" or (" " .. L["(nicht in der Gilde)"]))
     end

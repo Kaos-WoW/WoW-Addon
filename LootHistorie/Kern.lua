@@ -86,16 +86,42 @@ end
 --
 --  @param historie  Tabelle: Pruefsumme -> Eintrag
 --  @param seit      Zeitstempel, ab dem gezaehlt wird; nil = alles
+--  ⭐ `nur` ist das Gegenstueck: Dann zaehlen und erscheinen AUSSCHLIESSLICH
+--  diese Namen (die Spieler, die gerade in der Gruppe stehen). Wer nicht
+--  dazugehoert, fehlt in Liste und Summe. Ein Name der Historie ohne
+--  Nachnamen wird dem Namen MIT Nachnamen aus `nur` zugeschlagen, damit
+--  niemand doppelt in der Liste steht.
+--
+--  @param historie  Tabelle: Pruefsumme -> Eintrag
+--  @param seit      Zeitstempel, ab dem gezaehlt wird; nil = alles
 --  @param pflicht   Liste von Namen, die in jedem Fall erscheinen
+--  @param nur       Liste von Namen; wenn gegeben, nur diese
 --  @return Liste aus { name, haupt, zweit, letzte, letzterEintrag },
 --          Zahl der gezaehlten Vergaben, aeltester Zeitstempel
-function Kern.Bilanz(historie, seit, pflicht)
+function Kern.Bilanz(historie, seit, pflicht, nur)
     if type(historie) ~= "table" then historie = {} end
     seit = seit or 0
 
     local nach, gesamt, aeltester = {}, 0, nil
+    local gemerkt = {}
+
+    -- Mit `nur`: der passende Name aus der Liste oder nil
+    local function zugelassen(name)
+        if not nur then return name end
+        local k = Kern.Schluessel(name)
+        if not k then return nil end
+        if gemerkt[k] ~= nil then return gemerkt[k] or nil end
+        local treffer = false
+        for _, n in ipairs(nur) do
+            if Kern.GleicherSpieler(n, name) then treffer = n break end
+        end
+        gemerkt[k] = treffer
+        return treffer or nil
+    end
 
     local function eintragFuer(name)
+        name = zugelassen(name)
+        if not name then return nil end
         local k = Kern.Schluessel(name)
         if not k then return nil end
         local z = nach[k]
@@ -109,9 +135,9 @@ function Kern.Bilanz(historie, seit, pflicht)
     for _, name in ipairs(pflicht or {}) do eintragFuer(name) end
 
     for _, e in pairs(historie) do
-        if Kern.Zaehlt(e) and e.timestamp >= seit then
-            local z = eintragFuer(e.awardedTo)
-
+        local z
+        if Kern.Zaehlt(e) and e.timestamp >= seit then z = eintragFuer(e.awardedTo) end
+        if z then
             if e.OS then
                 z.zweit = z.zweit + 1
             else
@@ -392,7 +418,10 @@ function Kern.TageKodieren(tage)
     table.sort(schluessel)
     local teile = {}
     for _, t in ipairs(schluessel) do
-        teile[#teile + 1] = string.format("%s:%d:%d", t, tage[t].n, tage[t].summe)
+        -- ⚠️ `%.0f`, nie `%d`: Summen reichen bis 2^32. `%d` schneidet in
+        -- manchen Lua-Fassungen bei 2^31 ab (-2147483648), und die Gegenseite
+        -- wuerde den Tag mit dem Minuszeichen verwerfen.
+        teile[#teile + 1] = string.format("%s:%d:%.0f", t, tage[t].n, tage[t].summe)
     end
     return table.concat(teile, ",")
 end

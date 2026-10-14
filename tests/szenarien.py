@@ -29,12 +29,15 @@ def fest(bed, text):
         alle_ok = False
 
 
-def gruppe(n=3, suffix="-Realm"):
+def gruppe(n=3, suffix="-Realm", auto=False, locale="deDE"):
     namen = ["Leiter Kaos", "Timo", "Lina", "Moe", "Zora"][:n]
     ms = []
     for i, nm in enumerate(namen):
         ms.append({"name": nm, "leader": i == 0})
-    return Welt(ms, sender_suffix=suffix)
+    w = Welt(ms, sender_suffix=suffix, locale=locale)
+    for cl in w.clients:
+        cl["ns"].Erfassung.Einstellungen()["autoAbgleich"] = bool(auto)
+    return w
 
 
 print("== 1. Nur der Leiter schreibt, die anderen empfangen live ==")
@@ -245,9 +248,6 @@ e = [v for v in w.hist(0).values() if v["itemID"] == 8001][0]
 fest(e["gruppe"] == "40er", "Vergabe merkt sich die aktive Gruppe")
 w.weiter(15)
 fest(any(v["gruppe"] == "40er" for v in w.hist(1).values()), "Gruppe kommt beim Empfaenger an")
-G.ModusUmschalten("40er")
-pf = G.Pflicht(None)
-fest(sum(1 for _ in pf.keys()) == 3, "Raidgruppe: die drei in der Gruppe (%d)" % sum(1 for _ in pf.keys()))
 fest(G.KaderEntfernen("40er", "Timo") is True, "Name aus dem Kader entfernt")
 fest(G.Loeschen("40er") is True and G.AktivName() is None, "Gruppe geloescht, keine mehr aktiv")
 
@@ -313,9 +313,6 @@ ns.Einstellungen.Aktualisieren()
 fest(len(list(g["__text"]("40er").values())) > 0, "Gruppenliste zeigt die neue Gruppe")
 fest(g["__klick"]("Aktivieren") is True, "Gruppe aktivieren")
 fest(len(list(g["__text"]("Aktive Gruppe: 10er").values())) > 0 or len(list(g["__text"]("Aktive Gruppe: 40er").values())) > 0, "Karte der aktiven Gruppe erscheint")
-fest(g["__klick"]("Raidgruppe") is True, "Art Raidgruppe")
-fest(ns.Gruppen.Aktiv()["modus"] == "raid", "Art gespeichert")
-g["__klick"]("Kader")
 fest(g["__klick"]("Löschen") is True, "Loeschen: erster Klick fragt")
 fest(len(list(g["__text"]("Wirklich löschen").values())) > 0, "zweiter Klick loescht wirklich")
 g["__klick"]("Wirklich löschen")
@@ -483,6 +480,142 @@ c3["g"]["LootHistorieDB"] = c3["lua"].table_from({"fenster": c3["lua"].table_fro
 c3["ns"].Fenster.Zeigen(False)
 f3 = c3["g"]["LootHistorieFenster"]
 fest(f3._w == 700 and f3._h == 1100, "unsinnige gemerkte Werte werden auf die Grenzen gesetzt (%s x %s)" % (f3._w, f3._h))
+
+print("== 15. Kader auffuellen: nur hinzufuegen, Gildenraenge ==")
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+cl = w.clients[0]
+ns, g, lua = cl["ns"], cl["g"], cl["lua"]
+G = ns.Gruppen
+G.Anlegen("40er")
+G.KaderErgaenzen("40er", "Alt Eins, Alt Zwei, Yondaime")
+
+# Fill allein, ohne Gruppe und ohne Raenge: nichts zu tun, nichts geloescht
+w.clients[0]["g"]["__welt"]["inGruppe"] = False
+n, grund = tup3(G.Auffuellen("40er"))
+fest(n is None, "ohne Gruppe und ohne Raenge: es passiert nichts (%s)" % grund)
+fest(sum(1 for _ in G.Holen("40er")["kader"].keys()) == 3, "der Kader ist unveraendert (3 Namen)")
+w.clients[0]["g"]["__welt"]["inGruppe"] = True
+
+# In der Gruppe: Gildenmitglieder der Gruppe kommen dazu, die alten bleiben
+n, grund = tup3(G.Auffuellen("40er"))
+kader = [str(x) for x in G.Holen("40er")["kader"].values()]
+fest(n == 3 and set(["Leiter Kaos", "Timo", "Lina"]) <= set(kader), "Gruppe wird hinzugefuegt (%s neu)" % n)
+fest(all(x in kader for x in ["Alt Eins", "Alt Zwei", "Yondaime"]), "die bisherigen Namen bleiben alle erhalten")
+n2, _ = tup3(G.Auffuellen("40er"))
+fest(n2 == 0, "zweites Auffuellen bringt nichts Neues")
+
+# Gildenraenge ueber C_Club
+lua.execute("""
+C_Club = {
+  GetGuildClubId = function() return 1 end,
+  GetClubMembers = function() return { 11, 12, 13, 14 } end,
+  GetMemberInfo = function(club, id)
+    local t = {
+      [11] = { name = "Gildenleiter", guildRank = "Gildenmeister", guildRankOrder = 1 },
+      [12] = { name = "Raider Eins", guildRank = "Raider", guildRankOrder = 3 },
+      [13] = { name = "Raider Zwei", guildRank = "Raider", guildRankOrder = 3 },
+      [14] = { name = "Neuling", guildRank = "Anwaerter", guildRankOrder = 5 },
+    }
+    return t[id]
+  end,
+}
+""")
+R = tup3(G.Raenge())[0]
+fest(R is not None and sum(1 for _ in R.keys()) == 3, "drei Gildenraenge erkannt")
+fest(R[1]["name"] == "Gildenmeister" and R[2]["name"] == "Raider" and R[3]["name"] == "Anwaerter",
+     "Raenge vom hoechsten zum niedrigsten")
+G.RangSetzen("40er", 3, True)
+n3, _ = tup3(G.Auffuellen("40er"))
+kader = [str(x) for x in G.Holen("40er")["kader"].values()]
+fest("Raider Eins" in kader and "Raider Zwei" in kader and "Neuling" not in kader and "Gildenleiter" not in kader,
+     "nur der gewaehlte Rang wird aufgenommen (%s neu)" % n3)
+fest(all(x in kader for x in ["Alt Eins", "Alt Zwei", "Yondaime"]), "auch hier bleibt alles Bisherige")
+G.KaderEntfernen("40er", "Raider Zwei")
+fest("Raider Zwei" not in [str(x) for x in G.Holen("40er")["kader"].values()], "Entfernen geht von Hand")
+G.AutoAuffuellen()
+fest("Raider Zwei" in [str(x) for x in G.Holen("40er")["kader"].values()], "Auto-Auffuellen beim Anmelden holt ihn zurueck")
+G.Holen("40er")["auto"] = False
+G.KaderEntfernen("40er", "Raider Zwei")
+G.AutoAuffuellen()
+fest("Raider Zwei" not in [str(x) for x in G.Holen("40er")["kader"].values()], "Auto aus: nichts passiert von selbst")
+
+print("== 16. Liste in der Gruppe: nur wer dabei ist ==")
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+cl = w.clients[0]
+ns, g, lua = cl["ns"], cl["g"], cl["lua"]
+for i, nm in enumerate(["Timo", "Lina", "Fremder Eins", "Fremder Zwei", "Timo"]):
+    w.setze(0, "e%d" % i, {"awardedTo": nm, "itemID": 8100 + i, "timestamp": int(w.t) - i * 3600})
+
+
+def liste_namen(nur):
+    liste = tup(ns.Kern.Bilanz(w.hist(0), 0, nur, nur))[0]
+    return [str(liste[i]["name"]) for i in range(1, sum(1 for _ in liste.keys()) + 1)]
+
+
+gruppennamen = list(ns.Rolle.Namen().values())
+mit = liste_namen(lua.table_from(gruppennamen))
+fest(sorted(mit) == ["Leiter Kaos", "Lina", "Timo"], "nur die drei aus der Gruppe, auch der ohne Vergabe (%s)" % mit)
+fest("Fremder Eins" not in mit, "wer nicht dabei ist, fehlt")
+liste = tup(ns.Kern.Bilanz(w.hist(0), 0, lua.table_from(gruppennamen), lua.table_from(gruppennamen)))[0]
+timo = [liste[i] for i in range(1, 4) if liste[i]["name"] == "Timo"][0]
+fest(timo["haupt"] == 2, "Timo hat seine zwei Vergaben")
+_, gesamt, _ = tup(ns.Kern.Bilanz(w.hist(0), 0, lua.table_from(gruppennamen), lua.table_from(gruppennamen)))
+fest(gesamt == 3, "die Summe zaehlt nur die Gruppe (3 von 5)")
+
+# Name ohne Nachname in der Historie wird dem vollen Namen der Gruppe zugeschlagen
+w.setze(0, "e9", {"awardedTo": "Leiter", "itemID": 8200, "timestamp": int(w.t)})
+liste = tup(ns.Kern.Bilanz(w.hist(0), 0, lua.table_from(gruppennamen), lua.table_from(gruppennamen)))[0]
+namen = [str(liste[i]["name"]) for i in range(1, sum(1 for _ in liste.keys()) + 1)]
+fest(namen.count("Leiter Kaos") == 1 and "Leiter" not in namen, "Kurzname und voller Name sind eine Zeile (%s)" % namen)
+
+# Oberflaeche: in der Gruppe nur die Gruppe, auf Wunsch alle
+ns.Fenster.Zeigen(False)
+def hat(text):
+    return len(list(g["__text"](text).values())) > 0
+fest(hat("Show all players"), "Knopf Alle Spieler zeigen ist da (englisch? nein: deutsch)") if False else None
+fest(hat("Alle Spieler zeigen"), "Knopf Alle Spieler zeigen ist da")
+fest(hat("Lina") and not hat("Fremder Eins"), "Liste zeigt die Gruppe, nicht die Fremden")
+fest(hat("nur Spieler aus deiner Gruppe"), "Fuss sagt, dass gefiltert wird")
+g["__klick"]("Alle Spieler zeigen")
+fest(hat("Fremder Eins"), "nach dem Klick stehen alle drin")
+fest(hat("Nur Gruppe zeigen"), "und der Knopf bietet den Rueckweg")
+g["__klick"]("Nur Gruppe zeigen")
+fest(not hat("Fremder Eins"), "zurueck zur Gruppe")
+# Ohne Gruppe: alles sichtbar, kein Knopf
+g["__welt"]["inGruppe"] = False
+ns.Fenster.Aktualisieren()
+fest(hat("Fremder Eins"), "ohne Gruppe stehen wieder alle drin")
+g["__welt"]["inGruppe"] = True
+
+print("== 17. Automatisch abgleichen ==")
+w = gruppe(3, auto=True)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+for i in range(12):
+    w.setze(0, "alt%d" % i, {"awardedTo": ["Timo", "Lina", "Moe"][i % 3], "itemID": 9000 + i,
+                              "timestamp": int(w.t) - (i // 4) * 86400 - i * 600})
+w.ereignis("GROUP_ROSTER_UPDATE")
+w.weiter(60)
+fest(w.stand(0) == w.stand(1) == w.stand(2), "ohne Zutun gleich: %s / %s / %s" % (w.stand(0), w.stand(1), w.stand(2)))
+fest(anz(w, 1) == 12 and anz(w, 2) == 12, "beide haben alle 12 bekommen")
+fest(len(w.clients[0]["ns"].Abgleich.Abweichend) == 0, "keine Abweichung mehr")
+nachrichten = len(w.protokoll)
+w.weiter(130)
+fest(len(w.protokoll) - nachrichten < 10, "danach Ruhe (%d Nachrichten)" % (len(w.protokoll) - nachrichten))
+
+# Aus: kein automatischer Abgleich
+w = gruppe(3, auto=False)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+for i in range(6):
+    w.setze(0, "alt%d" % i, {"awardedTo": "Timo", "itemID": 9100 + i, "timestamp": int(w.t) - i * 700})
+w.ereignis("GROUP_ROSTER_UPDATE")
+w.weiter(60)
+fest(w.stand(0) != w.stand(1), "mit Auto aus bleibt es beim Hinweis")
 
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")

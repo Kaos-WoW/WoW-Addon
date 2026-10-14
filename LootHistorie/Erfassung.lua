@@ -48,6 +48,9 @@ local function db()
     d.alias = d.alias or {}
     -- auto = Pluendermeister, sonst Leiter | immer | nie  (Rolle.lua)
     if d.schreiben == nil then d.schreiben = "auto" end
+    -- Abweichende Historien in der Gruppe: der Leiter (Plündermeister) gleicht
+    -- von selbst ab. Aus = nur ein Hinweis mit Knopf.
+    if d.autoAbgleich == nil then d.autoAbgleich = true end
     if d.erfassen         == nil then d.erfassen = true end
     if d.nurGewuerfelt    == nil then d.nurGewuerfelt = false end
 

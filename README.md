@@ -22,9 +22,12 @@ Das Addon spricht die **Sprache des Clients**: deutscher Client Deutsch, jeder a
   voneinander ab, bekommen Leiter und Plündermeister einen Hinweis. Ein
   Klick auf *Abgleichen* führt sie zusammen — es kommt nur hinzu, nichts wird
   ersetzt.
-* **Gruppen** (z. B. „40er", „10er"): Ein Kader steht in der Liste, auch
-  ohne Vergabe; eine Raidgruppe zeigt, wer gerade im Schlachtzug steht.
-  Jede Vergabe merkt sich ihre Gruppe, die Ansicht lässt sich umschalten.
+* **Gruppen** (z. B. „40er", „10er") sind eine Beschriftung mit einem Kader. **In einer Gruppe zeigt die
+  Übersicht nur die Spieler, die bei dir sind**; ohne Gruppe den Kader. *Auffüllen* nimmt neue Spieler aus den
+  gewählten **Gildenrängen** und aus deiner Gruppe auf und entfernt nie jemanden. Jede Vergabe merkt sich ihre
+  Gruppe, die Ansicht lässt sich umschalten.
+* **Der Abgleich läuft von selbst**: Wer mit dir in einer Gruppe steht, bekommt deine Daten, und du bekommst
+  seine — nur Hinzufügen, nichts wird überschrieben.
 
 ## Benutzen
 

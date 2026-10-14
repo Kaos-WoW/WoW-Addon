@@ -42,6 +42,7 @@ local function hilfe()
     print(L["  |cffffff78/lh auto|r         – Fenster bei Wurfbeginn automatisch öffnen (an/aus)"])
     print(L["  |cffffff78/lh import|r       – Garguls bisherige Aufzeichnungen übernehmen"])
     print(L["  |cffffff78/lh filter|r       – ab welcher Qualität und wo mitgeschrieben wird"])
+    print(L["  |cffffff78/lh gilde|r        – Diagnose: was die Gildenliste liefert (Namen, Ränge)"])
     print(L["  |cffffff78/lh stand|r        – Diagnose: eigene Historie und Mitschrift"])
     print(L["  |cffffff78/lh muster|r       – Diagnose: Textvorlagen für eigene Erkennung"])
     print(L["  |cffffff78/lh darstellung|r  – Diagnose: Einstellungsfenster zeichnet nicht richtig"])
@@ -239,6 +240,17 @@ end
 
 befehle["role"] = befehle["rolle"]
 
+--- Diagnose: was liefert die Gildenliste (Namen, Raenge)?
+befehle["gilde"] = function()
+    local M, grund = ns.Gruppen.GildenMitglieder()
+    if not M then sag(ROT .. tostring(grund) .. "|r") return end
+    sag(string.format(L["Gildenliste: %d Mitglieder. Die ersten:"], #M))
+    for i = 1, math.min(6, #M) do
+        print(string.format("  %s  |cff8E9A94(%s, %s)|r", tostring(M[i].name), tostring(M[i].rang), tostring(M[i].rangIndex)))
+    end
+end
+befehle["guild"] = befehle["gilde"]
+
 befehle["abgleich"] = function(arg)
     if arg == "status" or arg == "stand" then
         sag(L["Abgleich:"])
@@ -281,9 +293,9 @@ befehle["gruppe"] = function(arg)
         print(L["  |cffffff78/lh gruppe|r                   – alle Gruppen"])
         print(L["  |cffffff78/lh gruppe neu <Name>|r        – Gruppe anlegen (Kader)"])
         print(L["  |cffffff78/lh gruppe aktiv <Name>|r      – aktive Gruppe; ohne Namen: keine"])
-        print(L["  |cffffff78/lh gruppe art|r               – aktive Gruppe: Kader oder Raidgruppe"])
         print(L["  |cffffff78/lh gruppe kader A, B, C|r     – Namen zum Kader (Komma!)"])
-        print(L["  |cffffff78/lh gruppe fuellen|r           – Kader aus der aktuellen Gruppe"])
+        print(L["  |cffffff78/lh gruppe fuellen|r           – Kader auffüllen (Gildenränge und Gruppe, nur hinzufügen)"])
+        print(L["  |cffffff78/lh gruppe raenge|r            – Gildenränge anzeigen; |cffffff78raenge <Nr>|r wählt oder streicht einen"])
         print(L["  |cffffff78/lh gruppe entfernen <Name>|r  – Name aus dem Kader"])
         print(L["  |cffffff78/lh gruppe loeschen <Name>|r   – Gruppe löschen"])
         return
@@ -299,11 +311,20 @@ befehle["gruppe"] = function(arg)
         else
             sag(ROT .. L["Die Gruppe gibt es nicht."] .. "|r")
         end
-    elseif was == "art" or was == "type" then
+    elseif was == "raenge" or was == "ranks" then
         local name = G.AktivName()
         if not name then sag(ROT .. L["Keine Gruppe aktiv."] .. "|r") return end
-        local modus = G.ModusUmschalten(name)
-        sag(name .. ": " .. GELB .. (modus == "raid" and L["Raidgruppe"] or L["Kader"]) .. "|r")
+        local R, grund = G.Raenge()
+        if not R then sag(ROT .. tostring(grund) .. "|r") return end
+        local nr = tonumber(rest)
+        if nr and R[nr] then
+            G.RangSetzen(name, R[nr].index, not G.RangGewaehlt(name, R[nr].index))
+        end
+        sag(string.format(L["Gildenränge für den Kader von %s:"], name))
+        for i, r in ipairs(R) do
+            print(string.format("  %d. %s  %s", i, r.name,
+                G.RangGewaehlt(name, r.index) and (GRUEN .. L["gewählt"] .. "|r") or (GRAU .. "–|r")))
+        end
     elseif was == "kader" or was == "roster" then
         local name = G.AktivName()
         if not name then sag(ROT .. L["Keine Gruppe aktiv."] .. "|r") return end
@@ -312,7 +333,9 @@ befehle["gruppe"] = function(arg)
     elseif was == "fuellen" or was == "fill" then
         local name = G.AktivName()
         if not name then sag(ROT .. L["Keine Gruppe aktiv."] .. "|r") return end
-        sag(string.format(L["Kader von %s: %d Namen aus der aktuellen Gruppe."], name, G.KaderAusGruppe(name) or 0))
+        local n, grund = G.Auffuellen(name)
+        if not n then sag(ROT .. tostring(grund) .. "|r") return end
+        sag(string.format(L["Kader von %s: %d neue Spieler aufgenommen."], name, n))
     elseif was == "entfernen" or was == "remove" then
         local name = G.AktivName()
         if not name then sag(ROT .. L["Keine Gruppe aktiv."] .. "|r") return end
@@ -330,7 +353,7 @@ befehle["gruppe"] = function(arg)
         for _, n in ipairs(Namen) do
             local g = G.Holen(n)
             print(string.format("  %s%s|r  %s%s|r", n == aktiv and GELB or "", n, GRAU,
-                g.modus == "raid" and L["Raidgruppe"] or string.format(L["%d im Kader"], #(g.kader or {}))))
+                string.format(L["%d im Kader"], #(g.kader or {}))))
         end
     end
 end
