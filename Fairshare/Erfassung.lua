@@ -218,15 +218,24 @@ function Erfassung.WurfMerken(name, wert, min, max, art, link)
     local zahl = tonumber(wert)
     if zahl and zahl <= 0 then zahl = nil end
 
-    -- Der juengste Wurf gilt: Wer nachtraeglich fuer Zweitbedarf wuerfelt,
-    -- meint das auch so.
+    local r = runde(link, true)
+    local S = r.Spieler[k]
+
+    -- ⭐ Der ERSTE Wurf gilt. Wer fuenfmal wuerfelt, bekommt den ersten Wurf
+    -- gewertet — sonst wuerfe man so lange, bis es passt (Nutzerhinweis
+    -- 14.10.2026). Ein Spieler, der nur gewaehlt hat, darf noch wuerfeln.
+    -- ⚠️ Ohne bekannten Gegenstand (getipptes /rnd) weiss das Addon nicht,
+    -- wann eine neue Runde beginnt; dort zaehlt ein Wurf nach 60 s als neu.
+    if S and S.wert > 0 then
+        local neueRunde = (r.link == nil) and S.zeit and (time() - S.zeit) > 60
+        if not neueRunde then return false, "schon gewürfelt" end
+    end
+
+    r.zeit = time()
+    r.Spieler[k] = { name = name, art = art, wert = zahl or 0, zeit = time() }
+
     local alt = Wuerfe[k]
     Wuerfe[k] = { art = art, zeit = time(), wert = zahl or (alt and alt.wert) or 0, name = name }
-
-    local r = runde(link, true)
-    r.zeit = time()
-    local S = r.Spieler[k]
-    r.Spieler[k] = { name = name, art = art, wert = zahl or (S and S.wert) or 0 }
 
     -- ⚠️ Ohne Gargul gibt es kein ROLLOFF_STARTED. Der erste Bedarfswurf
     -- einer Runde ist der beste Ersatz dafuer.

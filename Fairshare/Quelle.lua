@@ -206,31 +206,32 @@ function Quelle.Wurf()
         return ns.Erfassung and ns.Erfassung.AktuelleWuerfe() or nil
     end
 
-    -- ⭐ Je Spieler zaehlt Hauptbedarf vor Zweitbedarf (wer beides wirft, meint
-    -- das Wichtigere), innerhalb einer Art der hoechste Wurf. Die Art kommt
-    -- aus dem Bereich des Wurfs (1-100 Haupt, 1-50 Zweit), hilfsweise aus
-    -- dem Namen des Bereichs bei Gargul („MS"/„OS").
-    local RANG = { haupt = 2, zweit = 1 }
+    -- ⭐ Je Spieler zaehlt der ERSTE Wurf (nach Zeit, sonst nach Reihenfolge).
+    -- Die Art kommt aus dem Bereich des Wurfs (1-100 Haupt, 1-50 Zweit),
+    -- hilfsweise aus dem Namen des Bereichs bei Gargul („MS"/„OS").
+    local Alle = {}
+    for schluessel, W in pairs(Aktuell.Rolls or {}) do
+        if type(W) == "table" then
+            Alle[#Alle + 1] = { W = W, zeit = tonumber(W.time) or 0, nr = tonumber(schluessel) or 0 }
+        end
+    end
+    table.sort(Alle, function(a, b)
+        if a.zeit ~= b.zeit then return a.zeit < b.zeit end
+        return a.nr < b.nr
+    end)
+
     local Wuerfe, Arten, namen = {}, {}, {}
-    for _, W in pairs(Aktuell.Rolls or {}) do
-        local k = W and W.player and ns.Kern.Schluessel(W.player)
-        if k then
-            local wert = tonumber(W.amount) or 0
+    for _, eintrag in ipairs(Alle) do
+        local W = eintrag.W
+        local k = W.player and ns.Kern.Schluessel(W.player)
+        if k and Wuerfe[k] == nil then
             local art = ns.Kern.Bedarfsart(W.min, W.max)
             if not art and type(W.classification) == "string" then
                 local c = W.classification:upper()
                 if c == "MS" then art = "haupt" elseif c == "OS" then art = "zweit" end
             end
-
-            if Wuerfe[k] == nil then
-                namen[#namen + 1] = W.player
-                Wuerfe[k], Arten[k] = wert, art
-            else
-                local neuerRang, alterRang = RANG[art] or 0, RANG[Arten[k]] or 0
-                if neuerRang > alterRang or (neuerRang == alterRang and wert > Wuerfe[k]) then
-                    Wuerfe[k], Arten[k] = wert, art
-                end
-            end
+            namen[#namen + 1] = W.player
+            Wuerfe[k], Arten[k] = tonumber(W.amount) or 0, art
         end
     end
 

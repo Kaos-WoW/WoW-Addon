@@ -817,6 +817,14 @@ chat("Moe has selected Need for: " + A1)
 chat("Need Roll - 12 for " + A1 + " by Moe")
 fest(zeile_von("Moe") < zeile_von("Lina") < zeile_von("Timo"), "Haupt wenigste zuerst, dann Haupt mit mehr, dann Zweit")
 
+# Der ERSTE Wurf zaehlt: weitere Wuerfe desselben Spielers aendern nichts
+for wert in (99, 3, 77):
+    chat("Need Roll - %d for %s by Moe" % (wert, A1))
+R = ns.Erfassung.AktuelleWuerfe()
+fest(R["Wuerfe"]["moe"] == 12, "Moe wuerfelt mehrfach: der erste Wurf (12) bleibt, nicht der letzte (%s)" % R["Wuerfe"]["moe"])
+chat("Greed Roll - 88 for %s by Moe" % A1)
+fest(R is not None and ns.Erfassung.AktuelleWuerfe()["Arten"]["moe"] == "haupt", "auch ein spaeterer Zweitbedarf-Wurf aendert die Art nicht")
+
 # Verzicht nimmt den Spieler aus der Liste
 chat("Timo passed on: " + A1)
 fest(not any(t == "41  Zweit" for t in texte()), "Timo verzichtet: sein Wurf verschwindet")
@@ -870,8 +878,30 @@ Gargul = { RollOff = { inProgress = true, CurrentRollOff = { itemLink = "x", Rol
 W = ns2.Quelle.Wurf()
 fest(W["Arten"]["timo"] == "haupt" and W["Wuerfe"]["timo"] == 87, "Gargul: 1-100 ist Haupt")
 fest(W["Arten"]["lina"] == "zweit" and W["Wuerfe"]["lina"] == 41, "Gargul: 1-50 ist Zweit")
-fest(W["Arten"]["moe"] == "haupt" and W["Wuerfe"]["moe"] == 30, "wer beides wirft, zaehlt als Haupt")
+fest(W["Arten"]["moe"] == "haupt" and W["Wuerfe"]["moe"] == 30, "Moe: der erste Wurf (30 Haupt) zaehlt, nicht der spaetere")
 fest(W["Arten"]["zora"] == "zweit", "Gargul: Bereichsname OS gilt als Zweit")
+lua2.execute("""
+Gargul.RollOff.CurrentRollOff.Rolls = {
+  { player = "Timo", amount = 95, min = 1, max = 100, time = 200 },
+  { player = "Timo", amount = 20, min = 1, max = 100, time = 100 },
+  { player = "Lina", amount = 44, min = 1, max = 50,  time = 150 },
+  { player = "Lina", amount = 99, min = 1, max = 100, time = 160 },
+}""")
+W = ns2.Quelle.Wurf()
+fest(W["Wuerfe"]["timo"] == 20, "Gargul: Timos erster Wurf nach Zeit (20), nicht der hoechste (95)")
+fest(W["Wuerfe"]["lina"] == 44 and W["Arten"]["lina"] == "zweit", "Gargul: Linas erster Wurf war Zweit und bleibt es")
+
+# Getippte /rnd ohne Gegenstand: der erste Wurf zaehlt, nach einer Minute beginnt eine neue Runde
+w3 = gruppe(3)
+w3.ereignis("PLAYER_ENTERING_WORLD")
+w3.weiter(5)
+ns3, g3 = w3.clients[0]["ns"], w3.clients[0]["g"]
+g3["__ereignis"]("CHAT_MSG_SYSTEM", "Lina rolls 40 (1-100)")
+g3["__ereignis"]("CHAT_MSG_SYSTEM", "Lina rolls 95 (1-100)")
+fest(ns3.Erfassung.AktuelleWuerfe()["Wuerfe"]["lina"] == 40, "/rnd mehrfach: der erste Wurf (40) zaehlt")
+w3.weiter(70)
+g3["__ereignis"]("CHAT_MSG_SYSTEM", "Lina rolls 95 (1-100)")
+fest(ns3.Erfassung.AktuelleWuerfe()["Wuerfe"]["lina"] == 95, "nach einer Minute gilt ein neuer Wurf als neue Runde")
 
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")

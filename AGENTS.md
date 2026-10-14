@@ -185,6 +185,12 @@ oder nach 120 s ohne Bewegung. Die Zeile je Spieler zeigt **„87  Haupt"** / **
 und noch nicht gewürfelt, nur die Art. Reihenfolge (`Kern.WurfReihenfolge`): **Haupt vor Zweit**, innerhalb davon
 wenigste Stücke zuerst. Die Namen aus Chat und Liste werden über `Kern.GleicherSpieler` verglichen (Nachname).
 
+⭐ **Der erste Wurf zählt** (Nutzerhinweis 14.10.2026: bisher galt der letzte, wer fünfmal würfelte, bekam den fünften):
+je Spieler und Gegenstand wird jeder weitere Wurf ignoriert (`Erfassung.WurfMerken`), auch ein späterer Zweitbedarf-Wurf
+ändert die Art nicht; wer erst nur *gewählt* hat, darf noch würfeln. Bei Gargul gilt der erste nach `time`
+(`Quelle.Wurf`). Ohne bekannten Gegenstand (getipptes `/rnd`) weiß das Addon nicht, wann eine neue Runde beginnt:
+dort gilt ein Wurf nach 60 s als neue Runde.
+
 ⚠️ Ungemessen im Spiel: ob Forever `START_LOOT_ROLL` und die `LOOT_ROLL_*`-Meldungen so liefert (Gruppenbeute).
 Fehlt etwas, bleibt nur die Anzeige leer, aufgezeichnet wird weiterhin über Beutemeldung und `C_LootHistory`.
 
