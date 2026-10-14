@@ -487,7 +487,10 @@ local function zeigeListe(H)
             if not k then return false end
             return (W.Arten and W.Arten[k]) or true
         end
-        Kern.WurfReihenfolge(liste, istWuerfler)
+        Kern.WurfReihenfolge(liste, istWuerfler, function(name)
+            local k = wurfSchluessel(W, name)
+            return k and W.Wuerfe[k] or 0
+        end)
     end
 
     setzeKopf(L["Spieler"], L["Haupt"], L["Zweit"], L["Zuletzt"], W and L["Wurf"] or nil)
@@ -532,7 +535,7 @@ local function zeigeListe(H)
             if art == "haupt" then haupt = haupt + 1 elseif art == "zweit" then zweit = zweit + 1 end
         end
         unterzeile:SetText(GELB .. L["Wurf läuft"] .. "|r  " .. (was and (was .. "  ") or "") ..
-            GRAU .. "—  " .. string.format(L["%d Haupt · %d Zweit · wenigste Stücke zuerst"], haupt, zweit) .. "|r")
+            GRAU .. "—  " .. string.format(L["%d Haupt · %d Zweit · wenigste Stücke, dann höchster Wurf"], haupt, zweit) .. "|r")
     else
         unterzeile:SetText("")
     end

@@ -210,6 +210,22 @@ local function testWurfArt()
     gleich("kein Wurf ganz unten",      liste[4].name, "Aussen")
 end
 
+local function testWurfWert()
+    -- Gleiche Stueckzahl: der hoehere Wurf steht oben
+    local liste = {
+        { name = "Niedrig", haupt = 1, zweit = 0, letzte = 100 },
+        { name = "Hoch",    haupt = 1, zweit = 1, letzte = 100 },
+        { name = "Mitte",   haupt = 1, zweit = 0, letzte = 100 },
+        { name = "Wenig",   haupt = 0, zweit = 0, letzte = 0 },
+    }
+    local wurf = { Niedrig = 20, Hoch = 89, Mitte = 39, Wenig = 5 }
+    Kern.WurfReihenfolge(liste, function(n) return "haupt" end, function(n) return wurf[n] end)
+    gleich("weniger Stuecke gehen vor dem Wurf", liste[1].name, "Wenig")
+    gleich("dann der hoechste Wurf",             liste[2].name, "Hoch")
+    gleich("dann der naechsthoechste",           liste[3].name, "Mitte")
+    gleich("zuletzt der niedrigste",             liste[4].name, "Niedrig")
+end
+
 local function testWurfMeldung()
     -- Blizzards Meldung: Wert, Gegenstand, Name (englische Vorlage)
     local muster, nr = Kern.MusterGeordnet("Need Roll - %d for %s by %s")
@@ -663,6 +679,7 @@ function Tests.Alle(ausgeben)
     testNur()
     testWurfReihenfolge()
     testWurfArt()
+    testWurfWert()
     testWurfMeldung()
     testSpieler()
     testMuster()

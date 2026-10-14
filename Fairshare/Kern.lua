@@ -215,14 +215,16 @@ end
 --- Reihenfolge waehrend eines Wurfs.
 --
 --  ⭐ Wer gewuerfelt hat, steht oben — und dort **der mit den wenigsten
---  Stuecken zuerst**. Genau diese Frage stellt sich der Pluendermeister
---  in dem Moment. Alle uebrigen folgen in der gewohnten Reihenfolge,
+--  Stuecken zuerst**, bei gleicher Stueckzahl der mit dem hoechsten Wurf.
+--  Genau diese Frage stellt sich der Pluendermeister in dem Moment. Alle uebrigen folgen in der gewohnten Reihenfolge,
 --  damit der Ueberblick nicht verlorengeht.
 --
 --  @param liste        Ergebnis von Kern.Bilanz
 --  @param istWuerfler  Funktion Name -> false/nil (kein Wurf), true (Wurf,
 --                      Art unbekannt), "haupt" oder "zweit"
-function Kern.WurfReihenfolge(liste, istWuerfler)
+--  @param wurfWert     Funktion Name -> Zahl (optional): bei gleicher Stueckzahl
+--                      steht der hoehere Wurf oben
+function Kern.WurfReihenfolge(liste, istWuerfler, wurfWert)
     if not istWuerfler then return liste end
 
     -- ⭐ Wer fuer Hauptbedarf gewuerfelt hat, steht vor jedem Zweitbedarf —
@@ -242,6 +244,12 @@ function Kern.WurfReihenfolge(liste, istWuerfler)
         if ra > 0 then
             -- Wenigste zuerst
             if a.haupt ~= b.haupt then return a.haupt < b.haupt end
+            -- ⭐ Gleiche Stueckzahl: der HOEHERE Wurf steht oben (Nutzerhinweis
+            -- 14.10.2026, vorher entschied hier nur der Name).
+            if wurfWert then
+                local wa, wb = tonumber(wurfWert(a.name)) or 0, tonumber(wurfWert(b.name)) or 0
+                if wa ~= wb then return wa > wb end
+            end
             if a.zweit ~= b.zweit then return a.zweit < b.zweit end
             -- Bei Gleichstand entscheidet, wer laenger nichts hatte
             if a.letzte ~= b.letzte then return a.letzte < b.letzte end

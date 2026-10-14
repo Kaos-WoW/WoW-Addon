@@ -203,7 +203,7 @@ Drei Quellen füllen dieselbe Anzeige (`Quelle.Wurf()`), jede liefert `Wuerfe`, 
 wird die Runde mit der jüngsten Bewegung. Eine Runde endet mit der Vergabe (Beutemeldung, Blizzards Historie, „X won")
 oder nach 120 s ohne Bewegung. Die Zeile je Spieler zeigt **„87  Haupt"** / **„41  Zweit"**; hat er nur gewählt
 und noch nicht gewürfelt, nur die Art. Reihenfolge (`Kern.WurfReihenfolge`): **Haupt vor Zweit**, innerhalb davon
-wenigste Stücke zuerst. Die Namen aus Chat und Liste werden über `Kern.GleicherSpieler` verglichen (Nachname).
+wenigste Hauptstücke zuerst, **bei Gleichstand der höchste Wurf** (Nutzerhinweis 14.10.2026: vorher entschied der Name). Die Namen aus Chat und Liste werden über `Kern.GleicherSpieler` verglichen (Nachname).
 
 ⭐ **Der erste Wurf zählt** (Nutzerhinweis 14.10.2026: bisher galt der letzte, wer fünfmal würfelte, bekam den fünften):
 je Spieler und Gegenstand wird jeder weitere Wurf ignoriert (`Erfassung.WurfMerken`), auch ein späterer Zweitbedarf-Wurf
