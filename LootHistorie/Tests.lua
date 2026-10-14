@@ -12,6 +12,7 @@
 
 local _, ns = ...
 ns = ns or {}
+local L = ns.L or setmetatable({}, { __index = function(_, k) return k end })
 
 local Tests = {}
 ns.Tests = Tests
@@ -26,7 +27,7 @@ local function gleich(was, ist, soll)
     else
         schlecht = schlecht + 1
         meldungen[#meldungen + 1] = string.format(
-            "|cffff5555FEHLT|r %s: %s statt %s", was, tostring(ist), tostring(soll))
+            L["|cffff5555FEHLT|r %s: %s statt %s"], was, tostring(ist), tostring(soll))
     end
 end
 
@@ -586,7 +587,7 @@ function Tests.Alle(ausgeben)
 
     if ausgeben ~= false then
         for _, m in ipairs(meldungen) do print(m) end
-        print(string.format("|cff1B6B57Loot-Historie|r: %d Prüfungen, %d bestanden, %d fehlgeschlagen",
+        print(string.format(L["|cff1B6B57Loot-Historie|r: %d Prüfungen, %d bestanden, %d fehlgeschlagen"],
             gut + schlecht, gut, schlecht))
     end
     return gut, schlecht

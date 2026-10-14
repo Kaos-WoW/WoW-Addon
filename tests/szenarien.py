@@ -427,7 +427,8 @@ fehler = [x for x in aus if "Fehler" in x or "Error in" in x and False]
 fest(not [x for x in aus if "Fehler in" in x], "alle englischen Befehle laufen ohne Fehler")
 fest(any("Commands:" in x for x in aus), "Hilfe auf Englisch")
 fest(not any("Befehle:" in x for x in aus), "Hilfe nicht auf Deutsch")
-fest(any("Self-tests" in x or "checks" in x or "Prüfungen" in x for x in aus) or True, "Selbsttest laeuft")
+fest(any("checks," in x and "passed" in x for x in aus), "Selbsttest-Zusammenfassung auf Englisch")
+fest(not any("Prüfungen" in x for x in aus), "kein deutscher Selbsttest-Text")
 diag = list(ns.Einstellungen.Diagnose().values())
 fest(len(diag) > 3, "Diagnose der Darstellung liefert Zeilen (%d)" % len(diag))
 

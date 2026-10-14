@@ -90,7 +90,7 @@ def schluessel_im_code():
     """Alle L["..."] im Quelltext -> {text: [(datei, zeile)]}"""
     ergebnis = {}
     for name in sorted(os.listdir(QUELLE)):
-        if not name.endswith(".lua") or name in AUSNAHMEN:
+        if not name.endswith(".lua") or name == "Locale.lua":
             continue
         for nr, z in codezeilen(lies(name)):
             for m in re.finditer(r'\bL\[("(?:[^"\\\n]|\\.)*")\]', z):
