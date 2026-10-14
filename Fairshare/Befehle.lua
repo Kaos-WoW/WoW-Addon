@@ -37,7 +37,7 @@ local function hilfe()
     print(L["  |cffffff78/fs <Name>|r       – Einzelvergaben eines Spielers im Chat"])
     print(L["  |cffffff78/fs abgleich|r     – Historien der Gruppe zusammenführen (|cffffff78abgleich status|r zeigt den Stand)"])
     print(L["  |cffffff78/fs rolle|r        – wer zeichnet gerade auf, und warum"])
-    print(L["  |cffffff78/fs wurf|r         – eigenes Würfelfenster starten (|cffffff78wurf <Link>|r, |cffffff78wurf ende|r)"])
+    print(L["  |cffffff78/fs wurf|r         – eigenes Würfelfenster starten (|cffffff78wurf <Link>|r, |cffffff78wurf ende|r, |cffffff78wurf ergebnis|r)"])
     print(L["  |cffffff78/fs beutetest|r    – Diagnose: Beutefenster und Zuteilung durch den Plündermeister"])
     print(L["  |cffffff78/fs gruppe|r       – Kader und Raidgruppen (|cffffff78gruppe hilfe|r)"])
     print(L["  |cffffff78/fs bereiche|r     – Garguls Würfelbereiche prüfen (|cffffff78bereiche setzen|r)"])
@@ -293,6 +293,11 @@ befehle["wurf"] = function(arg)
     local kleinn = arg:lower()
     if kleinn == "ende" or kleinn == "end" or kleinn == "stop" then
         local ok, grund = ns.Wurf.BeendenAlle()
+        if not ok then sag(ROT .. tostring(grund) .. "|r") end
+        return
+    end
+    if kleinn == "ergebnis" or kleinn == "result" then
+        local ok, grund = ns.Wurf.ErgebnisOeffnen()
         if not ok then sag(ROT .. tostring(grund) .. "|r") end
         return
     end

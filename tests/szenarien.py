@@ -1001,6 +1001,121 @@ fest(T1["ns"].Wurf.Dialog() is False, "fuer ein Mitglied oeffnet er sich nicht")
 zeilen = L0["ns"].Wurf.Beutetest()
 fest(len(list(zeilen.values())) >= 3, "Beutetest liefert Zeilen")
 
+print("== 21. Zuteilen: Rucksack (Handel), Beutefenster, nur eintragen; Einstecken zaehlt nicht ==")
+
+
+def runde(tasche=True, mit=("Timo", "Lina"), loot=False):
+    """Neue Gruppe, der Leiter startet einen Wurf, zwei wuerfeln, der Wurf endet."""
+    w = gruppe(3)
+    w.ereignis("PLAYER_ENTERING_WORLD")
+    w.weiter(15)
+    cl = w.clients[0]
+    g, ns, lua = cl["g"], cl["ns"], cl["lua"]
+    for k in (0, 1, 2):
+        w.setze(k, "x%d" % k, {"awardedTo": "Lina", "itemID": 9700, "timestamp": int(w.t) - 5000})
+    if tasche:
+        lua.execute('__tasche = { { link = "%s", quality = 4, frist = true } }' % LINK)
+    if loot:
+        lua.execute('__loot = { { link = "%s" } }' % LINK)
+    ns.Wurf.Starten(LINK)
+    w.weiter(3)
+    for wer, wert, bereich in (("Timo", 77, 100), ("Lina", 91, 100), ("Moe", 12, 50)):
+        for c in w.clients:
+            c["g"]["__ereignis"]("CHAT_MSG_SYSTEM", "%s rolls %d (1-%d)" % (wer, wert, bereich))
+    w.weiter(1)
+    ns.Wurf.BeendenAlle()
+    w.weiter(4)
+    return w, cl, g, ns, lua
+
+
+def texte_von(g, teil):
+    return [roh(x) for x in g["__text"](teil).values()]
+
+
+# --- Rucksack: Ergebnis zeigt die Rangliste, Zuteilen startet den Handel ------
+w, cl, g, ns, lua = runde()
+fest(len(texte_von(g, "Ergebnis")) > 0, "nach dem Wurf erscheint das Ergebnis beim Leiter")
+fest(len(texte_von(g, "Gegenstand liegt im Rucksack")) > 0, "es sagt: der Gegenstand liegt im Rucksack")
+fest(not any(len(texte_von(w.clients[1]["g"], "Ergebnis")) for _ in [0]), "die Mitspieler sehen kein Ergebnis")
+namen = [t for t in texte_von(g, "") if t in ("Timo", "Lina", "Moe")][-3:]   # die letzten drei: die Zeilen des Ergebnisses
+# Lina hat schon 1 Stueck, Timo keins: Timo (77) vor Lina (91), danach Moe (OS)
+fest(namen == ["Timo", "Lina", "Moe"], "wenigste Stuecke zuerst, dann hoechster Wurf, OS zuletzt (%s)" % namen)
+fest(g["__klick"]("Zuteilen") is True, "Zuteilen bei der ersten Zeile")
+fest(str(g["__handel"]) == "party1", "Handel mit Timo angefragt (%s)" % g["__handel"])
+fest(sum(1 for v in w.hist(0).values() if v["itemID"] == 7100) == 0, "noch nichts eingetragen, bevor der Handel gelungen ist")
+
+# falscher Handelspartner: nichts wird eingelegt
+g["__npc"] = "Lina"
+g["__ereignis"]("TRADE_SHOW")
+fest(g["__imHandel"] is None, "falscher Handelspartner: nichts eingelegt")
+# richtiger Partner: der Gegenstand wird eingelegt
+g["__npc"] = "Timo"
+g["__ereignis"]("TRADE_SHOW")
+fest(g["__imHandel"] is not None, "richtiger Partner: Gegenstand liegt im Handelsfenster")
+# Handel gelungen: der Gegenstand ist weg
+lua.execute("__tasche[1].leer = true")
+g["__ereignis"]("TRADE_CLOSED")
+w.weiter(3)
+treffer = [v for v in w.hist(0).values() if v["itemID"] == 7100]
+fest(len(treffer) == 1 and treffer[0]["awardedTo"] == "Timo", "nach dem Handel ist Timo eingetragen")
+fest(treffer and treffer[0]["wurf"] == 77 and treffer[0]["OS"] is None and treffer[0]["herkunft"] == "wurf",
+     "mit Wurf 77, Hauptbedarf, Herkunft Wurf")
+w.weiter(10)
+fest(any(v["itemID"] == 7100 for v in w.hist(1).values()), "und der Eintrag kam bei den Mitspielern an")
+
+# --- Handel abgebrochen: kein Eintrag ---------------------------------------
+w, cl, g, ns, lua = runde()
+g["__klick"]("Zuteilen")
+g["__npc"] = "Timo"
+g["__ereignis"]("TRADE_SHOW")
+g["__ereignis"]("TRADE_CLOSED")      # Gegenstand noch im Rucksack
+w.weiter(3)
+fest(sum(1 for v in w.hist(0).values() if v["itemID"] == 7100) == 0, "Handel abgebrochen: nichts eingetragen")
+
+# --- Nicht auffindbar: nur eintragen -----------------------------------------
+w, cl, g, ns, lua = runde(tasche=False)
+fest(len(texte_von(g, "Gegenstand nicht gefunden")) > 0, "ohne Gegenstand: Hinweis, dass nur eingetragen wird")
+fest(g["__klick"]("Nur eintragen") is True, "Knopf heisst Nur eintragen")
+treffer = [v for v in w.hist(0).values() if v["itemID"] == 7100]
+fest(len(treffer) == 1 and treffer[0]["awardedTo"] == "Timo", "Timo ist eingetragen")
+
+# --- Beutefenster: Plündermeister-Zuteilung ------------------------------
+w, cl, g, ns, lua = runde(tasche=False, loot=True)
+fest(len(texte_von(g, "Gegenstand liegt im Beutefenster")) > 0, "Gegenstand im Beutefenster erkannt")
+g["__klick"]("Zuteilen")
+fest(len(g["__geben"]) == 1 and g["__geben"][1][1] == 1 and g["__geben"][1][2] == 2, "GiveMasterLoot(Platz 1, Empfaenger Timo)")
+
+# --- Behalten: der Plündermeister selbst gewinnt -----------------------------
+w, cl, g, ns, lua = runde()
+ns.Erfassung.WurfMerken("Leiter Kaos", 99, 1, 100, None, LINK)
+w.weiter(1)
+ns.Wurf.ErgebnisOeffnen()
+fest(g["__handel"] is None, "kein Handel begonnen, bevor jemand geklickt hat")
+
+# --- Dialog zeigt den Rucksack -------------------------------------------------
+w, cl, g, ns, lua = runde()
+lua.execute('__tasche = { { link = "%s", quality = 4, frist = true }, { link = "|cff0070dd|Hitem:7200::::::::60:::::|h[Ohne Frist]|h|r", quality = 4 } }' % LINK)
+ns.Wurf.Dialog()
+fest(any("Schwert der Probe" in t for t in texte_von(g, "Rucksack")), "Startdialog listet den Gegenstand mit Handelsfrist")
+fest(not any("Ohne Frist" in t for t in texte_von(g, "")), "Stuecke ohne Handelsfrist werden nicht angeboten")
+
+# --- Eingesteckte Beute zaehlt nicht -------------------------------------------
+w = Welt([{"name": "Leiter Kaos", "leader": True}, {"name": "Timo"}], "-Realm", ml=0)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+ns0, g0 = w.clients[0]["ns"], w.clients[0]["g"]
+fest(ns0.Rolle.IchBinPluendermeister() is True, "der Leiter ist hier Plündermeister")
+ns0.Erfassung.Einstellungen()["ort"] = "ueberall"
+g0["__ereignis"]("CHAT_MSG_LOOT", "You receive loot: " + LINK + ".")
+fest(sum(1 for v in w.hist(0).values() if v["itemID"] == 7100) == 0, "eingesteckt: keine Vergabe")
+g0["__ereignis"]("CHAT_MSG_LOOT", "Timo receives loot: " + LINK + ".")
+fest(sum(1 for v in w.hist(0).values() if v["itemID"] == 7100 and v["awardedTo"] == "Timo") == 1,
+     "was ein anderer bekommt, zaehlt weiter")
+ns0.Erfassung.Einstellungen()["pmEingesteckt"] = False
+LINK2 = "|cff0070dd|Hitem:7300::::::::60:::::|h[Zweites]|h|r"
+g0["__ereignis"]("CHAT_MSG_LOOT", "You receive loot: " + LINK2 + ".")
+fest(any(v["itemID"] == 7300 for v in w.hist(0).values()), "Schalter aus: auch Eingestecktes zaehlt")
+
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")
 sys.exit(0 if alle_ok else 1)

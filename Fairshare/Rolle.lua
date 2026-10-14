@@ -126,6 +126,7 @@ function Rolle.Kandidaten()
         }
         if methode == "master" and not ml and istPluendermeister(E, partei) then
             k.rolle = L["Plündermeister"]
+            k.ml = true
             ml = k
         elseif istLeiter(E) then
             k.rolle = L["Leiter"]
@@ -191,6 +192,15 @@ function Rolle.IchSchreibe()
         return true, (wahl.rolle or L["Kandidat"]) .. (methode == "master" and "" or (" " .. L["(kein Plündermeister)"]))
     end
     return false, string.format(L["%s zeichnet auf"], wahl.name or "?")
+end
+
+--- Ist DIESER Spieler gerade Pluendermeister?
+function Rolle.IchBinPluendermeister()
+    if not (IsInGroup and IsInGroup()) then return false end
+    for _, k in ipairs((Rolle.Kandidaten())) do
+        if k.ich and k.ml then return true end
+    end
+    return false
 end
 
 --- Wer zeichnet gerade auf? Fuer die Anzeige.

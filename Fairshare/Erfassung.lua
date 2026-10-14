@@ -52,6 +52,9 @@ local function db()
     -- von selbst ab. Aus = nur ein Hinweis mit Knopf.
     if d.autoAbgleich == nil then d.autoAbgleich = true end
     if d.erfassen         == nil then d.erfassen = true end
+    -- ⭐ Der Pluendermeister steckt die Beute oft selbst ein und verteilt sie
+    -- spaeter per Handel. Was er dabei aufnimmt, ist noch keine Vergabe.
+    if d.pmEingesteckt    == nil then d.pmEingesteckt = true end
     if d.nurGewuerfelt    == nil then d.nurGewuerfelt = false end
 
     -- ⚠️ SavedVariables sind eine Versionsgrenze. Frueher gab es nur den
@@ -631,6 +634,14 @@ local function eigenerName()
     return (UnitName("player"))
 end
 
+--- ⭐ Steckt der Pluendermeister die Beute selbst ein, ist das keine Vergabe:
+--  Er verteilt sie spaeter (Wurf.lua traegt dann den Gewinner ein).
+local function eingesteckt(name)
+    if db().pmEingesteckt == false then return false end
+    if not (ns.Rolle and ns.Rolle.IchBinPluendermeister()) then return false end
+    return Kern.GleicherSpieler(name, eigenerName()) and true or false
+end
+
 --- Eine Beutemeldung auswerten.
 function Erfassung.Beutemeldung(text)
     if not db().erfassen or type(text) ~= "string" then return end
@@ -639,7 +650,7 @@ function Erfassung.Beutemeldung(text)
         if M.mitName then
             local wer, was = text:match(M.muster)
             if wer and was then
-                if Erfassung.Zaehlenswert(was, wer) then
+                if Erfassung.Zaehlenswert(was, wer) and not eingesteckt(wer) then
                     Erfassung.Eintragen(wer, was)
                 end
                 Erfassung.RundeBeenden(was)   -- vergeben: die Wurfanzeige endet
@@ -649,7 +660,7 @@ function Erfassung.Beutemeldung(text)
             local was = text:match(M.muster)
             if was then
                 local ich = eigenerName()
-                if Erfassung.Zaehlenswert(was, ich) then
+                if Erfassung.Zaehlenswert(was, ich) and not eingesteckt(ich) then
                     Erfassung.Eintragen(ich, was)
                 end
                 Erfassung.RundeBeenden(was)

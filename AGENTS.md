@@ -179,9 +179,29 @@ Plündermeister der eigenen Gruppe und Gilde. Dauer: Einstellung `wurfDauer` (St
 nur beim Leiter (`Erfassung.WurfBeginnt(link, false)` bei den anderen). Der erste Wurf zählt (siehe unten); Haupt vor OS.
 Englisch heißt Zweitbedarf **„OS"** (Nutzerwunsch), nicht „Off".
 
-⭐ **Stufe 2 (Zuteilen über das Addon) ist noch nicht gebaut.** `/fs beutetest` (nur lesen) zeigt bei offenem Beutefenster,
-ob `GiveMasterLoot`/`GetMasterLootCandidate` da sind und wie viele Empfänger je Platz erscheinen. `/fs rolle` zeigt in
-Forever einen Plündermeister an (Nutzer, 14.10.2026), die Methode „master" gibt es also.
+### Beute aus dem Rucksack verteilen, Zuteilen (Stufe 2, 14.10.2026)
+
+⭐ **Üblicher Ablauf der Gilde:** Der Plündermeister steckt die Beute selbst ein und lässt sie auf dem Weg zum nächsten Boss
+verrollen; verteilt wird per **Handel**. Darum:
+
+* **Startdialog** listet das offene Beutefenster *und* den Rucksack (`taschenListe`): ab der eingestellten Qualität, und
+  wenn der Client die Handelsfrist lesen kann (`C_TooltipInfo.GetBagItem` + `BIND_TRADE_TIME_REMAINING`), nur Stücke
+  **mit Frist**. Texte können „geheim" sein → nur im `pcall` vergleichen.
+* **Eingestecktes zählt nicht** (`Erfassung.Beutemeldung`, Einstellung `pmEingesteckt`, Standard an): Ist man Plündermeister
+  (`Rolle.IchBinPluendermeister`) und die Meldung sagt „du erhältst", ist das keine Vergabe. Sonst stünde jedes
+  Stück beim Plündermeister.
+* **Ergebnisfenster** beim Starter, 1,5 s nach Ende eines Wurfs (`/fs wurf ergebnis` öffnet es wieder): Rangliste wie in der
+  Übersicht, je Zeile **Zuteilen**. Je nach Fundort des Gegenstands:
+  * *Beutefenster:* `GiveMasterLoot(Platz, Empfänger)` (Empfänger über `GetMasterLootCandidate` nach Namen); eingetragen
+    wird über die Beutemeldung „X erhält".
+  * *Rucksack:* `InitiateTrade(unit)`, bei `TRADE_SHOW` legt das Addon den Gegenstand **nur ein, wenn der Handelspartner
+    (`GetUnitName("NPC")`) der Gewinner ist** (`PickupContainerItem` + `ClickTradeButton(1)`); **Bestätigen tut nie das
+    Addon.** Bei `TRADE_CLOSED` wird eingetragen, **wenn der Gegenstand weg ist** (Zahl im Rucksack gesunken), Herkunft
+    `wurf` mit Wurf und Art. Bricht der Handel ab: kein Eintrag.
+  * *Nicht auffindbar oder man behält ihn selbst:* Knopf **Nur eintragen**.
+* ⚠️ Ungemessen im Spiel: `InitiateTrade`/`ClickTradeButton` aus dem Addon in Forever, der Tooltip-Text der Handelsfrist,
+  `GiveMasterLoot`. `/fs beutetest` (nur lesen) prüft Letzteres bei offenem Beutefenster. `/fs rolle` zeigt in Forever
+  einen Plündermeister an (Nutzer, 14.10.2026).
 
 ---
 

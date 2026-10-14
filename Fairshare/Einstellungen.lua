@@ -352,6 +352,10 @@ local function seiteErfassung(P)
         beschr = L["Aus heißt: nichts Neues wird erfasst. Vorhandenes bleibt."],
         get = function() return d().erfassen end,
         set = function(v) d().erfassen = v end })
+    zeile(k1, { art = "schalter", label = L["Eingesteckte Beute des Plündermeisters nicht zählen"],
+        beschr = L["Nimmt der Plündermeister Beute selbst auf, um sie später zu verteilen, ist das keine Vergabe. Eingetragen wird erst, wer sie bekommt (Wurf starten → Zuteilen)."],
+        get = function() return d().pmEingesteckt ~= false end,
+        set = function(v) d().pmEingesteckt = v end })
     zeile(k1, { art = "schalter", label = L["Nur Ausgewürfeltes zählen"],
         beschr = L["Streng: Ohne Bedarfswurf zugeteilte Stücke fallen heraus."],
         get = function() return d().nurGewuerfelt end,

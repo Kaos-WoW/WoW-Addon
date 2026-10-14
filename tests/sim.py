@@ -169,7 +169,10 @@ local function einheit(unit)
 end
 
 UnitExists = function(u) return einheit(u) ~= nil end
-GetUnitName = function(u) local m = einheit(u); return m and m.name end
+GetUnitName = function(u)
+    if u == "NPC" then return __npc end
+    local m = einheit(u); return m and m.name
+end
 UnitName = GetUnitName
 UnitIsUnit = function(a, b) local x = einheit(a); return x ~= nil and x == einheit(b) end
 UnitIsGroupLeader = function(u) local m = einheit(u); return m and m.leader and true or false end
@@ -210,6 +213,49 @@ LOOT_ROLL_PASSED_SELF = "You passed on: %s"
 LOOT_ROLL_WON = "%s won: %s"
 LOOT_ROLL_YOU_WON = "You won: %s"
 LOOT_ROLL_ALL_PASSED = "Everyone passed on: %s"
+BIND_TRADE_TIME_REMAINING = "You may trade this item with players that were also eligible to loot this item for the next %s."
+__tasche = {}      -- Rucksack: Platz i = Tasche 0, Platz i; { link, quality, frist, leer }
+__loot = {}        -- Beutefenster: { link }
+__geben = {}
+C_Container = {
+    GetContainerNumSlots = function(bag) if bag == 0 then return #__tasche end return 0 end,
+    GetContainerItemInfo = function(bag, slot)
+        local e = bag == 0 and __tasche[slot]
+        if not e or e.leer then return nil end
+        return { hyperlink = e.link, quality = e.quality or 4 }
+    end,
+    PickupContainerItem = function(bag, slot) __cursor = { bag = bag, slot = slot } end,
+}
+C_TooltipInfo = {
+    GetBagItem = function(bag, slot)
+        local e = bag == 0 and __tasche[slot]
+        if not e then return nil end
+        local lines = { { leftText = "Schwert" } }
+        if e.frist then
+            lines[#lines + 1] = { leftText = "You may trade this item with players that were also eligible to loot this item for the next 1 hour." }
+        end
+        return { lines = lines }
+    end,
+}
+InitiateTrade = function(unit) __handel = unit end
+ClickTradeButton = function(i)
+    if __cursor then __imHandel = __tasche[__cursor.slot]; __cursor = nil end
+end
+ClearCursor = function() __cursor = nil end
+GetItemCount = function(id)
+    local n = 0
+    for _, e in ipairs(__tasche) do
+        if not e.leer and e.link:find("item:" .. id .. ":", 1, true) then n = n + 1 end
+    end
+    return n
+end
+GetNumLootItems = function() return #__loot end
+GetLootSlotLink = function(i) return __loot[i] and __loot[i].link end
+GetMasterLootCandidate = function(slot, i)
+    local namen = { "Leiter Kaos", "Timo", "Lina", "Moe", "Zora" }
+    return namen[i]
+end
+GiveMasterLoot = function(slot, i) __geben[#__geben + 1] = { slot, i } end
 __wurfLog = {}
 RandomRoll = function(a, b) __wurfLog[#__wurfLog + 1] = { a, b } end
 GetLootRollItemLink = function(id)
