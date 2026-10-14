@@ -72,9 +72,14 @@ end
 local function sag(text) print(PRAEFIX .. text) end
 
 --- Den ersten Gegenstandslink aus einem Text holen.
+--  ⚠️ Das Farbstueck ist nicht immer „|cffRRGGBB": Neuere Clients schreiben
+--  „|cnIQ4:" (Qualitaetsfarbe als Name). Im Spiel gesehen am 14.10.2026:
+--  mit dem alten Muster fand der Start keinen Gegenstand. Darum: alles bis
+--  zum naechsten „|" als Farbe, und die Farbe darf ganz fehlen.
 local function linkAus(text)
     if type(text) ~= "string" then return nil end
-    return text:match("(|c%x+|Hitem:[^|]+|h%[[^%]]*%]|h|r)")
+    return text:match("(|c[^|]*|Hitem:[^|]+|h%[[^%]]*%]|h|r)")
+        or text:match("(|Hitem:[^|]+|h%[[^%]]*%]|h)")
 end
 
 --- Wie lange ein Wurf dauert (Einstellung, 10 bis 120 Sekunden).

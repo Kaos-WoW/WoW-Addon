@@ -1099,6 +1099,18 @@ ns.Wurf.Dialog()
 fest(any("Schwert der Probe" in t for t in texte_von(g, "Rucksack")), "Startdialog listet den Gegenstand mit Handelsfrist")
 fest(not any("Ohne Frist" in t for t in texte_von(g, "")), "Stuecke ohne Handelsfrist werden nicht angeboten")
 
+# --- Link-Formate: alt (|cffRRGGBB), neu (|cnIQ4:) und ohne Farbe -------------
+w, cl, g, ns, lua = runde()
+for fmt, link in (("alt", "|cff0070dd|Hitem:7400::::::::60:::::|h[Alt]|h|r"),
+                  ("neu", "|cnIQ4:|Hitem:7401::::::::60:::::|h[Neu]|h|r"),
+                  ("ohne Farbe", "|Hitem:7402::::::::60:::::|h[Ohne]|h")):
+    ns.Wurf.BeendenAlle()
+    w.weiter(2)
+    ok, grund = tup(ns.Wurf.Starten("Wurf: " + link + " bitte"))
+    fest(ok is True, "Link im Format %s wird erkannt (%s)" % (fmt, grund))
+    w.weiter(2)
+    fest(w.clients[1]["ns"].Wurf.Aktiv() is True, "und kommt als Wurf bei den Mitspielern an (%s)" % fmt)
+
 # --- Dialog: gewaehlter Link, auch wenn GetText() nur den Namen liefert ------
 # (im Spiel gesehen am 14.10.2026: das Feld zeigt "[Trogg Scepter]", Start scheiterte)
 w, cl, g, ns, lua = runde()
