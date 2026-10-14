@@ -36,14 +36,14 @@ local function hilfe()
     print(L["  |cffffff78/fs liste|r        – dieselbe Auswertung im Chat, |cffffff78liste 4|r für 4 Wochen"])
     print(L["  |cffffff78/fs <Name>|r       – Einzelvergaben eines Spielers im Chat"])
     print(L["  |cffffff78/fs abgleich|r     – Historien der Gruppe zusammenführen (|cffffff78abgleich status|r zeigt den Stand)"])
-    print(L["  |cffffff78/fs rolle|r        – wer schreibt gerade mit, und warum"])
+    print(L["  |cffffff78/fs rolle|r        – wer zeichnet gerade auf, und warum"])
     print(L["  |cffffff78/fs gruppe|r       – Kader und Raidgruppen (|cffffff78gruppe hilfe|r)"])
     print(L["  |cffffff78/fs bereiche|r     – Garguls Würfelbereiche prüfen (|cffffff78bereiche setzen|r)"])
     print(L["  |cffffff78/fs auto|r         – Fenster bei Wurfbeginn automatisch öffnen (an/aus)"])
     print(L["  |cffffff78/fs import|r       – Garguls bisherige Aufzeichnungen übernehmen"])
-    print(L["  |cffffff78/fs filter|r       – ab welcher Qualität und wo mitgeschrieben wird"])
+    print(L["  |cffffff78/fs filter|r       – ab welcher Qualität und wo aufgezeichnet wird"])
     print(L["  |cffffff78/fs gilde|r        – Diagnose: was die Gildenliste liefert (Namen, Ränge)"])
-    print(L["  |cffffff78/fs stand|r        – Diagnose: eigene Historie und Mitschrift"])
+    print(L["  |cffffff78/fs stand|r        – Diagnose: eigene Historie und Aufzeichnung"])
     print(L["  |cffffff78/fs muster|r       – Diagnose: Textvorlagen für eigene Erkennung"])
     print(L["  |cffffff78/fs darstellung|r  – Diagnose: Einstellungsfenster zeichnet nicht richtig"])
     print(L["  |cffffff78/fs test|r         – Selbsttests der Auswertung"])
@@ -122,12 +122,12 @@ befehle["stand"] = function()
         kann and L["nutzbar"] or ("|cffff5555" .. tostring(grund) .. "|r" .. GRAU)))
 
     local beute, wurf = ns.Erfassung.MusterBauen()
-    print(string.format(L["  |cff8E9A94Mitschreiben: %d Beutemuster, Wurfmuster %s, %d Würfe gemerkt.|r"],
+    print(string.format(L["  |cff8E9A94Aufzeichnen: %d Beutemuster, Wurfmuster %s, %d Würfe gemerkt.|r"],
         beute, wurf and L["da"] or L["FEHLT"], ns.Erfassung.OffeneWuerfe()))
 
     local darf, warum = ns.Rolle.IchSchreibe()
-    print(string.format(L["  Schreiber: %s |cff8E9A94(%s)|r"],
-        darf and (GRUEN .. L["du schreibst mit"] .. "|r") or (GELB .. L["du schreibst nicht mit"] .. "|r"),
+    print(string.format(L["  Aufzeichner: %s |cff8E9A94(%s)|r"],
+        darf and (GRUEN .. L["du zeichnest auf"] .. "|r") or (GELB .. L["du zeichnest nicht auf"] .. "|r"),
         tostring(warum)))
 
     local ok, wert = Quelle.Stand()
@@ -217,12 +217,12 @@ end
 befehle["appearance"] = befehle["darstellung"]
 
 -- ---------------------------------------------------------------------
---  Wer schreibt mit, Abgleich
+--  Wer zeichnet auf, Abgleich
 -- ---------------------------------------------------------------------
 
 befehle["rolle"] = function()
     local darf, grund = ns.Rolle.IchSchreibe()
-    sag(darf and (GRUEN .. L["Du schreibst mit."] .. "|r") or (GELB .. L["Du schreibst nicht mit."] .. "|r"))
+    sag(darf and (GRUEN .. L["Du zeichnest auf."] .. "|r") or (GELB .. L["Du zeichnest nicht auf."] .. "|r"))
     print(string.format(L["  |cff8E9A94Grund: %s|r"], tostring(grund)))
 
     local kandidaten, methode = ns.Rolle.Kandidaten()

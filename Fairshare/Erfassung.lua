@@ -1,5 +1,5 @@
 --[[----------------------------------------------------------------------
-    Erfassung.lua  —  Vergaben selbst mitschreiben
+    Erfassung.lua  —  Vergaben selbst aufzeichnen
 
     Das Addon braucht kein anderes Addon mehr: Es liest die Beutemeldungen
     aus dem Chat und fuehrt eine eigene Historie.
@@ -219,7 +219,7 @@ function Erfassung.Zaehlenswert(link, name)
         return false, "kein Bedarfswurf"
     end
 
-    -- Wo darf mitgeschrieben werden?
+    -- Wo darf aufgezeichnet werden?
     --   raid     nur Schlachtzugsinstanzen (Echtbetrieb)
     --   instanz  auch Fuenfergruppen — zum Erproben des Ablaufs
     --   ueberall keine Einschraenkung; dann landen auch Weltdrops darin
@@ -480,7 +480,7 @@ rahmen:SetScript("OnEvent", function(_, ereignis, a1)
         end
     end)
     if not ok then
-        print(PRAEFIX .. "|cffff5555" .. string.format(L["Fehler beim Mitschreiben: %s"], tostring(fehler)) .. "|r")
+        print(PRAEFIX .. "|cffff5555" .. string.format(L["Fehler beim Aufzeichnen: %s"], tostring(fehler)) .. "|r")
     end
 end)
 

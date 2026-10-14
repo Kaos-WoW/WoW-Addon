@@ -1,5 +1,5 @@
 --[[----------------------------------------------------------------------
-    Rolle.lua  —  Wer in der Gruppe schreibt mit?
+    Rolle.lua  —  Wer in der Gruppe zeichnet auf?
 
     ⭐ Entscheid des Gildenleiters (14.10.2026): **nur der Pluendermeister**
     fuehrt die Historie; gibt es keinen, der Schlachtzugsleiter (als
@@ -156,7 +156,7 @@ end
 --  Entscheid
 -- =====================================================================
 
---- Schreibt DIESER Spieler gerade mit?
+--- Zeichnet DIESER Spieler gerade auf?
 --  @return true/false, Grund als Text
 function Rolle.IchSchreibe()
     local d = ns.Erfassung.Einstellungen()
@@ -168,7 +168,7 @@ function Rolle.IchSchreibe()
     -- nicht in die Historie, und Fuenfer-Instanzen dienen nur dem Erproben
     -- des Raid-Ablaufs mit einer Gruppe.
     if not (IsInGroup and IsInGroup()) then
-        return false, L["keine Gruppe – allein wird nichts mitgeschrieben"]
+        return false, L["keine Gruppe – allein wird nichts aufgezeichnet"]
     end
 
     if modus == "immer" then return true, L["eingestellt: immer"] end
@@ -190,10 +190,10 @@ function Rolle.IchSchreibe()
     if wahl.ich then
         return true, (wahl.rolle or L["Kandidat"]) .. (methode == "master" and "" or (" " .. L["(kein Plündermeister)"]))
     end
-    return false, string.format(L["%s schreibt mit"], wahl.name or "?")
+    return false, string.format(L["%s zeichnet auf"], wahl.name or "?")
 end
 
---- Wer ist der Schreiber gerade? Fuer die Anzeige.
+--- Wer zeichnet gerade auf? Fuer die Anzeige.
 --  @return Name oder nil, Rolle
 function Rolle.AktuellerSchreiber()
     if not (IsInGroup and IsInGroup()) then return nil end

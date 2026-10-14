@@ -645,7 +645,7 @@ function Fenster.Aktualisieren()
     if ns.Rolle and not zustand.beispiel then
         local darf, warum = ns.Rolle.IchSchreibe()
         local text = fuss:GetText() or ""
-        local zusatz = darf and (L["Du schreibst mit"] .. " (" .. tostring(warum) .. ")") or tostring(warum)
+        local zusatz = darf and (L["Du zeichnest auf"] .. " (" .. tostring(warum) .. ")") or tostring(warum)
         fuss:SetText(text .. "   |   " .. zusatz)
     end
 end

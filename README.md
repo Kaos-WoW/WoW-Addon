@@ -12,7 +12,7 @@ Das Addon spricht die **Sprache des Clients**: deutscher Client Deutsch, jeder a
 
 * **Es führt eine eigene Historie** und braucht kein anderes Addon.
 * **Nur in einer Gruppe:** Allein unterwegs wird nichts aufgezeichnet.
-* **Nur einer schreibt mit:** der **Plündermeister**; gibt es keinen, der
+* **Nur einer zeichnet auf:** der **Plündermeister**; gibt es keinen, der
   **Raidleiter** (Rückfall). Alle anderen empfangen und können die Historie
   einsehen. Jeder im Raid sollte das Addon haben.
 * **Gargul** (für die Forever-Beta offiziell veröffentlicht) ist das Würfel-Addon: Seine Vergaben landen mit
@@ -45,10 +45,10 @@ KaosUI).
 | `/fs liste` | dieselbe Auswertung im Chat, `liste 4` für vier Wochen |
 | `/fs <Name>` | Einzelvergaben eines Spielers |
 | `/fs abgleich` | Historien der Gruppe zusammenführen (`abgleich status`: Stand) |
-| `/fs rolle` | wer schreibt gerade mit, und warum |
+| `/fs rolle` | wer zeichnet gerade auf, und warum |
 | `/fs gruppe` | Kader und Raidgruppen (`gruppe hilfe`) |
 | `/fs bereiche` | Garguls Würfelbereiche prüfen (`bereiche setzen`) |
-| `/fs filter` | ab welcher Qualität und wo mitgeschrieben wird |
+| `/fs filter` | ab welcher Qualität und wo aufgezeichnet wird |
 | `/fs stand` | Diagnose |
 | `/fs test` | Selbsttests |
 

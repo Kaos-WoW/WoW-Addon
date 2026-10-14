@@ -5,8 +5,8 @@ Addon für die Gilde **Resurrected** (Thunderstrike EU). Es beantwortet:
 wann was?** Damit der Plündermeister im Moment der Vergabe schnell und
 begründet entscheiden kann.
 
-**Name:** Fairshare, Befehl `/fs` (bis 14.10.2026 „Loot-Historie“, `/lh`; der Name sagte zu wenig, das Addon schreibt
-mit, gleicht ab, verwaltet Gruppen). Ordner `Fairshare/`, SavedVariables `FairshareDB`, Nachrichtenpräfix
+**Name:** Fairshare, Befehl `/fs` (bis 14.10.2026 „Loot-Historie“, `/lh`; der Name sagte zu wenig, das Addon zeichnet
+auf, gleicht ab, verwaltet Gruppen). Ordner `Fairshare/`, SavedVariables `FairshareDB`, Nachrichtenpräfix
 `FSHARE`. ⚠️ **Der Umzug der gespeicherten Daten** (`LootHistorie.lua` → `Fairshare.lua`, Variable umbenannt)
 macht `deploy.ps1` einmalig und **nur bei beendetem WoW** (sonst bricht es ab, ohne etwas zu ändern); die alte
 Datei bleibt als Sicherung. Spätere Umbenennungen brauchen denselben Weg.
@@ -21,7 +21,7 @@ Stand 14.10.2026, Version 0.1.0 (noch nicht veröffentlicht). Nur für Forever.
 
 * **Das Addon führt eine eigene Historie** (`FairshareDB.vergaben`,
   Eintrag je Kennung). Es braucht kein anderes Addon.
-* **Nur einer schreibt mit** — Entscheid des Gildenleiters: der
+* **Nur einer zeichnet auf** — Entscheid des Gildenleiters: der
   **Plündermeister**, und gibt es keinen, der **Raidleiter** (Rückfall).
   Alle anderen empfangen. Grund: Sähe jeder dieselbe Beutemeldung und
   schriebe sie auf, gäbe es je Drop so viele Einträge wie Spieler im Raid.
@@ -49,7 +49,7 @@ das nur liest, weder Haupt/Zweit noch Gruppen noch Abgleich leisten kann.
 | `Kern.lua` | Zählen, Sortieren, Zusammenführen, Prüfsummen, Kodierung, Schreiberwahl | **nein** |
 | `Locale.lua` | Sprache: deutscher Client Deutsch, sonst Englisch (`L["deutscher Satz"]`) | ja |
 | `Quelle.lua` | Garguls Historie, Würfelbereiche, Gegenstandstexte, Beispieldaten | ja |
-| `Rolle.lua` | Gruppe lesen: wer ist Plündermeister/Leiter, schreibe ich mit | ja |
+| `Rolle.lua` | Gruppe lesen: wer ist Plündermeister/Leiter, zeichne ich auf | ja |
 | `Gruppen.lua` | Kader und Raidgruppen | ja |
 | `Erfassung.lua` | Chat, Würfe, Einstellungen, Eintragen, Gargul-Vergaben | ja |
 | `Abgleich.lua` | Hallo, Live-Meldung, Abgleich, Hinweis-Fenster | ja |
@@ -81,11 +81,11 @@ Dieselben Feldnamen wie bei Gargul, damit beide ohne Umrechnen lesbar sind.
 Rangfolge: **Plündermeister → Leiter → Assistenten**. Gewählt wird der erste,
 der das Addon nachweislich hat (Hallo-Meldung) oder man selbst ist.
 
-* ⭐ **Ohne Gruppe wird nie mitgeschrieben** (auch nicht bei „immer“; Entscheid 14.10.2026): Das Addon ist für
+* ⭐ **Ohne Gruppe wird nie aufgezeichnet** (auch nicht bei „immer“; Entscheid 14.10.2026): Das Addon ist für
   Gruppeninhalt da, ein Solo-Fund gehört nicht in die Historie, Fünfer-Instanzen dienen nur dem Erproben des
   Raid-Ablaufs *mit* einer Gruppe. Zentral in `Rolle.IchSchreibe`, daran hängen Chat, Blizzard-Historie und Gargul.
 * Bis die Hallo-Meldungen da sind (wenige Sekunden nach dem Beitritt),
-  schreibt zur Not auch der Leiter mit. **Doppelt ist besser als gar nicht**;
+  zeichnet zur Not auch der Leiter auf. **Doppelt ist besser als gar nicht**;
   der Abgleich fängt Doppelte ab, eine fehlende Vergabe nicht.
 * `/fs rolle` zeigt Kandidaten und Grund; Einstellung `schreiben`:
   `auto` | `immer` | `nie`.
@@ -257,7 +257,7 @@ parste und der Wert zudem für verschiedene Mengen gleich wurde. Wie WoW sich ve
 ### Sprache (seit 14.10.2026)
 
 Das Addon spricht die Sprache des Clients: **deDE = Deutsch, jeder andere Client = Englisch.** Wie bei
-KaosUI sind die **deutschen Sätze die Schlüssel** (`L["Wer schreibt mit"]`); `Locale.lua` hält die englische
+KaosUI sind die **deutschen Sätze die Schlüssel** (`L["Wer zeichnet auf"]`); `Locale.lua` hält die englische
 Fassung, auf einem deutschen Client liefert `L[]` den Schlüssel selbst. Befehlsworte gelten deutsch **und**
 englisch (`/fs history`, `settings`, `list`, `sync`, `group`, `brackets`, `role`, `state`, `patterns`,
 `appearance`). Datumsformate sind selbst Schlüssel (`L["%d.%m.%Y"]` → `%m/%d/%Y`).

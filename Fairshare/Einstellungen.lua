@@ -6,7 +6,7 @@
     Segmentwahl oder Knopf rechts), Fussleiste.
 
     Drei Seiten:
-      * Erfassung          was, wo und von wem mitgeschrieben wird
+      * Erfassung          was, wo und von wem aufgezeichnet wird
       * Gargul & Abgleich  Wuerfelbereiche, Import, Fenster, Abgleich
       * Gruppen            Kader und Raidgruppen
 
@@ -300,13 +300,13 @@ local MODI = {
     { wert = "nie",   label = L["Nie"] },
 }
 local MODUS_TEXT = {
-    auto  = L["Der Plündermeister schreibt; gibt es keinen, der Raidleiter."],
-    immer = L["Dieser Spieler schreibt mit – egal, wer sonst."],
-    nie   = L["Dieser Spieler schreibt nicht mit, er empfängt nur."],
+    auto  = L["Der Plündermeister zeichnet auf; gibt es keinen, der Raidleiter."],
+    immer = L["Dieser Spieler zeichnet auf – egal, wer sonst."],
+    nie   = L["Dieser Spieler zeichnet nicht auf, er empfängt nur."],
 }
 
 local function seiteErfassung(P)
-    local k1 = karte(P, L["Mitschreiben"], L["Was das Addon in die Historie aufnimmt."])
+    local k1 = karte(P, L["Aufzeichnen"], L["Was das Addon in die Historie aufnimmt."])
     zeile(k1, { art = "schalter", label = L["Vergaben aufzeichnen"],
         beschr = L["Aus heißt: nichts Neues wird erfasst. Vorhandenes bleibt."],
         get = function() return d().erfassen end,
@@ -316,22 +316,22 @@ local function seiteErfassung(P)
         get = function() return d().nurGewuerfelt end,
         set = function(v) d().nurGewuerfelt = v end })
 
-    local k2 = karte(P, L["Wer schreibt mit"],
+    local k2 = karte(P, L["Wer zeichnet auf"],
         L["Nur einer pro Gruppe führt die Historie, damit nichts doppelt entsteht."])
-    zeile(k2, { art = "segment", label = L["Schreiber"], werte = MODI,
+    zeile(k2, { art = "segment", label = L["Aufzeichner"], werte = MODI,
         beschr = function() return MODUS_TEXT[d().schreiben or "auto"] end,
         get = function() return d().schreiben or "auto" end,
         set = function(v) d().schreiben = v end })
     zeile(k2, { art = "info",
         label = function()
             local darf = ns.Rolle.IchSchreibe()
-            return darf and farbig(C.ok, L["Du schreibst gerade mit"])
-                         or farbig(C.warn, L["Du schreibst gerade nicht mit"])
+            return darf and farbig(C.ok, L["Du zeichnest gerade auf"])
+                         or farbig(C.warn, L["Du zeichnest gerade nicht auf"])
         end,
         beschr = function()
             local _, grund = ns.Rolle.IchSchreibe()
             local wer = ns.Rolle.AktuellerSchreiber()
-            return tostring(grund) .. ((wer and ("  ·  " .. string.format(L["Schreiber: %s"], wer))) or "")
+            return tostring(grund) .. ((wer and ("  ·  " .. string.format(L["Aufzeichner: %s"], wer))) or "")
         end })
 
     local k3 = karte(P, L["Was wird erfasst"])
@@ -548,7 +548,7 @@ end
 
 local NAV = {
     { id = "erfassung", label = L["Erfassung"],         icon = "settings.tga",
-      titel = L["Erfassung"], beschr = L["Was, wo und von wem mitgeschrieben wird."], bauen = seiteErfassung },
+      titel = L["Erfassung"], beschr = L["Was, wo und von wem aufgezeichnet wird."], bauen = seiteErfassung },
     { id = "gargul",    label = L["Gargul & Abgleich"], icon = "rotate.tga",
       titel = L["Gargul & Abgleich"], beschr = L["Würfelbereiche, Import und der Abgleich zwischen den Spielern."], bauen = seiteGargul },
     { id = "gruppen",   label = L["Gruppen"],           icon = "users-group.tga",
@@ -791,7 +791,7 @@ function Einstellungen.Aktualisieren()
         seiteMessen(aktuelleSeite)
 
         local darf, grund = ns.Rolle.IchSchreibe()
-        fussText:SetText((darf and L["Du schreibst mit"] or L["Du schreibst nicht mit"]) ..
+        fussText:SetText((darf and L["Du zeichnest auf"] or L["Du zeichnest nicht auf"]) ..
             "  ·  " .. tostring(grund))
     end)
     if not ok then

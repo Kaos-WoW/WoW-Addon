@@ -610,7 +610,7 @@ function Kern.Entpacken(paket)
 end
 
 -- =====================================================================
---  Wer schreibt mit?
+--  Wer zeichnet auf?
 -- =====================================================================
 
 --- ⭐ Wer in der Gruppe fuehrt die Historie?
