@@ -48,6 +48,7 @@ KaosUI).
 | `/fs rolle` | wer zeichnet gerade auf, und warum |
 | `/fs gruppe` | Kader und Raidgruppen (`gruppe hilfe`) |
 | `/fs bereiche` | Garguls Würfelbereiche prüfen (`bereiche setzen`) |
+| `/fs reset` | Historie auf diesem Rechner leeren (mit Rückfrage und Sicherung; `reset undo` holt sie zurück) |
 | `/fs filter` | ab welcher Qualität und wo aufgezeichnet wird |
 | `/fs stand` | Diagnose |
 | `/fs test` | Selbsttests |

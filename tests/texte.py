@@ -30,7 +30,7 @@ AUSNAHMEN = {"Tests.lua", "Locale.lua", "Kern.lua"}
 # Zeichenketten, die bewusst nicht uebersetzt werden: Befehlsworte,
 # interne Gruende, Beispieldaten, Entwicklerdiagnose.
 ERLAUBT = {
-    "überall", "löschen", " · Forever",
+    "überall", "löschen", "zurück", " · Forever",
     "kein Bedarfswurf", "kein Schlachtzug", "keine Instanz", "Qualität zu niedrig",
     "unvollständig", "ohne Gegenstand",
     "Järgerlie", "Zorn des Verräters", "Fairshare äöü",

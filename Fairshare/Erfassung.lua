@@ -333,6 +333,67 @@ function Erfassung.Eintragen(name, link, zeit, art, kennung, extra)
 end
 
 -- =====================================================================
+--  Zuruecksetzen
+-- =====================================================================
+
+local function zaehle(t)
+    local n = 0
+    for _ in pairs(t or {}) do n = n + 1 end
+    return n
+end
+
+--- ⭐ Leert die Historie DIESES Rechners (Einstellungen und Gruppen bleiben).
+--  Vorher wird sie gesichert (eine Sicherung, die naechste ersetzt sie), damit
+--  sich ein Versehen zuruecknehmen laesst.
+--
+--  ⚠️ Es loescht nur hier. Haben andere in der Gruppe die Eintraege noch,
+--  bringt der naechste Abgleich sie zurueck — das ist Absicht (nur Hinzufuegen).
+--  @return Zahl der entfernten Eintraege
+function Erfassung.Zuruecksetzen()
+    local d = db()
+    local n = zaehle(d.vergaben)
+    d.sicherung = { zeit = time(), n = n, vergaben = d.vergaben, alias = d.alias }
+    d.vergaben, d.alias = {}, {}
+    if ns.Abgleich then
+        ns.Abgleich.HalloSpaeter(2)
+        ns.Abgleich.Pruefen()
+    end
+    return n
+end
+
+--- Die Sicherung vor dem letzten Zuruecksetzen.
+--  @return { n =, zeit = } oder nil
+function Erfassung.SicherungInfo()
+    local s = db().sicherung
+    return s and { n = s.n or zaehle(s.vergaben), zeit = s.zeit } or nil
+end
+
+--- Spielt die Sicherung wieder ein. Nichts, was inzwischen neu dazukam,
+--  geht verloren (es wird zusammengefuehrt, nicht ersetzt).
+--  @return Zahl der zurueckgeholten Eintraege, oder nil wenn es keine gibt
+function Erfassung.Wiederherstellen()
+    local d = db()
+    local s = d.sicherung
+    if not s then return nil end
+    local n = 0
+    for id, e in pairs(s.vergaben or {}) do
+        if not d.vergaben[id] then
+            d.vergaben[id] = e
+            n = n + 1
+        end
+    end
+    for id, ziel in pairs(s.alias or {}) do
+        if not d.alias[id] then d.alias[id] = ziel end
+    end
+    d.sicherung = nil
+    if ns.Abgleich then
+        ns.Abgleich.HalloSpaeter(2)
+        ns.Abgleich.Pruefen()
+    end
+    return n
+end
+
+-- =====================================================================
 --  Gargul als Quelle
 -- =====================================================================
 

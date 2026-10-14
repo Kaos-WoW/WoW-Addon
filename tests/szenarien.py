@@ -694,6 +694,71 @@ w.ereignis("GROUP_ROSTER_UPDATE")
 w.weiter(60)
 fest(w.stand(0) != w.stand(1), "mit Auto aus bleibt es beim Hinweis")
 
+print("== 18. /fs reset: fragen, sichern, zurueckholen ==")
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+cl = w.clients[0]
+ns, g, lua = cl["ns"], cl["g"], cl["lua"]
+for i in range(8):
+    w.setze(0, "t%d" % i, {"awardedTo": "Timo", "itemID": 9300 + i, "timestamp": int(w.t) - i * 4000})
+ns.Gruppen.Anlegen("40er")
+sl = g["SlashCmdList"]["FAIRSHARE"]
+
+
+def ausgaben():
+    return [str(x) for x in g["__ausgabe"].values()]
+
+
+# Erst fragen, noch nichts geloescht
+sl("reset")
+fest(anz(w, 0) == 8, "/fs reset allein loescht nichts")
+fest(any("8" in x and "Einträge" in x for x in ausgaben()), "es nennt die Zahl der Eintraege")
+# Bestaetigung ohne vorherige Frage in neuer Sitzung waere wirkungslos - hier mit Frage
+sl("reset ja")
+fest(anz(w, 0) == 0, "nach /fs reset ja ist die Historie leer")
+fest(ns.Gruppen.Holen("40er") is not None, "Gruppen bleiben")
+fest(ns.Erfassung.SicherungInfo() is not None and ns.Erfassung.SicherungInfo()["n"] == 8, "die Sicherung hat 8 Eintraege")
+# Bestaetigen ohne Frage geht nicht
+sl("reset ja")
+fest(any("innerhalb einer Minute" in x for x in ausgaben()), "ohne vorherige Frage wird nichts getan")
+# Zurueckholen
+sl("reset undo")
+fest(anz(w, 0) == 8, "/fs reset undo holt alles zurueck")
+fest(ns.Erfassung.SicherungInfo() is None, "danach gibt es keine Sicherung mehr")
+sl("reset undo")
+fest(any("keine Sicherung" in x for x in ausgaben()), "ein zweites Zurueckholen sagt, dass nichts da ist")
+
+# Zurueckholen verliert nichts, was inzwischen neu dazukam
+sl("reset"); sl("reset ja")
+w.setze(0, "neu1", {"awardedTo": "Lina", "itemID": 9400, "timestamp": int(w.t)})
+n = ns.Erfassung.Wiederherstellen()
+fest(anz(w, 0) == 9, "Sicherung und neuer Eintrag zusammen (%s zurueck)" % n)
+
+# Einstellungsfenster: zweistufig
+ns.Einstellungen.Zeigen()
+g["__klick"]("Erfassung")
+fest(g["__klick"]("Zurücksetzen") is True, "Knopf Zuruecksetzen in den Einstellungen")
+fest(anz(w, 0) == 9, "der erste Klick fragt nur")
+fest(g["__klick"]("Wirklich zurücksetzen") is True, "zweiter Klick")
+fest(anz(w, 0) == 0, "danach ist es leer")
+fest(g["__klick"]("Wiederherstellen") is True, "Wiederherstellen ist jetzt sichtbar und geht")
+fest(anz(w, 0) == 9, "und holt alles zurueck")
+
+# Wer die Daten noch hat, bringt sie beim Abgleich zurueck (Absicht)
+w = gruppe(3, auto=True)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+for k in (0, 1, 2):
+    for i in range(5):
+        w.setze(k, "g%d" % i, {"awardedTo": "Timo", "itemID": 9500 + i, "timestamp": int(w.t) - i * 4000})
+w.ereignis("GROUP_ROSTER_UPDATE")      # alle melden ihren Stand (Hallo)
+w.weiter(20)
+w.clients[0]["ns"].Erfassung.Zuruecksetzen()
+fest(anz(w, 0) == 0 and anz(w, 1) == 5, "Leiter leert, die anderen haben noch alles")
+w.weiter(150)    # der Abstand zwischen zwei automatischen Laeufen betraegt zwei Minuten
+fest(anz(w, 0) == 5, "der automatische Abgleich bringt es zurueck (nur Hinzufuegen)")
+
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")
 sys.exit(0 if alle_ok else 1)

@@ -275,13 +275,21 @@ function Abgleich.Pruefen()
             -- sind, und nur, wenn dann noch jemand abweicht. Hoechstens alle
             -- zwei Minuten: ein Abgleich, der nicht alles ausgleicht, soll
             -- nicht endlos laufen.
-            C_Timer.After(4, function()
+            local versuche
+            versuche = function()
                 if #Abgleich.Abweichend == 0 then return end
-                if (time() - (Abgleich.letzterAuto or 0)) < 120 then return end
+                -- Zu frueh nach dem letzten Lauf: spaeter nochmal pruefen, statt
+                -- die Abweichung bis zur naechsten Aenderung liegenzulassen.
+                local rest = 120 - (time() - (Abgleich.letzterAuto or 0))
+                if rest > 0 then
+                    C_Timer.After(rest + 1, versuche)
+                    return
+                end
                 Abgleich.letzterAuto = time()
                 local ok, grund = Abgleich.Starten()
                 if not ok and grund then print(MELDUNG .. "|cffff5555" .. tostring(grund) .. "|r") end
-            end)
+            end
+            C_Timer.After(4, versuche)
         else
             popupZeigen(#liste, liste)
         end

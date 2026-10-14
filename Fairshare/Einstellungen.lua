@@ -42,6 +42,7 @@ local NavKnoepfe = {}
 local aktuelleSeite = "erfassung"
 local Meldung = {}       -- kurze Rueckmeldungen je Schluessel
 local loeschenBereit
+local verlaufBereit = false
 local letzteMasse = {}
 
 local function d() return ns.Erfassung.Einstellungen() end
@@ -305,6 +306,41 @@ local MODUS_TEXT = {
     nie   = L["Dieser Spieler zeichnet nicht auf, er empfängt nur."],
 }
 
+local function seiteDaten(P, k)
+    zeile(k, { art = "knopf", label = L["Verlauf zurücksetzen"],
+        beschr = function()
+            if verlaufBereit then
+                return farbig(C.warn, L["Nochmal klicken, um den Verlauf wirklich zu leeren."])
+            end
+            return Meldung.reset or L["Leert die Historie auf diesem Rechner. Einstellungen und Gruppen bleiben, eine Sicherung wird angelegt. Haben andere in der Gruppe die Einträge noch, bringt sie der nächste Abgleich zurück."]
+        end,
+        knopf = { text = function() return verlaufBereit and L["Wirklich zurücksetzen"] or L["Zurücksetzen"] end,
+            klick = function()
+                if verlaufBereit then
+                    local n = ns.Erfassung.Zuruecksetzen()
+                    verlaufBereit = false
+                    Meldung.reset = farbig(C.ok, string.format(L["%d Einträge entfernt"], n))
+                    if ns.Fenster then ns.Fenster.Aktualisieren() end
+                else
+                    verlaufBereit = true
+                    Meldung.reset = nil
+                end
+            end } })
+    zeile(k, { art = "knopf", label = L["Sicherung wiederherstellen"],
+        sichtbar = function() return ns.Erfassung.SicherungInfo() ~= nil end,
+        beschr = function()
+            local s = ns.Erfassung.SicherungInfo()
+            if not s then return "" end
+            return string.format(L["%d Einträge vom %s"], s.n, date(L["%d.%m.%Y"], s.zeit))
+        end,
+        knopf = { text = L["Wiederherstellen"],
+            klick = function()
+                local n = ns.Erfassung.Wiederherstellen()
+                Meldung.reset = farbig(C.ok, string.format(L["%d Einträge zurückgeholt"], n or 0))
+                if ns.Fenster then ns.Fenster.Aktualisieren() end
+            end } })
+end
+
 local function seiteErfassung(P)
     local k1 = karte(P, L["Aufzeichnen"], L["Was das Addon in die Historie aufnimmt."])
     zeile(k1, { art = "schalter", label = L["Vergaben aufzeichnen"],
@@ -343,6 +379,8 @@ local function seiteErfassung(P)
         beschr = L["Auf Stufe 60 fällt in manchen Raids überwiegend Blaues – lieber zu viel erfassen als einen Drop verlieren."],
         get = function() return d().mindestQualitaet end,
         set = function(v) d().mindestQualitaet = v end })
+
+    seiteDaten(P, karte(P, L["Daten"]))
 end
 
 local function seiteGargul(P)
@@ -804,6 +842,7 @@ function Einstellungen.Waehle(id)
     if not Seiten[id] then return end
     aktuelleSeite = id
     loeschenBereit = nil
+    verlaufBereit = false
     scroll:Zurueck()
     Einstellungen.Aktualisieren()
     if C_Timer then C_Timer.After(0.1, function() S.Auffrischen() end) end

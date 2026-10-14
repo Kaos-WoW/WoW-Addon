@@ -246,6 +246,15 @@ eine Zeile in `seiteErfassung`/`seiteGargul`/`seiteGruppen`.
 ⚠️ Die Optik ist nur im Spiel prüfbar; `tests/szenarien.py` prüft, dass jede Zeile, jeder Knopf und
 jede Seite ohne Fehler läuft und speichert.
 
+### Historie zurücksetzen (`/fs reset`, seit 14.10.2026)
+
+`/fs reset` fragt erst (Zahl der Einträge), `/fs reset ja` binnen einer Minute leert die Historie **dieses
+Rechners** (Einstellungen und Gruppen bleiben). Vorher wird gesichert (`FairshareDB.sicherung`, eine Sicherung);
+`/fs reset undo` und der Knopf *Sicherung wiederherstellen* (Einstellungen → Erfassung → Daten) spielen sie
+**zusammenführend** wieder ein. ⚠️ Es löscht nur lokal: Haben andere in der Gruppe die Einträge noch, bringt der
+automatische Abgleich sie zurück (nur Hinzufügen). Der automatische Abgleich läuft höchstens alle 2 Minuten und
+**versucht es nach Ablauf der Sperre erneut**, statt die Abweichung liegenzulassen (so gefunden vom Szenario 18).
+
 ### ⭐ Zahlen über 2^31 nie mit `%d` formatieren
 
 Prüfsummen reichen bis 2^32. `string.format("%d", 3000000000)` lieferte in der Simulation (Lua mit 32-Bit-`long`)

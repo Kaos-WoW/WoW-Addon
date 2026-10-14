@@ -41,6 +41,7 @@ local function hilfe()
     print(L["  |cffffff78/fs bereiche|r     – Garguls Würfelbereiche prüfen (|cffffff78bereiche setzen|r)"])
     print(L["  |cffffff78/fs auto|r         – Fenster bei Wurfbeginn automatisch öffnen (an/aus)"])
     print(L["  |cffffff78/fs import|r       – Garguls bisherige Aufzeichnungen übernehmen"])
+    print(L["  |cffffff78/fs reset|r        – Historie auf diesem Rechner leeren (mit Rückfrage und Sicherung)"])
     print(L["  |cffffff78/fs filter|r       – ab welcher Qualität und wo aufgezeichnet wird"])
     print(L["  |cffffff78/fs gilde|r        – Diagnose: was die Gildenliste liefert (Namen, Ränge)"])
     print(L["  |cffffff78/fs stand|r        – Diagnose: eigene Historie und Aufzeichnung"])
@@ -62,6 +63,38 @@ befehle["import"] = function()
         print(string.format(L["  |cff8E9A94%d übersprungen – die hatte die Eigenerfassung schon.|r"], doppelt))
     end
     print(L["  |cff8E9A94Wiederholtes Einführen ändert nichts mehr.|r"])
+end
+
+--- ⭐ Historie leeren: erst fragen, dann tun, vorher sichern.
+local resetBereit = nil
+
+befehle["reset"] = function(arg)
+    arg = (arg or ""):lower()
+
+    if arg == "undo" or arg == "zurueck" or arg == "zurück" then
+        local n = ns.Erfassung.Wiederherstellen()
+        if not n then sag(GRAU .. L["Es gibt keine Sicherung."] .. "|r") return end
+        sag(string.format(L["|cff55ff55%d Einträge|r aus der Sicherung zurückgeholt."], n))
+        return
+    end
+
+    if arg == "ja" or arg == "yes" then
+        if not resetBereit or (time() - resetBereit) > 60 then
+            sag(ROT .. L["Erst |cffffff78/fs reset|r eingeben, dann innerhalb einer Minute bestätigen."] .. "|r")
+            return
+        end
+        resetBereit = nil
+        local n = ns.Erfassung.Zuruecksetzen()
+        sag(string.format(L["|cff55ff55%d Einträge|r entfernt. Gesichert: |cffffff78/fs reset undo|r holt sie zurück."], n))
+        print(L["  |cff8E9A94Nur auf diesem Rechner: Haben andere in der Gruppe die Einträge noch, bringt sie der nächste Abgleich zurück.|r"])
+        return
+    end
+
+    local n = 0
+    for _ in pairs(ns.Erfassung.Historie()) do n = n + 1 end
+    resetBereit = time()
+    sag(string.format(L["Das entfernt |cffffff78%d Einträge|r der Historie auf diesem Rechner (Einstellungen und Gruppen bleiben, eine Sicherung wird angelegt)."], n))
+    print(L["  Zum Bestätigen innerhalb einer Minute: |cffffff78/fs reset ja|r"])
 end
 
 befehle["filter"] = function(arg)
