@@ -44,7 +44,7 @@ local AKZENT = S.Code(C.ac)
 
 local rahmen, kopfZeile, tafel, fuss, unterzeile, kopfTag
 local zeilen = {}
-local ansichtSeg, zeitSeg, abgleichBtn, einstellBtn, gruppeBtn, zurueckBtn, beispielBtn, nurBtn
+local ansichtSeg, zeitSeg, abgleichBtn, einstellBtn, gruppeBtn, zurueckBtn, beispielBtn, nurBtn, wurfBtn
 
 local zustand = { wochen = 0, beispiel = false, spieler = nil, versatz = 0, maxVersatz = 0,
                   ansicht = "liste", gruppe = nil, alleSpieler = false }
@@ -270,6 +270,13 @@ local function baueFenster()
         if not ok then print("|cff1B6B57Fairshare|r: |cffff5555" .. tostring(grund) .. "|r") end
     end)
 
+    -- Eigenes Wuerfelfenster starten (Wurf.lua): nur fuer Leiter, Assistenten, Plündermeister
+    wurfBtn = S.Knopf(rahmen, L["Wurf starten"], "primary", 26)
+    wurfBtn:SetPoint("RIGHT", abgleichBtn, "LEFT", -8, 0)
+    wurfBtn:SetScript("OnClick", function()
+        if ns.Wurf then ns.Wurf.Dialog() end
+    end)
+
     -- Zeile 2: Hinweis oder Zurueck links, Gruppe rechts
     zurueckBtn = S.Knopf(rahmen, L["‹ Zurück"], "link", 22)
     zurueckBtn:SetPoint("TOPLEFT", rahmen, "TOPLEFT", 16, -(KOPF + 50))
@@ -363,7 +370,7 @@ local function baueFenster()
         end
     end)
 
-    S.Verstellbar(rahmen, "uebersicht", { b = BREITE, h = HOEHE, minB = 700, minH = 420,
+    S.Verstellbar(rahmen, "uebersicht", { b = BREITE, h = HOEHE, minB = 760, minH = 420,
         maxB = 1300, maxH = 1100 }, function() Fenster.Aktualisieren() end)
 
     rahmen:SetScript("OnShow", function()
@@ -632,6 +639,7 @@ function Fenster.Aktualisieren()
     abgleichBtn:SetAktiv(not zustand.beispiel)
 
     local imGruppe = IsInGroup and IsInGroup() and true or false
+    wurfBtn:SetShown(not zustand.beispiel and ns.Wurf ~= nil and ns.Wurf.DarfStarten())
     nurBtn:SetShown(imGruppe and not zustand.beispiel and zustand.ansicht == "liste" and zustand.spieler == nil)
     nurBtn:SetLabel(zustand.alleSpieler and L["Nur Gruppe zeigen"] or L["Alle Spieler zeigen"])
 

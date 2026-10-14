@@ -14,7 +14,7 @@ from lupa import lua51
 
 A = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Fairshare")
 DATEIEN = ["Kern.lua", "Locale.lua", "Quelle.lua", "Rolle.lua", "Gruppen.lua", "Erfassung.lua", "Abgleich.lua",
-          "Blizzbeute.lua", "Stil.lua", "Einstellungen.lua", "Fenster.lua", "Befehle.lua", "Tests.lua"]
+          "Blizzbeute.lua", "Stil.lua", "Wurf.lua", "Einstellungen.lua", "Fenster.lua", "Befehle.lua", "Tests.lua"]
 
 STUBS = r'''
 local welt = __welt
@@ -210,6 +210,8 @@ LOOT_ROLL_PASSED_SELF = "You passed on: %s"
 LOOT_ROLL_WON = "%s won: %s"
 LOOT_ROLL_YOU_WON = "You won: %s"
 LOOT_ROLL_ALL_PASSED = "Everyone passed on: %s"
+__wurfLog = {}
+RandomRoll = function(a, b) __wurfLog[#__wurfLog + 1] = { a, b } end
 GetLootRollItemLink = function(id)
     return "|cff0070dd|Hitem:" .. (7000 + id) .. "::::::::60:::::|h[Rollding " .. id .. "]|h|r"
 end

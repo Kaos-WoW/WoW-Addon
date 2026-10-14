@@ -31,10 +31,19 @@ WAS ES TUT
    (Forever-Fassung) bitte unter Einstellungen -> Gargul & Abgleich
    "Auf 100/50 stellen" klicken.
 
+EIGENES WUERFELFENSTER (neu)
+ * Der Pluendermeister (oder Leiter/Assistent) tippt  /fs wurf  und fuegt den
+   Gegenstand per Shift-Klick ein (oder klickt ihn in der offenen Beute an).
+   Bei allen mit Fairshare geht ein Fenster auf: Haupt (1-100), OS (1-50),
+   Passen. Gargul wird dafuer nicht gebraucht.
+ * Es zaehlt immer der ERSTE Wurf eines Spielers.
+ * Neue Datei Wurf.lua: nach dem Kopieren WoW komplett neu starten.
+
 BEFEHLE (Auswahl)       /fs hilfe zeigt alle
    /fs                  Uebersicht
    /fs verlauf          wer bekam was, wann
    /fs einstellungen    Einstellungen
+   /fs wurf             Wuerfelfenster starten
    /fs rolle            wer zeichnet gerade auf
    /fs abgleich status  Stand des Datenabgleichs
 

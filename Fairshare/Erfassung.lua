@@ -246,10 +246,26 @@ end
 
 --- Blizzards Wuerfelfenster geht fuer einen Gegenstand auf (START_LOOT_ROLL).
 --  Das Fenster zeigt ab jetzt „Wurf laeuft", auch bevor jemand gewaehlt hat.
-function Erfassung.WurfBeginnt(link)
+--  @param oeffnen  false: die Runde anlegen, die Uebersicht aber nicht aufspringen
+--                  lassen (Wurf.lua: nur der Leiter braucht sie)
+function Erfassung.WurfBeginnt(link, oeffnen)
     local r = runde(link, true)
     r.zeit = time()
-    fensterAnstossen(true)
+    fensterAnstossen(oeffnen ~= false)
+end
+
+--- Der Wurf eines Spielers in der Runde dieses Gegenstands.
+--  @return Wert, Art  oder nil
+function Erfassung.WurfVon(name, link)
+    local r = runde(link, false)
+    if not r then return nil end
+    local k = Kern.Schluessel(name)
+    local P = k and r.Spieler[k]
+    if P then return P.wert, P.art end
+    for _, X in pairs(r.Spieler) do
+        if Kern.GleicherSpieler(X.name, name) then return X.wert, X.art end
+    end
+    return nil
 end
 
 --- Ein Spieler verzichtet („passt") auf den Gegenstand.
@@ -674,7 +690,11 @@ end
 function Erfassung.Systemmeldung(text)
     if not Muster.wurf or type(text) ~= "string" then return end
     local wer, wert, min, max = text:match(Muster.wurf)
-    if wer then Erfassung.WurfMerken(wer, wert, min, max) end
+    if wer then
+        -- Laeuft ein Wurf aus Wurf.lua, gehoert der Wurf zu dessen Gegenstand.
+        local link = ns.Wurf and ns.Wurf.AktuellerLink()
+        Erfassung.WurfMerken(wer, wert, min, max, nil, link)
+    end
 end
 
 -- =====================================================================

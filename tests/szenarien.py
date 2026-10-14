@@ -502,7 +502,7 @@ c3["g"]["FairshareDB"] = c3["lua"].table_from({"fenster": c3["lua"].table_from(
     {"uebersicht": c3["lua"].table_from({"b": 10, "h": 99999})})})
 c3["ns"].Fenster.Zeigen(False)
 f3 = c3["g"]["FairshareFenster"]
-fest(f3._w == 700 and f3._h == 1100, "unsinnige gemerkte Werte werden auf die Grenzen gesetzt (%s x %s)" % (f3._w, f3._h))
+fest(f3._w == 760 and f3._h == 1100, "unsinnige gemerkte Werte werden auf die Grenzen gesetzt (%s x %s)" % (f3._w, f3._h))
 
 print("== 15. Mitgliederabgleich: Raenge, hinzufuegen und entfernen ==")
 w = gruppe(3)
@@ -902,6 +902,104 @@ fest(ns3.Erfassung.AktuelleWuerfe()["Wuerfe"]["lina"] == 40, "/rnd mehrfach: der
 w3.weiter(70)
 g3["__ereignis"]("CHAT_MSG_SYSTEM", "Lina rolls 95 (1-100)")
 fest(ns3.Erfassung.AktuelleWuerfe()["Wuerfe"]["lina"] == 95, "nach einer Minute gilt ein neuer Wurf als neue Runde")
+
+print("== 20. Eigenes Wuerfelfenster: Start, Klick, Wurf, Ende ==")
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+L0, T1, N2 = w.clients[0], w.clients[1], w.clients[2]
+for k in (0, 1, 2):
+    w.setze(k, "x%d" % k, {"awardedTo": "Timo", "itemID": 9700, "timestamp": int(w.t) - 5000})
+LINK = "|cff0070dd|Hitem:7100::::::::60:::::|h[Schwert der Probe]|h|r"
+
+
+def aktiv(k):
+    return w.clients[k]["ns"].Wurf.Aktiv()
+
+
+def hat_text(k, text):
+    return len(list(w.clients[k]["g"]["__text"](text).values())) > 0
+
+
+def systemwurf(wer, wert, bereich):
+    """Der Server meldet jedem in der Gruppe: '<wer> rolls <wert> (1-<bereich>)'."""
+    for cl in w.clients:
+        cl["g"]["__ereignis"]("CHAT_MSG_SYSTEM", "%s rolls %d (1-%d)" % (wer, wert, bereich))
+
+
+# Ein Mitglied darf keinen Wurf starten
+ok, grund = tup(T1["ns"].Wurf.Starten(LINK))
+fest(ok is False, "ein Mitglied darf keinen Wurf starten (%s)" % grund)
+# Eine gefaelschte Startmeldung eines Mitglieds wird verworfen
+N2["ns"].Abgleich.Empfangen("S;fake;30;" + LINK, "Timo-Realm")
+fest(not aktiv(2), "Startmeldung eines Nicht-Leiters wird ignoriert")
+# Ohne Link kein Wurf
+ok, grund = tup(L0["ns"].Wurf.Starten("kein link"))
+fest(ok is False, "ohne Gegenstandslink startet nichts")
+
+ok, grund = tup(L0["ns"].Wurf.Starten("x " + LINK + " y"))
+fest(ok is True, "der Leiter startet einen Wurf (%s)" % grund)
+w.weiter(3)
+fest(aktiv(0) and aktiv(1) and aktiv(2), "bei allen laeuft der Wurf")
+fest(hat_text(1, "Haupt (1-100)") and hat_text(1, "Zweit (1-50)") and hat_text(1, "Passen"), "Spieler sehen die drei Knoepfe")
+fest(hat_text(1, "Schwert der Probe"), "der Gegenstand steht im Fenster")
+fest(L0["ns"].Fenster.Sichtbar() is True, "beim Leiter oeffnet sich die Uebersicht")
+fest(T1["ns"].Fenster.Sichtbar() is False, "bei den Spielern nicht")
+
+# Timo klickt Haupt: es wird 1-100 gewuerfelt, einmal
+fest(T1["g"]["__klick"]("Haupt (1-100)") is True, "Timo klickt Haupt")
+wl = T1["g"]["__wurfLog"]
+fest(len(wl) == 1 and wl[1][1] == 1 and wl[1][2] == 100, "RandomRoll(1, 100) wurde gerufen")
+systemwurf("Timo", 77, 100)
+w.weiter(1)
+fest(T1["g"]["__klick"]("Haupt (1-100)") is False and T1["g"]["__klick"]("Zweit (1-50)") is False,
+     "danach sind die Knoepfe gesperrt")
+fest(len(T1["g"]["__wurfLog"]) == 1, "kein zweiter Wurf")
+fest(any("77" in roh(t) and "Haupt" in roh(t) for t in [str(x) for x in T1["g"]["__text"]("gewürfelt").values()]),
+     "Timo sieht seinen Wurf im Fenster")
+
+# Lina klickt Zweit
+N2["g"]["__klick"]("Zweit (1-50)")
+wl2 = N2["g"]["__wurfLog"]
+fest(len(wl2) == 1 and wl2[1][2] == 50, "RandomRoll(1, 50) fuer Zweit")
+systemwurf("Lina", 33, 50)
+
+# Der Leiter sieht beides, dem Gegenstand zugeordnet, Haupt vor Zweit
+R = L0["ns"].Erfassung.AktuelleWuerfe()
+fest(R["link"] == LINK and R["Wuerfe"]["timo"] == 77 and R["Arten"]["timo"] == "haupt", "Leiter: Timo 77 Haupt")
+fest(R["Wuerfe"]["lina"] == 33 and R["Arten"]["lina"] == "zweit", "Leiter: Lina 33 Zweit")
+
+# Der Leiter beendet: bei allen weg
+fest(L0["ns"].Wurf.BeendenAlle() is True, "Leiter beendet den Wurf")
+w.weiter(3)
+fest(not aktiv(0) and not aktiv(1) and not aktiv(2), "bei allen ist der Wurf zu")
+
+# Zeit laeuft ab
+L0["ns"].Wurf.Starten(LINK)
+w.weiter(5)
+fest(aktiv(1), "zweiter Wurf laeuft")
+w.weiter(40)
+fest(not aktiv(1) and not aktiv(0), "nach der Dauer endet der Wurf von selbst")
+
+# Passen wuerfelt nicht
+L0["ns"].Wurf.Starten(LINK)
+w.weiter(3)
+before = len(N2["g"]["__wurfLog"])
+N2["g"]["__klick"]("Passen")
+fest(len(N2["g"]["__wurfLog"]) == before, "Passen wuerfelt nicht")
+L0["ns"].Wurf.BeendenAlle()
+w.weiter(3)
+
+# Befehle und Dialog
+sl = L0["g"]["SlashCmdList"]["FAIRSHARE"]
+for befehl in ["wurf", "wurf ende", "wurf " + LINK, "wurf ende", "roll", "beutetest", "lootcheck"]:
+    sl(befehl)
+fehler = [str(x) for x in L0["g"]["__ausgabe"].values() if "Fehler" in str(x)]
+fest(not fehler, "/fs wurf und /fs beutetest ohne Fehler%s" % ((": " + fehler[0][:150]) if fehler else ""))
+fest(L0["ns"].Wurf.Dialog() is True and hat_text(0, "Dauer: 30 s"), "Startdialog oeffnet sich")
+fest(T1["ns"].Wurf.Dialog() is False, "fuer ein Mitglied oeffnet er sich nicht")
+zeilen = L0["ns"].Wurf.Beutetest()
+fest(len(list(zeilen.values())) >= 3, "Beutetest liefert Zeilen")
 
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")

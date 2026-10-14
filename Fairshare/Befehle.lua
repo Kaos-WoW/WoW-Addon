@@ -37,6 +37,8 @@ local function hilfe()
     print(L["  |cffffff78/fs <Name>|r       – Einzelvergaben eines Spielers im Chat"])
     print(L["  |cffffff78/fs abgleich|r     – Historien der Gruppe zusammenführen (|cffffff78abgleich status|r zeigt den Stand)"])
     print(L["  |cffffff78/fs rolle|r        – wer zeichnet gerade auf, und warum"])
+    print(L["  |cffffff78/fs wurf|r         – eigenes Würfelfenster starten (|cffffff78wurf <Link>|r, |cffffff78wurf ende|r)"])
+    print(L["  |cffffff78/fs beutetest|r    – Diagnose: Beutefenster und Zuteilung durch den Plündermeister"])
     print(L["  |cffffff78/fs gruppe|r       – Kader und Raidgruppen (|cffffff78gruppe hilfe|r)"])
     print(L["  |cffffff78/fs bereiche|r     – Garguls Würfelbereiche prüfen (|cffffff78bereiche setzen|r)"])
     print(L["  |cffffff78/fs auto|r         – Fenster bei Wurfbeginn automatisch öffnen (an/aus)"])
@@ -283,6 +285,36 @@ befehle["gilde"] = function()
     end
 end
 befehle["guild"] = befehle["gilde"]
+
+--- ⭐ Eigenes Wuerfelfenster: `/fs wurf <Link>` startet, `/fs wurf` oeffnet den Dialog,
+--  `/fs wurf ende` beendet.
+befehle["wurf"] = function(arg)
+    arg = arg or ""
+    local kleinn = arg:lower()
+    if kleinn == "ende" or kleinn == "end" or kleinn == "stop" then
+        local ok, grund = ns.Wurf.BeendenAlle()
+        if not ok then sag(ROT .. tostring(grund) .. "|r") end
+        return
+    end
+    if arg == "" then
+        ns.Wurf.Dialog()
+        return
+    end
+    local ok, grund = ns.Wurf.Starten(arg)
+    if not ok then
+        sag(ROT .. tostring(grund) .. "|r")
+        return
+    end
+    sag(string.format(L["Wurf gestartet – %d Sekunden."], ns.Wurf.Dauer()))
+end
+befehle["roll"] = befehle["wurf"]
+
+--- Diagnose fuer die Zuteilung durch den Pluendermeister (nur lesen).
+befehle["beutetest"] = function()
+    sag(L["Beutetest:"])
+    for _, z in ipairs(ns.Wurf.Beutetest()) do print(z) end
+end
+befehle["lootcheck"] = befehle["beutetest"]
 
 befehle["abgleich"] = function(arg)
     if arg == "status" or arg == "stand" then

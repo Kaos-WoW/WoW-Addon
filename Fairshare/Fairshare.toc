@@ -16,6 +16,7 @@ Erfassung.lua
 Abgleich.lua
 Blizzbeute.lua
 Stil.lua
+Wurf.lua
 Einstellungen.lua
 Fenster.lua
 Befehle.lua

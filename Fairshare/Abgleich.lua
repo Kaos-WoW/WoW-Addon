@@ -133,6 +133,20 @@ local function einreihen(text)
     Warteschlange[#Warteschlange + 1] = { text = text }
 end
 
+--- Fuer andere Dateien (Wurf.lua): eine Nachricht an die Gruppe.
+--  @param vorn  vor allen wartenden Abgleich-Nachrichten senden
+--  @return true, oder false ohne Gruppe
+function Abgleich.Senden(text, vorn)
+    if not kanal() then return false end
+    if vorn then
+        table.insert(Warteschlange, 1, { text = text })
+        wartezeit = 0
+    else
+        einreihen(text)
+    end
+    return true
+end
+
 --- Eine Liste durch Kommas teilen, so dass jedes Stueck passt.
 local function teilen(text, laenge)
     local stuecke, aktuell = {}, ""
@@ -529,7 +543,11 @@ function Abgleich.Empfangen(text, sender)
     -- Alles Weitere nur von Gildenmitgliedern
     if not gilde then return end
 
-    if typ == "L" then
+    if typ == "S" or typ == "X" then
+        -- Wuerfelfenster (Wurf.lua): Beginn und Ende eines Wurfs
+        if ns.Wurf then ns.Wurf.Empfangen(typ, rest, name) end
+
+    elseif typ == "L" then
         -- Neue Vergabe vom Schreiber: nur von Leiter, Assistent, Pluendermeister
         local _, zeile = rest:match("^([^;]*);(.*)$")
         if not zeile or not ns.Rolle.Berechtigt(name) then return end

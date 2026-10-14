@@ -54,6 +54,7 @@ das nur liest, weder Haupt/Zweit noch Gruppen noch Abgleich leisten kann.
 | `Erfassung.lua` | Chat, Würfe, Einstellungen, Eintragen, Gargul-Vergaben | ja |
 | `Abgleich.lua` | Hallo, Live-Meldung, Abgleich, Hinweis-Fenster | ja |
 | `Blizzbeute.lua` | Blizzards `C_LootHistory` als zweite Quelle | ja |
+| `Wurf.lua` | eigenes Würfelfenster: Haupt (1-100) / OS (1-50) / Passen, Startdialog, `/fs beutetest` | ja |
 | `Stil.lua` | Bausteine im KaosUI-Look (Farben, runde Ecken, Knopf, Schalter, Segmentwahl, Bildlauf) | ja |
 | `Einstellungen.lua` | das Einstellungsfenster (Karten und Zeilen, drei Seiten) | ja |
 | `Fenster.lua` | die Übersicht im KaosUI-Look: Liste, Verlauf, Spielerdetail, Wurf-Modus | ja |
@@ -162,6 +163,25 @@ Absenders und seine Zuordnung.
   weiterhin keine Nachnamen (kein Treffer für „surname"). Lizenz bleibt
   **All Rights Reserved**: nur Ereignisse und die Historie lesen,
   **keinen Code übernehmen**, nichts davon ins Repo.
+
+---
+
+## Eigenes Würfelfenster (`Wurf.lua`, seit 14.10.2026)
+
+Anlass: Gargul ist in der Beta noch verbuggt. Der Plündermeister/Leiter/Assistent startet einen Wurf (`/fs wurf <Link>`,
+Knopf *Wurf starten* → Dialog mit Shift-Klick-Feld und der Beute des offenen Beutefensters). Bei **allen** mit Fairshare
+geht ein kleines Fenster auf: Gegenstand (Tooltip), Zeitbalken, **Haupt (1-100)**, **OS (1-50)**, **Passen**. Ein Klick
+ruft `RandomRoll(1, 100|50)`; die Zahl kommt vom Server als `RANDOM_ROLL_RESULT` und wird wie jeder Wurf in
+`Erfassung.Systemmeldung` gelesen (das Addon sendet nie Ergebnisse → nichts zu fälschen). Solange ein Wurf läuft
+(+6 s), ordnet `Wurf.AktuellerLink()` jeden Bedarfswurf der Gruppe dem Gegenstand zu — auch von Spielern ohne Addon.
+Nachrichten über `Abgleich.Senden(text, vorn)`: `S;<id>;<Sekunden>;<Link>` und `X;<id>`, nur von Leiter/Assistent/
+Plündermeister der eigenen Gruppe und Gilde. Dauer: Einstellung `wurfDauer` (Standard 30 s). Die Übersicht öffnet sich
+nur beim Leiter (`Erfassung.WurfBeginnt(link, false)` bei den anderen). Der erste Wurf zählt (siehe unten); Haupt vor OS.
+Englisch heißt Zweitbedarf **„OS"** (Nutzerwunsch), nicht „Off".
+
+⭐ **Stufe 2 (Zuteilen über das Addon) ist noch nicht gebaut.** `/fs beutetest` (nur lesen) zeigt bei offenem Beutefenster,
+ob `GiveMasterLoot`/`GetMasterLootCandidate` da sind und wie viele Empfänger je Platz erscheinen. `/fs rolle` zeigt in
+Forever einen Plündermeister an (Nutzer, 14.10.2026), die Methode „master" gibt es also.
 
 ---
 

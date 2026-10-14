@@ -306,6 +306,11 @@ local MODUS_TEXT = {
     nie   = L["Dieser Spieler zeichnet nicht auf, er empfängt nur."],
 }
 
+local DAUERN = {
+    { wert = 20, label = "20 s" }, { wert = 30, label = "30 s" },
+    { wert = 45, label = "45 s" }, { wert = 60, label = "60 s" },
+}
+
 local function seiteDaten(P, k)
     zeile(k, { art = "knopf", label = L["Verlauf zurücksetzen"],
         beschr = function()
@@ -426,6 +431,18 @@ local function seiteGargul(P)
         beschr = L["Die Übersicht springt auf, sobald der erste Bedarfswurf fällt."],
         get = function() return ns.Fenster.AutoOeffnen() end,
         set = function(v) ns.Fenster.AutoSetzen(v) end })
+
+    local kw = karte(P, L["Würfelfenster"],
+        L["Der Plündermeister oder Leiter startet einen Wurf; alle in der Gruppe bekommen ein kleines Fenster mit Haupt (1-100) und Zweit (1-50). Gargul wird dafür nicht gebraucht."])
+    zeile(kw, { art = "segment", label = L["Dauer eines Wurfs"], werte = DAUERN,
+        beschr = L["Danach endet der Wurf von selbst. Der Leiter kann ihn vorher beenden."],
+        get = function() return ns.Wurf.Dauer() end,
+        set = function(v) d().wurfDauer = v end })
+    zeile(kw, { art = "knopf", label = L["Wurf starten"],
+        beschr = L["Öffnet den Dialog: Gegenstand per Shift-Klick einfügen oder aus der Beute wählen. Auch: /fs wurf <Link>."],
+        knopf = { text = L["Öffnen"], art = "primary",
+            aktiv = function() return ns.Wurf.DarfStarten() end,
+            klick = function() ns.Wurf.Dialog() end } })
 
     local k3 = karte(P, L["Abgleich"],
         L["Führt die Historien einer Gruppe zusammen – es kommt nur hinzu, nichts wird überschrieben."])
