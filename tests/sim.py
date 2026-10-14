@@ -262,6 +262,8 @@ GetMasterLootCandidate = function(slot, i)
     return namen[i]
 end
 GiveMasterLoot = function(slot, i) __geben[#__geben + 1] = { slot, i } end
+__chat = {}
+SendChatMessage = function(t, kanal) __chat[#__chat + 1] = { t, kanal } end
 __wurfLog = {}
 RandomRoll = function(a, b) __wurfLog[#__wurfLog + 1] = { a, b } end
 GetLootRollItemLink = function(id)

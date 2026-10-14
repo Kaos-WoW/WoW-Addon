@@ -231,6 +231,29 @@ local function testRuecknahmeInPruefsumme()
     gleich("zurueckgenommene Vergaben fehlen im Verlauf", #v2, 1)
 end
 
+local function testBereiche()
+    gleich("Standard Haupt", Kern.Bedarfsart(1, 100), "haupt")
+    gleich("Standard Zweit", Kern.Bedarfsart(1, 50), "zweit")
+    gleich("anderer Bereich ist keine Art", Kern.Bedarfsart(1, 99), nil)
+
+    gleich("eigener Bereich wird angenommen", (Kern.BereicheSetzen(1, 200, 5, 40)), true)
+    gleich("jetzt 1-200 Haupt", Kern.Bedarfsart(1, 200), "haupt")
+    gleich("5-40 Zweit", Kern.Bedarfsart(5, 40), "zweit")
+    gleich("1-100 gilt nicht mehr", Kern.Bedarfsart(1, 100), nil)
+
+    local ok, code = Kern.BereicheSetzen(1, 200, 1, 200)
+    gleich("gleiche Bereiche abgelehnt", ok, false)
+    gleich("Code gleich", code, "gleich")
+    ok, code = Kern.BereicheSetzen(10, 5, 1, 50)
+    gleich("umgekehrt abgelehnt", code, "grenzen")
+    ok, code = Kern.BereicheSetzen("x", 5, 1, 50)
+    gleich("keine Zahl abgelehnt", code, "zahl")
+    gleich("nach Fehlversuchen unveraendert", Kern.Bedarfsart(1, 200), "haupt")
+
+    Kern.BereicheSetzen(1, 100, 1, 50)    -- Standard wiederherstellen
+    gleich("Standard wieder da", Kern.Bedarfsart(1, 50), "zweit")
+end
+
 local function testWurfWert()
     -- Gleiche Stueckzahl: der hoehere Wurf steht oben
     local liste = {
@@ -701,6 +724,7 @@ function Tests.Alle(ausgeben)
     testWurfReihenfolge()
     testWurfArt()
     testWurfWert()
+    testBereiche()
     testRuecknahmeInPruefsumme()
     testWurfMeldung()
     testSpieler()

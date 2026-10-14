@@ -40,6 +40,13 @@ EIGENES WUERFELFENSTER (neu)
    Bei allen mit Fairshare geht ein Fenster auf: Haupt (1-100), OS (1-50),
    Passen. Gargul wird dafuer nicht gebraucht.
  * Es zaehlt immer der ERSTE Wurf eines Spielers.
+ * Falscher Gegenstand verrollt: im Wuerfelfenster "Abbrechen" (oder
+   /fs wurf abbrechen) - kein Ergebnis, die Wuerfe zaehlen nicht.
+ * Die Wuerfelbereiche (Standard 1-100 Haupt, 1-50 OS) lassen sich unter
+   Einstellungen -> Wuerfeln & Abgleich aendern; der Leiter schickt seine
+   mit jedem Wurf mit. Von/zu Gargul uebernehmen geht dort auch.
+ * Nach jeder Vergabe schreibt der Aufzeichner eine Zeile in den Gruppenchat
+   (abschaltbar).
  * Nach dem Wurf oeffnet sich beim Pluendermeister das Ergebnis mit dem
    Knopf "Zuteilen": Beute im Rucksack wird per Handel verteilt (das Addon
    legt den Gegenstand ein, bestaetigen tust du selbst und es wird erst

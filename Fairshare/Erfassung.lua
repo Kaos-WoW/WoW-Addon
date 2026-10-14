@@ -55,6 +55,8 @@ local function db()
     -- ⭐ Der Pluendermeister steckt die Beute oft selbst ein und verteilt sie
     -- spaeter per Handel. Was er dabei aufnimmt, ist noch keine Vergabe.
     if d.pmEingesteckt    == nil then d.pmEingesteckt = true end
+    -- Jede eingetragene Vergabe im Raid-/Gruppenchat ansagen (nur der Aufzeichner)
+    if d.ansagen          == nil then d.ansagen = true end
     if d.nurGewuerfelt    == nil then d.nurGewuerfelt = false end
 
     -- ⚠️ SavedVariables sind eine Versionsgrenze. Frueher gab es nur den
@@ -72,6 +74,52 @@ local function db()
 end
 
 Erfassung.Einstellungen = db
+
+-- =====================================================================
+--  Wuerfelbereiche (einstellbar)
+-- =====================================================================
+
+--- Die eingestellten Bereiche (Kopie).
+--  @return { haupt = { min, max }, zweit = { min, max } }
+function Erfassung.Bereiche()
+    local b = db().bereiche
+    local h = (type(b) == "table" and type(b.haupt) == "table") and b.haupt or { 1, 100 }
+    local z = (type(b) == "table" and type(b.zweit) == "table") and b.zweit or { 1, 50 }
+    return { haupt = { h[1], h[2] }, zweit = { z[1], z[2] } }
+end
+
+--- Bringt die gespeicherten Bereiche in Kern. Ohne Einstellung (oder bei
+--  unbrauchbaren Werten) gilt 1-100 und 1-50.
+function Erfassung.BereicheAnwenden()
+    local b = Erfassung.Bereiche()
+    if not Kern.BereicheSetzen(b.haupt[1], b.haupt[2], b.zweit[1], b.zweit[2]) then
+        Kern.BereicheSetzen(1, 100, 1, 50)
+    end
+end
+
+--- Stellt beide Bereiche ein und speichert sie.
+--  @return true, oder false und ein Text fuer den Spieler
+function Erfassung.BereicheSetzen(h1, h2, z1, z2)
+    local ok, code = Kern.BereicheSetzen(h1, h2, z1, z2)
+    if not ok then
+        if code == "zahl" then return false, L["Bitte ganze Zahlen eingeben."] end
+        if code == "gleich" then return false, L["Haupt- und Zweitbedarf dürfen nicht denselben Bereich haben."] end
+        return false, L["Erlaubt sind ganze Zahlen von 1 bis 10000; die obere muss größer sein als die untere."]
+    end
+    local B = Kern.BEREICHE
+    db().bereiche = { haupt = { B.haupt[1], B.haupt[2] }, zweit = { B.zweit[1], B.zweit[2] } }
+    return true
+end
+
+--- Einen der beiden Bereiche aendern.
+--  @param art  "haupt" | "zweit"
+function Erfassung.BereichSetzen(art, min, max)
+    local b = Erfassung.Bereiche()
+    if art == "haupt" then
+        return Erfassung.BereicheSetzen(min, max, b.zweit[1], b.zweit[2])
+    end
+    return Erfassung.BereicheSetzen(b.haupt[1], b.haupt[2], min, max)
+end
 
 --- Die eigene Historie.
 function Erfassung.Historie()
@@ -350,6 +398,16 @@ function Erfassung.OffeneWuerfe()
     return n
 end
 
+--- ⭐ Wurf abgebrochen: die Runde dieses Gegenstands verschwindet, ihre Wuerfe
+--  zaehlen nirgends (falscher Gegenstand verrollt).
+function Erfassung.RundeVerwerfen(link)
+    local key = gegenstandsKey(link)
+    if key ~= "" and Runden[key] then
+        Runden[key] = nil
+        fensterAnstossen(false)
+    end
+end
+
 function Erfassung.WuerfeVergessen()
     Wuerfe = {}
     Runden = {}
@@ -441,6 +499,30 @@ function Erfassung.SchonErfasst(name, id, zeit, fenster)
     return false
 end
 
+--- ⭐ Eine Zeile im Raid- oder Gruppenchat: „[Gegenstand] wurde an X vergeben!"
+--  Nur der Aufzeichner (hier laeuft nur sein Eintragen), und nur dort, wo
+--  sonst niemand etwas sagt: bei Vergaben ueber das Wuerfelfenster und bei
+--  Zuteilung durch den Pluendermeister. Blizzards Gruppenwuerfe und Gargul
+--  melden selbst.
+function Erfassung.Ansagen(name, link, art, herkunft)
+    if db().ansagen == false then return end
+
+    local erlaubt = (herkunft == "wurf")
+    if herkunft == "chat" and ns.Rolle then
+        local _, methode = ns.Rolle.Kandidaten()
+        erlaubt = (methode == "master")
+    end
+    if not erlaubt then return end
+
+    local kanal = (IsInRaid and IsInRaid()) and "RAID" or ((IsInGroup and IsInGroup()) and "PARTY" or nil)
+    local senden = (C_ChatInfo and C_ChatInfo.SendChatMessage) or rawget(_G, "SendChatMessage")
+    if not kanal or type(senden) ~= "function" then return end
+
+    local text = string.format(art == "zweit" and L["%s wurde an %s vergeben! (OS)"] or L["%s wurde an %s vergeben!"],
+        link, Kern.Anzeigename(name))
+    pcall(senden, text, kanal)
+end
+
 --- Traegt eine Vergabe ein.
 --  @param art      "haupt" | "zweit" | nil (dann aus dem gemerkten Wurf)
 --  @param kennung  eigener Schluessel; sonst aus Spieler, Stueck und Zeit
@@ -488,6 +570,7 @@ function Erfassung.Eintragen(name, link, zeit, art, kennung, extra)
     -- (ein Handel liefert keine).
     Erfassung.RundeBeenden(link)
     if ns.Wurf and ns.Wurf.Vergeben then ns.Wurf.Vergeben(link) end
+    Erfassung.Ansagen(name, link, art, V[kennung].herkunft)
     return true, art, kennung
 end
 
@@ -768,6 +851,8 @@ end
 rahmen:SetScript("OnEvent", function(_, ereignis, a1)
     if ereignis == "PLAYER_ENTERING_WORLD" then
         Erfassung.MusterBauen()
+        -- Die gespeicherten Daten sind erst jetzt sicher da.
+        pcall(Erfassung.BereicheAnwenden)
         return
     end
 

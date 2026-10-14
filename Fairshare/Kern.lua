@@ -340,6 +340,32 @@ function Kern.Argumente(text, muster, nummern)
     return A
 end
 
+-- ⭐ Die Bereiche, die als Haupt- und als Zweitbedarf gelten (einstellbar,
+-- Standard 1-100 und 1-50). Erfassung.lua haelt sie in den gespeicherten Daten
+-- und setzt sie hier; Wurf.lua uebernimmt waehrend eines Wurfs die des Leiters.
+Kern.BEREICHE = { haupt = { 1, 100 }, zweit = { 1, 50 } }
+
+--- Setzt beide Bereiche, wenn sie stimmig sind.
+--  @return true, oder false und ein Code: "zahl" | "grenzen" | "gleich"
+function Kern.BereicheSetzen(h1, h2, z1, z2)
+    local function ganz(x)
+        x = tonumber(x)
+        if x and x == math.floor(x) then return x end
+        return nil
+    end
+    h1, h2, z1, z2 = ganz(h1), ganz(h2), ganz(z1), ganz(z2)
+    if not (h1 and h2 and z1 and z2) then return false, "zahl" end
+    for _, p in ipairs({ { h1, h2 }, { z1, z2 } }) do
+        if p[1] < 1 or p[2] <= p[1] or p[2] > 10000 then return false, "grenzen" end
+    end
+    -- Gleicher Bereich fuer beide: Die Art liesse sich nicht mehr erkennen.
+    if h1 == z1 and h2 == z2 then return false, "gleich" end
+
+    Kern.BEREICHE.haupt[1], Kern.BEREICHE.haupt[2] = h1, h2
+    Kern.BEREICHE.zweit[1], Kern.BEREICHE.zweit[2] = z1, z2
+    return true
+end
+
 --- Der Wurfbereich sagt, wofuer gewuerfelt wurde.
 --  Die Gilde wuerfelt `/rnd 100` fuer Hauptbedarf und `/rnd 50` fuer
 --  Zweitbedarf. ⚠️ Alles andere ist kein Bedarfswurf und zaehlt nicht —
@@ -347,9 +373,10 @@ end
 --  @return "haupt", "zweit" oder nil
 function Kern.Bedarfsart(min, max)
     min, max = tonumber(min), tonumber(max)
-    if min ~= 1 or not max then return nil end
-    if max == 100 then return "haupt" end
-    if max == 50  then return "zweit" end
+    if not min or not max then return nil end
+    local h, z = Kern.BEREICHE.haupt, Kern.BEREICHE.zweit
+    if min == h[1] and max == h[2] then return "haupt" end
+    if min == z[1] and max == z[2] then return "zweit" end
     return nil
 end
 

@@ -7,7 +7,7 @@
 
     Drei Seiten:
       * Erfassung          was, wo und von wem aufgezeichnet wird
-      * Gargul & Abgleich  Wuerfelbereiche, Import, Fenster, Abgleich
+      * Würfeln & Abgleich  Wuerfelbereiche, Wuerfelfenster, Gargul, Abgleich
       * Gruppen            Kader und Raidgruppen
 
     ⚠️ Gelesen und geschrieben wird immer direkt in den Einstellungstisch
@@ -102,6 +102,39 @@ local function zeile(karte, def)
             b:SetLabel(t)
             b:SetAktiv(k.aktiv == nil or k.aktiv() ~= false)
             r.ctrlB = math.ceil(b:GetWidth())
+        end
+
+    elseif art == "bereich" then
+        -- zwei Zahlen („von" und „bis") und ein Knopf; die Felder zeigen den
+        -- gespeicherten Stand, solange man nicht gerade tippt
+        local f = CreateFrame("Frame", nil, r)
+        local e1 = S.Eingabe(f, 56, 26)
+        e1:SetPoint("LEFT", f, "LEFT", 0, 0)
+        local bis = S.Text(f, 13, C.mu, "CENTER")
+        bis:SetPoint("LEFT", e1, "RIGHT", 4, 0)
+        bis:SetWidth(12)
+        bis:SetText("–")
+        local e2 = S.Eingabe(f, 56, 26)
+        e2:SetPoint("LEFT", bis, "RIGHT", 4, 0)
+        local b = S.Knopf(f, def.knopf.text, "secondary")
+        b:SetPoint("LEFT", e2, "RIGHT", 8, 0)
+        local function setzen()
+            local a, z = e1:GetText(), e2:GetText()
+            e1:ClearFocus()
+            e2:ClearFocus()
+            def.set(a, z)
+            Einstellungen.Aktualisieren()
+        end
+        e1:SetScript("OnEnterPressed", setzen)
+        e2:SetScript("OnEnterPressed", setzen)
+        b:SetScript("OnClick", setzen)
+        r.ctrl, r.ctrlH = f, 26
+        r.ctrlB = 56 + 4 + 12 + 4 + 56 + 8 + math.ceil(b:GetWidth())
+        f:SetSize(r.ctrlB, 26)
+        function r.bedienen()
+            local x, y = def.get()
+            if not e1:HasFocus() then e1:SetText(tostring(x)) end
+            if not e2:HasFocus() then e2:SetText(tostring(y)) end
         end
 
     elseif art == "eingabe" then
@@ -392,10 +425,68 @@ local function seiteErfassung(P)
     seiteDaten(P, karte(P, L["Daten"]))
 end
 
-local function seiteGargul(P)
-    local k1 = karte(P, "Gargul", L["Gewürfelt wird 100 für Hauptbedarf und 50 für Zweitbedarf."])
-    zeile(k1, { art = "knopf", label = L["Würfelbereiche"],
+--- Eine Zeile mit zwei Zahlen (niedrigster und hoechster Wurf).
+local function bereichZeile(k, art, label)
+    zeile(k, { art = "bereich", label = label,
         beschr = function()
+            return Meldung.bereich or L["Niedrigster und höchster Wurf. Eingabe mit Enter oder dem Knopf."]
+        end,
+        get = function()
+            local x = ns.Erfassung.Bereiche()[art]
+            return x[1], x[2]
+        end,
+        set = function(a, z)
+            local ok, grund = ns.Erfassung.BereichSetzen(art, a, z)
+            Meldung.bereich = ok and farbig(C.ok, L["Gespeichert."]) or farbig(C.bad, tostring(grund))
+        end,
+        knopf = { text = L["Setzen"] } })
+end
+
+local function seiteWuerfeln(P)
+    -- ⭐ Die Bereiche gehoeren dem Addon, nicht Gargul: Sie gelten fuer das
+    -- eigene Wuerfelfenster und fuer die Erkennung aller Wuerfe.
+    local kb = karte(P, L["Würfelbereiche"],
+        L["Welche Wurfzahlen als Hauptbedarf und als Zweitbedarf (OS) gelten. Beim Start eines Wurfs gehen sie an alle in der Gruppe."])
+    bereichZeile(kb, "haupt", L["Bereich für Hauptbedarf"])
+    bereichZeile(kb, "zweit", L["Bereich für Zweitbedarf (OS)"])
+    zeile(kb, { art = "knopf", label = L["Standardbereiche"],
+        beschr = function() return string.format(L["Setzt %d-%d für Hauptbedarf und %d-%d für Zweitbedarf zurück."], 1, 100, 1, 50) end,
+        knopf = { text = L["Standard"],
+            klick = function()
+                ns.Erfassung.BereicheSetzen(1, 100, 1, 50)
+                Meldung.bereich = nil
+            end } })
+
+    local kw = karte(P, L["Würfelfenster"],
+        L["Der Plündermeister oder Leiter startet einen Wurf; alle in der Gruppe bekommen ein kleines Fenster zum Würfeln für Hauptbedarf oder Zweitbedarf (OS). Gargul wird dafür nicht gebraucht."])
+    zeile(kw, { art = "segment", label = L["Dauer eines Wurfs"], werte = DAUERN,
+        beschr = L["Danach endet der Wurf von selbst. Der Leiter kann ihn vorher beenden oder abbrechen."],
+        get = function() return ns.Wurf.Dauer() end,
+        set = function(v) d().wurfDauer = v end })
+    zeile(kw, { art = "schalter", label = L["Vergabe im Gruppenchat ansagen"],
+        beschr = L["Der Aufzeichner schreibt nach jeder eingetragenen Vergabe eine Zeile in den Raid- oder Gruppenchat."],
+        get = function() return d().ansagen ~= false end,
+        set = function(v) d().ansagen = v end })
+    zeile(kw, { art = "knopf", label = L["Wurf starten"],
+        beschr = L["Öffnet den Dialog: Gegenstand per Shift-Klick einfügen oder aus der Beute wählen. Auch: /fs wurf <Link>."],
+        knopf = { text = L["Öffnen"], art = "primary",
+            aktiv = function() return ns.Wurf.DarfStarten() end,
+            klick = function() ns.Wurf.Dialog() end } })
+
+    local kf = karte(P, L["Fenster"])
+    zeile(kf, { art = "schalter", label = L["Bei Wurfbeginn selbst öffnen"],
+        beschr = L["Die Übersicht springt auf, sobald der erste Bedarfswurf fällt."],
+        get = function() return ns.Fenster.AutoOeffnen() end,
+        set = function(v) ns.Fenster.AutoSetzen(v) end })
+
+    local k1 = karte(P, "Gargul", function()
+        local B = ns.Erfassung.Bereiche()
+        return string.format(L["Gewürfelt wird %d-%d für Hauptbedarf und %d-%d für Zweitbedarf."],
+            B.haupt[1], B.haupt[2], B.zweit[1], B.zweit[2])
+    end)
+    zeile(k1, { art = "knopf", label = L["Würfelbereiche in Gargul"],
+        beschr = function()
+            if Meldung.gargul then return Meldung.gargul end
             local B, grund = ns.Quelle.GargulBereiche()
             if not B then
                 return string.format(L["Gargul ist nicht bereit (%s). Ohne Gargul liest das Addon die Würfe selbst aus dem Chat."],
@@ -405,15 +496,32 @@ local function seiteGargul(P)
             if B.ok then
                 return farbig(C.ok, L["Stimmen."]) .. "  " .. string.format(L["Gargul kennt: %s"], liste)
             end
+            local H = ns.Erfassung.Bereiche()
             return farbig(C.bad, L["Passen nicht."]) .. "  " .. string.format(L["Gargul kennt: %s"], liste) ..
-                ". " .. L["Erwartet werden 1-100 und 1-50, sonst wird der Zweitbedarf nicht erkannt."]
+                ". " .. string.format(L["Erwartet werden %d-%d und %d-%d, sonst wird der Zweitbedarf nicht erkannt."],
+                    H.haupt[1], H.haupt[2], H.zweit[1], H.zweit[2])
         end,
-        knopf = { text = L["Auf 100/50 stellen"], art = "primary",
+        knopf = { text = L["In Gargul übernehmen"], art = "primary",
             aktiv = function()
                 local B = ns.Quelle.GargulBereiche()
                 return B ~= nil and not B.ok
             end,
-            klick = function() ns.Quelle.GargulBereicheSetzen() end } })
+            klick = function()
+                local ok, grund = ns.Quelle.GargulBereicheSetzen()
+                Meldung.gargul = ok and farbig(C.ok, L["Übernommen."]) or farbig(C.bad, tostring(grund))
+            end } })
+    zeile(k1, { art = "knopf", label = L["Würfelbereiche aus Gargul"],
+        beschr = function()
+            return Meldung.gargulHolen or L["Liest Garguls Bereiche für Hauptbedarf (MS) und Zweitbedarf (OS) und setzt sie hier."]
+        end,
+        knopf = { text = L["Aus Gargul übernehmen"],
+            aktiv = function() return ns.Quelle.GargulBereiche() ~= nil end,
+            klick = function()
+                local ok, grund = ns.Quelle.GargulBereicheUebernehmen()
+                Meldung.gargulHolen = ok and farbig(C.ok, L["Übernommen."]) or farbig(C.bad, tostring(grund))
+                Meldung.gargul = nil
+                Meldung.bereich = nil
+            end } })
     zeile(k1, { art = "knopf", label = L["Bisherige Vergaben übernehmen"],
         beschr = function()
             return Meldung.import or L["Holt Garguls bisherige Aufzeichnungen in die eigene Historie. Mehrfaches Übernehmen ändert nichts."]
@@ -429,24 +537,6 @@ local function seiteGargul(P)
                 end
                 if ns.Fenster then ns.Fenster.Aktualisieren() end
             end } })
-
-    local k2 = karte(P, L["Fenster"])
-    zeile(k2, { art = "schalter", label = L["Bei Wurfbeginn selbst öffnen"],
-        beschr = L["Die Übersicht springt auf, sobald der erste Bedarfswurf fällt."],
-        get = function() return ns.Fenster.AutoOeffnen() end,
-        set = function(v) ns.Fenster.AutoSetzen(v) end })
-
-    local kw = karte(P, L["Würfelfenster"],
-        L["Der Plündermeister oder Leiter startet einen Wurf; alle in der Gruppe bekommen ein kleines Fenster mit Haupt (1-100) und Zweit (1-50). Gargul wird dafür nicht gebraucht."])
-    zeile(kw, { art = "segment", label = L["Dauer eines Wurfs"], werte = DAUERN,
-        beschr = L["Danach endet der Wurf von selbst. Der Leiter kann ihn vorher beenden."],
-        get = function() return ns.Wurf.Dauer() end,
-        set = function(v) d().wurfDauer = v end })
-    zeile(kw, { art = "knopf", label = L["Wurf starten"],
-        beschr = L["Öffnet den Dialog: Gegenstand per Shift-Klick einfügen oder aus der Beute wählen. Auch: /fs wurf <Link>."],
-        knopf = { text = L["Öffnen"], art = "primary",
-            aktiv = function() return ns.Wurf.DarfStarten() end,
-            klick = function() ns.Wurf.Dialog() end } })
 
     local k3 = karte(P, L["Abgleich"],
         L["Führt die Historien einer Gruppe zusammen – es kommt nur hinzu, nichts wird überschrieben."])
@@ -608,8 +698,8 @@ end
 local NAV = {
     { id = "erfassung", label = L["Erfassung"],         icon = "settings.tga",
       titel = L["Erfassung"], beschr = L["Was, wo und von wem aufgezeichnet wird."], bauen = seiteErfassung },
-    { id = "gargul",    label = L["Gargul & Abgleich"], icon = "rotate.tga",
-      titel = L["Gargul & Abgleich"], beschr = L["Würfelbereiche, Import und der Abgleich zwischen den Spielern."], bauen = seiteGargul },
+    { id = "gargul",    label = L["Würfeln & Abgleich"], icon = "rotate.tga",
+      titel = L["Würfeln & Abgleich"], beschr = L["Würfelbereiche, Würfelfenster, Gargul und der Abgleich zwischen den Spielern."], bauen = seiteWuerfeln },
     { id = "gruppen",   label = L["Gruppen"],           icon = "users-group.tga",
       titel = L["Gruppen"], beschr = L["Kader und Raidgruppen für verschiedene Raidgrößen."], bauen = seiteGruppen },
 }
@@ -862,6 +952,7 @@ end
 function Einstellungen.Waehle(id)
     if not Seiten[id] then return end
     aktuelleSeite = id
+    Meldung.bereich, Meldung.gargul, Meldung.gargulHolen = nil, nil, nil
     loeschenBereit = nil
     verlaufBereit = false
     scroll:Zurueck()

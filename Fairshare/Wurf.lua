@@ -1,5 +1,5 @@
 --[[----------------------------------------------------------------------
-    Wurf.lua  —  Eigenes Wuerfelfenster: Haupt (1-100) oder Zweit (1-50)
+    Wurf.lua  —  Eigenes Wuerfelfenster: Hauptbedarf oder Zweitbedarf (OS)
 
     ⭐ Warum es das gibt (Nutzer, 14.10.2026): Gargul ist in der Beta noch
     verbuggt. Fairshare bietet deshalb selbst an, was die Gilde braucht:
@@ -8,8 +8,9 @@
          Gegenstand: `/fs wurf <Link>`, der Knopf *Wurf starten* oder
          die Beute im offenen Beutefenster anklicken.
       2. Bei ALLEN in der Gruppe mit Fairshare geht ein kleines Fenster auf:
-         Gegenstand, Restzeit, Knoepfe **Haupt (1-100)**, **Zweit (1-50)**,
-         **Passen**.
+         Gegenstand, Restzeit, Knoepfe **Haupt**, **Zweit (OS)**, **Passen**.
+         Die Bereiche (Standard 1-100 und 1-50) sind einstellbar; der Leiter
+         schickt seine mit jedem Wurf mit, damit alle gleich wuerfeln.
       3. Ein Klick wuerfelt (`RandomRoll`) im richtigen Bereich. Die Zahl
          wuerfelt der Server; sie kommt wie jeder Wurf als Systemmeldung
          an und wird in Erfassung.lua gelesen. Das Addon sendet also keine
@@ -49,7 +50,7 @@ local GRUEN  = S.Code(C.ok)
 local PRAEFIX = "|cff1B6B57Fairshare|r: "
 local STANDARDDAUER = 30
 local NACHLAUF = 6        -- Sekunden nach dem Ende, in denen ein spaeter Wurf noch zaehlt
-local BAHN = 288          -- Breite des Zeitbalkens
+local BAHN = 308          -- Breite des Zeitbalkens
 
 local aktiv = nil         -- { rid, link, dauer, ende, meine, wert }
 local nachlauf = nil      -- { link, bis }
@@ -181,14 +182,16 @@ local function waehlen(art)
     aktiv.meine = art
 
     if art ~= "pass" then
-        local max = (art == "haupt") and 100 or 50
+        -- Der Bereich dieses Wurfs (vom Leiter mitgeschickt), sonst der eigene.
+        local B = aktiv.bereiche or Kern.BEREICHE
+        local r = (art == "haupt") and B.haupt or B.zweit
         local f = rawget(_G, "RandomRoll")
         local ok = false
-        if type(f) == "function" then ok = pcall(f, 1, max) end
+        if type(f) == "function" then ok = pcall(f, r[1], r[2]) end
         if not ok then
             -- Ohne RandomRoll bleibt nur der Handgriff.
             aktiv.meine = nil
-            sag(ROT .. string.format(L["Würfeln nicht möglich – bitte |cffffff78/roll 1-%d|r eingeben."], max) .. "|r")
+            sag(ROT .. string.format(L["Würfeln nicht möglich – bitte |cffffff78/roll %d-%d|r eingeben."], r[1], r[2]) .. "|r")
         end
     end
     popupAktualisieren()
@@ -198,7 +201,7 @@ local function popupBauen()
     if popup then return end
     local p = CreateFrame("Frame", "FairshareWurf", UIParent)
     popup = p
-    p:SetSize(320, 168)
+    p:SetSize(340, 168)
     p:SetFrameStrata("DIALOG")
     p:SetFrameLevel(60)
     p:SetClampedToScreen(true)
@@ -216,6 +219,12 @@ local function popupBauen()
     p.beenden:SetPoint("RIGHT", zu, "LEFT", -6, 0)
     p.beenden:SetFrameLevel(p:GetFrameLevel() + 5)
     p.beenden:SetScript("OnClick", function() Wurf.BeendenAlle() end)
+
+    -- Falscher Gegenstand verrollt: abbrechen, ohne Ergebnis, bei allen
+    p.abbrechen = S.Knopf(p, L["Abbrechen"], "link", 22)
+    p.abbrechen:SetPoint("RIGHT", p.beenden, "LEFT", -6, 0)
+    p.abbrechen:SetFrameLevel(p:GetFrameLevel() + 5)
+    p.abbrechen:SetScript("OnClick", function() Wurf.Abbrechen() end)
 
     -- Gegenstand (mit Tooltip)
     local item = CreateFrame("Button", nil, p)
@@ -250,13 +259,13 @@ local function popupBauen()
     p.rest:SetWidth(48)
 
     -- Die drei Knoepfe
-    p.haupt = S.Knopf(p, L["Haupt (1-100)"], "primary", 30)
-    p.haupt:SetFest(124)
+    p.haupt = S.Knopf(p, string.format(L["Haupt (%d-%d)"], Kern.BEREICHE.haupt[1], Kern.BEREICHE.haupt[2]), "primary", 30)
+    p.haupt:SetFest(130)
     p.haupt:SetPoint("BOTTOMLEFT", p, "BOTTOMLEFT", 16, 16)
     p.haupt:SetScript("OnClick", function() waehlen("haupt") end)
 
-    p.zweit = S.Knopf(p, L["Zweit (1-50)"], "secondary", 30)
-    p.zweit:SetFest(104)
+    p.zweit = S.Knopf(p, string.format(L["Zweit (%d-%d)"], Kern.BEREICHE.zweit[1], Kern.BEREICHE.zweit[2]), "secondary", 30)
+    p.zweit:SetFest(110)
     p.zweit:SetPoint("LEFT", p.haupt, "RIGHT", 6, 0)
     p.zweit:SetScript("OnClick", function() waehlen("zweit") end)
 
@@ -309,11 +318,17 @@ popupAktualisieren = function()
     end
     popup.status:SetText(text)
 
+    -- Beschriftung mit den Bereichen DIESES Wurfs
+    local B = aktiv.bereiche or Kern.BEREICHE
+    popup.haupt:SetLabel(string.format(L["Haupt (%d-%d)"], B.haupt[1], B.haupt[2]))
+    popup.zweit:SetLabel(string.format(L["Zweit (%d-%d)"], B.zweit[1], B.zweit[2]))
+
     local frei = not m
     popup.haupt:SetAktiv(frei)
     popup.zweit:SetAktiv(frei)
     popup.passen:SetAktiv(frei)
     popup.beenden:SetShown(Wurf.DarfStarten())
+    popup.abbrechen:SetShown(Wurf.DarfStarten())
 end
 
 -- =====================================================================
@@ -324,10 +339,33 @@ local ergebnisZeigen, ergebnisVerstecken
 local ergebnis            -- das Ergebnisfenster
 local ergebnisDaten       -- { link, zeilen = { { name, wert, art, haupt, zweit } } }
 
-local function beginnen(rid, link, dauer, selbst)
-    aktiv = { rid = rid, link = link, dauer = dauer, ende = time() + dauer, selbst = selbst and true or false }
+local function kopie(B)
+    return { haupt = { B.haupt[1], B.haupt[2] }, zweit = { B.zweit[1], B.zweit[2] } }
+end
+
+--  @param bereiche  { h1, h2, z1, z2 } des Leiters, oder nil (alte Fassung)
+local function beginnen(rid, link, dauer, selbst, bereiche)
+    -- Ein noch laufender Wurf mit fremden Bereichen: erst die eigenen zurueck.
+    if aktiv and aktiv.tauschen then ns.Erfassung.BereicheAnwenden() end
+
+    aktiv = { rid = rid, link = link, dauer = dauer, ende = time() + dauer, selbst = selbst and true or false,
+              bereiche = kopie(Kern.BEREICHE) }
     nachlauf = nil
     ergebnisVerstecken()
+
+    -- ⭐ Alle wuerfeln und erkennen mit den Bereichen des Leiters, solange der Wurf
+    -- laeuft (nicht gespeichert; danach gelten wieder die eigenen).
+    if bereiche and not selbst then
+        local eigene = kopie(Kern.BEREICHE)
+        if Kern.BereicheSetzen(bereiche[1], bereiche[2], bereiche[3], bereiche[4]) then
+            aktiv.bereiche = kopie(Kern.BEREICHE)
+            aktiv.tauschen = (eigene.haupt[1] ~= bereiche[1] or eigene.haupt[2] ~= bereiche[2]
+                              or eigene.zweit[1] ~= bereiche[3] or eigene.zweit[2] ~= bereiche[4])
+            if not aktiv.tauschen then aktiv.tauschen = nil end
+        else
+            Kern.BereicheSetzen(eigene.haupt[1], eigene.haupt[2], eigene.zweit[1], eigene.zweit[2])
+        end
+    end
 
     -- Die Uebersicht oeffnet sich nur bei dem, der den Wurf leitet.
     ns.Erfassung.WurfBeginnt(link, Wurf.DarfStarten())
@@ -342,9 +380,10 @@ end
 --  @param ohneErgebnis  true: das Ergebnisfenster nicht zeigen (der Gegenstand ist schon vergeben)
 function Wurf.Ende(ohneErgebnis)
     if not aktiv then return end
-    local link, selbst = aktiv.link, aktiv.selbst
+    local link, selbst, tauschen = aktiv.link, aktiv.selbst, aktiv.tauschen
     nachlauf = { link = link, bis = time() + NACHLAUF }
     aktiv = nil
+    if tauschen then ns.Erfassung.BereicheAnwenden() end
     if popup then popup:Hide() end
     if ns.Fenster then ns.Fenster.Aktualisieren() end
 
@@ -369,7 +408,11 @@ function Wurf.Starten(eingabe)
 
     local dauer = Wurf.Dauer()
     local rid = string.format("%x", (math.random(0x1000, 0xFFFFF) + time()) % 0xFFFFFF)
-    if not ns.Abgleich.Senden(string.format("S;%s;%d;%s", rid, dauer, link), true) then
+    -- Format: S;<Kennung>;<Sekunden>;<h1>,<h2>,<z1>,<z2>;<Link>. Aeltere Fassungen
+    -- lesen nur den Link heraus und ignorieren die Bereiche.
+    local B = Kern.BEREICHE
+    local bereiche = string.format("%d,%d,%d,%d", B.haupt[1], B.haupt[2], B.zweit[1], B.zweit[2])
+    if not ns.Abgleich.Senden(string.format("S;%s;%d;%s;%s", rid, dauer, bereiche, link), true) then
         return false, L["Senden nicht möglich."]
     end
     beginnen(rid, link, dauer, true)
@@ -384,6 +427,28 @@ function Wurf.BeendenAlle(ohneErgebnis)
     end
     Wurf.Ende(ohneErgebnis)
     return true
+end
+
+--- ⭐ Wurf abbrechen (falscher Gegenstand verrollt): bei allen schliessen sich die
+--  Fenster, es gibt kein Ergebnis, und die bisherigen Wuerfe zaehlen nirgends.
+--  Auch nach dem Ende eines Wurfs, solange das Ergebnis noch offen ist.
+function Wurf.Abbrechen()
+    if aktiv then
+        local link = aktiv.link
+        if Wurf.DarfStarten() then ns.Abgleich.Senden("X;" .. aktiv.rid .. ";a", true) end
+        Wurf.Ende(true)
+        nachlauf = nil
+        ns.Erfassung.RundeVerwerfen(link)
+        sag(L["Wurf abgebrochen."])
+        return true
+    end
+    if ergebnisDaten then
+        ns.Erfassung.RundeVerwerfen(ergebnisDaten.link)
+        ergebnisVerstecken()
+        sag(L["Wurf abgebrochen."])
+        return true
+    end
+    return false, L["Es läuft kein Wurf."]
 end
 
 --- ⭐ Der Gegenstand ist vergeben (egal auf welchem Weg: Handel, Beutefenster,
@@ -426,6 +491,12 @@ function Wurf.Empfangen(typ, rest, sender, unit)
 
     if typ == "S" then
         local rid, d, text = rest:match("^([^;]*);(%d+);(.*)$")
+        local bereiche
+        local h1, h2, z1, z2, danach = (text or ""):match("^(%d+),(%d+),(%d+),(%d+);(.*)$")
+        if h1 then
+            bereiche = { tonumber(h1), tonumber(h2), tonumber(z1), tonumber(z2) }
+            text = danach
+        end
         local link = linkAus(text)
         d = tonumber(d)
         if not rid or #rid > 12 or not d or not link then
@@ -433,12 +504,22 @@ function Wurf.Empfangen(typ, rest, sender, unit)
             return
         end
         merke(string.format(L["Wurf von %s angenommen: %s"], tostring(name), link))
-        beginnen(rid, link, math.max(5, math.min(120, d)), false)
+        beginnen(rid, link, math.max(5, math.min(120, d)), false, bereiche)
     elseif typ == "X" then
-        local rid = rest:match("^([^;]*)")
+        local rid, flag = rest:match("^([^;]*);?(%a?)")
         if aktiv and rid == aktiv.rid then
-            merke(string.format(L["Wurf beendet von %s"], tostring(name)))
-            Wurf.Ende()
+            if flag == "a" then
+                -- abgebrochen: kein Ergebnis, die Wuerfe zaehlen nirgends
+                local link = aktiv.link
+                merke(string.format(L["Wurf beendet von %s"], tostring(name)))
+                Wurf.Ende(true)
+                nachlauf = nil
+                ns.Erfassung.RundeVerwerfen(link)
+                sag(string.format(L["Wurf abgebrochen von %s."], tostring(name)))
+            else
+                merke(string.format(L["Wurf beendet von %s"], tostring(name)))
+                Wurf.Ende()
+            end
         end
     end
 end
@@ -1102,7 +1183,10 @@ local function ergebnisBauen()
 
     e.fuss = S.Text(e, 11, C.dim, "LEFT", true)
     e.fuss:SetPoint("BOTTOMLEFT", e, "BOTTOMLEFT", 16, 14)
-    e.fuss:SetWidth(348)
+    e.fuss:SetWidth(230)
+    e.verwerfen = S.Knopf(e, L["Wurf verwerfen"], "link", 22)
+    e.verwerfen:SetPoint("BOTTOMRIGHT", e, "BOTTOMRIGHT", -16, 12)
+    e.verwerfen:SetScript("OnClick", function() Wurf.Abbrechen() end)
     e.fuss:SetText(L["Beim Handel wird erst eingetragen, wenn er abgeschlossen ist. Bestätigen musst du selbst."])
     e:Hide()
 end

@@ -151,9 +151,10 @@ Absenders und seine Zuordnung.
 ## Gargul
 
 * **Würfelbereiche:** Gargul bringt MS 1–100 und OS 1–99 mit. Die Gilde
-  würfelt **100 / 50**. `Quelle.GargulBereiche()` prüft, `…Setzen()` stellt
-  `RollTracking.Brackets` um (Einstellung, kein Eingriff in den Code);
-  `/fs bereiche`. Sonst ordnet Gargul die 50er-Würfe nicht ein.
+  würfelt standardmäßig **100 / 50** (jetzt **einstellbar**, siehe „Würfelbereiche einstellbar").
+  `Quelle.GargulBereiche()` prüft, `…Setzen()` stellt `RollTracking.Brackets` auf die Bereiche von Fairshare um
+  (Einstellung, kein Eingriff in den Code), `…Uebernehmen()` holt MS/OS aus Gargul nach Fairshare; `/fs bereiche`.
+  Sonst ordnet Gargul die 50er-Würfe nicht ein.
 * **Ereignisse:** `GL.ITEM_AWARDED` → eintragen; `GL.ITEM_AWARD_EDITED` →
   Gewinner/Haupt-Zweit nachziehen; `GL.ITEM_UNAWARDED` → `zurueck` setzen
   (nicht löschen, sonst brächte der Abgleich es zurück) und verteilen.
@@ -186,6 +187,26 @@ Englisch heißt Zweitbedarf **„OS"** (Nutzerwunsch), nicht „Off".
   die Knöpfe in `Wurf.lua` (`RandomRoll`, Beschriftung), `Quelle.GargulBereiche`/`SOLL`, Texte. Idee: zwei Einstellungen
   (Obergrenze Haupt, Obergrenze OS), überall daraus lesen; Beschriftungen und Erkennung folgen; Abgleich-Protokoll
   unberührt (die Art steckt im Eintrag, nicht der Bereich).
+
+### Würfelbereiche einstellbar, Ansage, Abbrechen (Nutzerwünsche 14.10.2026)
+
+* ⭐ **Würfelbereiche einstellbar** (Einstellungen → *Würfeln & Abgleich* → *Würfelbereiche*; `/fs bereiche haupt 1 100`,
+  `… zweit 1 50`): `Kern.BEREICHE` (Standard 1-100/1-50) wird von `Erfassung.BereicheAnwenden` aus `FairshareDB.bereiche`
+  befüllt (bei `PLAYER_ENTERING_WORLD`, nicht beim Laden der Datei: die gespeicherten Daten sind dann noch nicht da).
+  `Kern.Bedarfsart(min, max)` vergleicht damit. Geprüft wird in `Kern.BereicheSetzen` (ganze Zahlen, 1 ≤ min < max ≤ 10000,
+  Haupt ≠ Zweit). **Die Bereiche des Leiters gehen mit jedem Wurf mit** (`S;id;Sekunden;h1,h2,z1,z2;Link`; ältere Fassungen
+  lesen nur den Link): Alle würfeln und erkennen für die Dauer des Wurfs mit **seinen** Bereichen (nur im Speicher,
+  `aktiv.tauschen`), danach gelten wieder die eigenen. Sonst würfelte ein Spieler mit anderer Einstellung falsch.
+* ⭐ **Mit Gargul in beide Richtungen**: *In Gargul übernehmen* (`GargulBereicheSetzen`: MS/OS nach den Bereichen von
+  Fairshare) und *Aus Gargul übernehmen* (`GargulBereicheUebernehmen`: erster Nicht-OS-Bereich = Haupt, erster OS-Bereich =
+  Zweit). Die Seite heißt jetzt **„Würfeln & Abgleich"** (englisch „Roll and Sync").
+* **Ansage im Chat** (`Erfassung.Ansagen`, Schalter `ansagen`, Standard an): Nach jeder eingetragenen Vergabe schreibt der
+  **Aufzeichner** „[Gegenstand] wurde an X vergeben!" (OS: „… (OS)") in `RAID`/`PARTY`. Nur bei Herkunft `wurf` (Würfelfenster,
+  Handel, „Nur eintragen") und bei `chat` **mit Plündermeister** (Zuteilung im Beutefenster); Blizzards Gruppenwürfe und
+  Gargul melden selbst.
+* **Wurf abbrechen** (`Wurf.Abbrechen`, `/fs wurf abbrechen`, Knopf *Abbrechen* im Würfelfenster, *Wurf verwerfen* im
+  Ergebnis): Nachricht `X;id;a`, bei allen schließt das Fenster, **kein Ergebnis**, die Runde wird verworfen
+  (`Erfassung.RundeVerwerfen`), die Würfe zählen nirgends. *Beenden* bleibt das normale Ende mit Ergebnis.
 
 ### Eine Vergabe beendet den Wurf (Nutzerfund 14.10.2026)
 

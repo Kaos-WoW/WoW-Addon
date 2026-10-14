@@ -324,9 +324,9 @@ g["__klick"]("Selten")
 fest(g["__klick"]("Instanz") is True, "Ort Instanz")
 fest(ns.Erfassung.Einstellungen()["ort"] == "instanz", "Ort gespeichert")
 g["__klick"]("Schlachtzug")
-for seite in ("Gargul & Abgleich", "Gruppen", "Erfassung"):
+for seite in ("Würfeln & Abgleich", "Gruppen", "Erfassung"):
     fest(g["__klick"](seite) is True, "Seite %s" % seite)
-g["__klick"]("Gargul & Abgleich")
+g["__klick"]("Würfeln & Abgleich")
 fest(len(list(g["__text"]("Bei Wurfbeginn selbst öffnen").values())) > 0, "Gargul-Seite baut sich auf")
 fest(g["__klick"]("Übernehmen") is True, "Import-Knopf (ohne Gargul ohne Absturz)")
 fest(g["__klick"]("Abgleichen") is True, "Abgleich-Knopf")
@@ -431,7 +431,7 @@ g["__klick"]("Settings")
 fest(ns.Einstellungen.Sichtbar() is True, "Einstellungsfenster oeffnet sich")
 fest(hat("Recording") and hat("Who records"), "Einstellungen auf Englisch")
 fest(not hat("Aufzeichnen") and not hat("Wer zeichnet auf"), "kein Deutsch in den Einstellungen")
-g["__klick"]("Gargul & Sync")
+g["__klick"]("Roll and Sync")
 fest(hat("Roll ranges") and hat("Open by itself when a roll starts"), "Gargul-Seite auf Englisch")
 g["__klick"]("Groups")
 fest(hat("New group") and hat("No group yet"), "Gruppen-Seite auf Englisch")
@@ -1478,6 +1478,197 @@ sl = g2["SlashCmdList"]["FAIRSHARE"]
 sl("wurf status")
 fehler = [str(x) for x in g2["__ausgabe"].values() if "Fehler" in str(x)]
 fest(not fehler, "/fs wurf status ohne Fehler")
+
+print("== 26. Einstellbare Wuerfelbereiche, Gargul-Uebernahme ==")
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(10)
+cl = w.clients[0]
+ns, g, lua = cl["ns"], cl["g"], cl["lua"]
+K = ns.Kern
+
+fest(K.Bedarfsart(1, 100) == "haupt" and K.Bedarfsart(1, 50) == "zweit", "Standard: 1-100 Haupt, 1-50 Zweit")
+ok, grund = tup(ns.Erfassung.BereichSetzen("haupt", 1, 200))
+fest(ok is True, "Hauptbereich auf 1-200 gesetzt (%s)" % grund)
+fest(K.Bedarfsart(1, 200) == "haupt" and K.Bedarfsart(1, 100) is None, "ab jetzt zaehlt 1-200 als Haupt, 1-100 nicht mehr")
+fest(g["FairshareDB"]["bereiche"]["haupt"][2] == 200, "und es ist gespeichert")
+K.BereicheSetzen(1, 100, 1, 50)                       # wie nach einem Neustart: Standard im Speicher
+ns.Erfassung.BereicheAnwenden()
+fest(K.Bedarfsart(1, 200) == "haupt", "BereicheAnwenden holt die gespeicherten Werte zurueck")
+
+for was, args in (("Zahlen", ("a", "b")), ("umgekehrt", (50, 20)), ("zu gross", (1, 99999)), ("null", (0, 10)),
+                  ("gleich wie OS", (1, 50)), ("Kommazahl", (1, 10.5))):
+    ok, grund = tup(ns.Erfassung.BereichSetzen("haupt", *args))
+    fest(ok is False, "abgelehnt: %s (%s)" % (was, str(grund)[:50]))
+fest(K.Bedarfsart(1, 200) == "haupt", "nach den Fehlversuchen gilt weiter 1-200")
+
+ok, grund = tup(ns.Erfassung.BereichSetzen("zweit", 3, 40))
+fest(ok is True and K.Bedarfsart(3, 40) == "zweit", "auch ein Bereich, der nicht bei 1 beginnt (3-40)")
+ns.Erfassung.BereicheSetzen(1, 100, 1, 50)
+
+# --- Gargul: beide Richtungen --------------------------------------------------
+lua.execute("""
+Gargul = {
+  _cfg = { ["RollTracking.Brackets"] = { {"MS",1,100,2,false,false}, {"OS",1,99,3,true,false} } },
+  Settings = {
+    get = function(self, k, d) local v = Gargul._cfg[k]; if v == nil then return d end return v end,
+    set = function(self, k, v) Gargul._cfg[k] = v end,
+  },
+  Events = { handlers = {}, register = function(self, id, ev, fn) self.handlers[ev] = fn end },
+}
+""")
+ok, grund = tup(ns.Quelle.GargulBereicheUebernehmen())
+fest(ok is True and K.Bedarfsart(1, 99) == "zweit", "aus Gargul uebernommen: OS ist jetzt 1-99 (%s)" % grund)
+ns.Erfassung.BereicheSetzen(1, 200, 1, 20)
+ns.Quelle.GargulBereicheSetzen()
+B = g["Gargul"]["_cfg"]["RollTracking.Brackets"]
+fest(B[1][2] == 1 and B[1][3] == 200 and B[2][3] == 20 and B[2][5] is True, "in Gargul eingestellt: 1-200 / 1-20")
+fest(ns.Quelle.GargulBereiche()["ok"] is True, "Gargul und Fairshare stimmen ueberein")
+
+# --- Befehl ---------------------------------------------------------------------
+sl = g["SlashCmdList"]["FAIRSHARE"]
+sl("bereiche haupt 1 120")
+fest(K.Bedarfsart(1, 120) == "haupt", "/fs bereiche haupt 1 120")
+sl("bereiche os 1 30")
+fest(K.Bedarfsart(1, 30) == "zweit", "/fs bereiche os 1 30")
+sl("bereiche haupt 9 3")
+fest(K.Bedarfsart(1, 120) == "haupt", "ungueltige Eingabe aendert nichts")
+sl("bereiche setzen")
+fest(g["Gargul"]["_cfg"]["RollTracking.Brackets"][1][3] == 120, "/fs bereiche setzen -> Gargul")
+lua.execute('Gargul._cfg["RollTracking.Brackets"] = { {"MS",1,70,2,false,false}, {"OS",1,30,3,true,false} }')
+sl("bereiche uebernehmen")
+fest(K.Bedarfsart(1, 70) == "haupt", "/fs bereiche uebernehmen <- Gargul")
+sl("bereiche")
+fehler = [str(x) for x in g["__ausgabe"].values() if "Fehler" in str(x)]
+fest(not fehler, "/fs bereiche ohne Fehler")
+ns.Erfassung.BereicheSetzen(1, 100, 1, 50)
+
+# --- Einstellungsseite ----------------------------------------------------------
+ns.Einstellungen.Zeigen()
+g["__klick"]("Würfeln & Abgleich")
+fest(len(list(g["__text"]("Bereich für Hauptbedarf").values())) > 0, "Seite zeigt den Bereich fuer Hauptbedarf")
+fest(len(list(g["__text"]("Bereich für Zweitbedarf (OS)").values())) > 0, "und den fuer Zweitbedarf (OS)")
+ns.Erfassung.BereicheSetzen(1, 300, 1, 40)
+ns.Einstellungen.Aktualisieren()
+fest(g["__klick"]("Standard") is True and K.Bedarfsart(1, 100) == "haupt", "Knopf Standard setzt 1-100 / 1-50")
+lua.execute('Gargul._cfg["RollTracking.Brackets"] = { {"MS",1,100,2,false,false}, {"OS",1,60,3,true,false} }')
+ns.Einstellungen.Aktualisieren()
+fest(g["__klick"]("Aus Gargul übernehmen") is True and K.Bedarfsart(1, 60) == "zweit", "Knopf Aus Gargul uebernehmen")
+fest(g["__klick"]("In Gargul übernehmen") is not None, "Knopf In Gargul uebernehmen (vorhanden)")
+
+# --- Die Bereiche gehen mit dem Wurf an alle -------------------------------------
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+L0, T1 = w.clients[0], w.clients[1]
+L0["ns"].Erfassung.BereicheSetzen(1, 200, 1, 20)
+L0["ns"].Wurf.Starten(LINK)
+w.weiter(3)
+fest(T1["ns"].Wurf.Aktiv() is True, "Wurf mit eigenen Bereichen gestartet")
+fest(len(list(T1["g"]["__text"]("Haupt (1-200)").values())) > 0 and len(list(T1["g"]["__text"]("Zweit (1-20)").values())) > 0,
+     "bei den Spielern stehen die Bereiche des Leiters auf den Knoepfen")
+T1["g"]["__klick"]("Haupt (1-200)")
+wl = T1["g"]["__wurfLog"]
+fest(len(wl) == 1 and wl[1][1] == 1 and wl[1][2] == 200, "RandomRoll(1, 200)")
+for c in w.clients:
+    c["g"]["__ereignis"]("CHAT_MSG_SYSTEM", "Timo rolls 150 (1-200)")
+R = L0["ns"].Erfassung.AktuelleWuerfe()
+fest(R["Arten"]["timo"] == "haupt" and R["Wuerfe"]["timo"] == 150, "der Wurf 1-200 zaehlt beim Leiter als Haupt")
+fest(T1["ns"].Kern.BEREICHE.haupt[2] == 200, "beim Spieler gelten waehrend des Wurfs die Bereiche des Leiters")
+L0["ns"].Wurf.BeendenAlle()
+w.weiter(4)
+fest(T1["ns"].Kern.BEREICHE.haupt[2] == 100, "danach gelten wieder seine eigenen (1-100)")
+fest(not T1["g"]["FairshareDB"] or T1["g"]["FairshareDB"]["bereiche"] is None, "und gespeichert wurde bei ihm nichts")
+
+print("== 27. Ansage im Chat nach der Vergabe ==")
+w, cl, g, ns, lua = runde()
+g["__klick"]("Zuteilen")
+g["__npc"] = "Timo"
+g["__ereignis"]("TRADE_SHOW")
+lua.execute("__tasche[1].leer = true")
+g["__ereignis"]("TRADE_CLOSED")
+w.weiter(3)
+chat = [(str(c[1]), str(c[2])) for c in g["__chat"].values()]
+fest(any("Schwert der Probe" in t and "wurde an Timo vergeben!" in t and k == "PARTY" for t, k in chat),
+     "nach dem Handel steht im Gruppenchat: <Gegenstand> wurde an Timo vergeben! (%s)" % (chat[-1] if chat else None,))
+fest(len(chat) == 1, "genau eine Zeile")
+
+w, cl, g, ns, lua = runde()
+ns.Erfassung.Eintragen("Moe", LINK, None, "zweit", None, lua.table_from({"herkunft": "wurf", "wurf": 12}))
+chat = [(str(c[1]), str(c[2])) for c in g["__chat"].values()]
+fest(any("wurde an Moe vergeben! (OS)" in t for t, k in chat), "Zweitbedarf: mit (OS)")
+
+w, cl, g, ns, lua = runde()
+ns.Erfassung.Einstellungen()["ansagen"] = False
+ns.Erfassung.Eintragen("Moe", LINK, None, "haupt", None, lua.table_from({"herkunft": "wurf"}))
+fest(len(list(g["__chat"].values())) == 0, "Schalter aus: keine Ansage")
+
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+ns, g = w.clients[0]["ns"], w.clients[0]["g"]
+ns.Erfassung.Einstellungen()["ort"] = "ueberall"
+g["__ereignis"]("CHAT_MSG_LOOT", "Timo receives loot: " + LINK + ".")
+fest(len(list(g["__chat"].values())) == 0, "Beute aus Gruppenwuerfen ohne Plündermeister: keine eigene Ansage")
+w = Welt([{"name": "Leiter Kaos", "leader": True}, {"name": "Timo"}], "-Realm", ml=0)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+ns, g = w.clients[0]["ns"], w.clients[0]["g"]
+ns.Erfassung.Einstellungen()["ort"] = "ueberall"
+g["__ereignis"]("CHAT_MSG_LOOT", "Timo receives loot: " + LINK + ".")
+fest(any("wurde an Timo vergeben!" in str(c[1]) for c in g["__chat"].values()), "Zuteilung durch den Plündermeister: Ansage")
+fest(len(list(w.clients[1]["g"]["__chat"].values())) == 0, "ein Mitspieler sagt nichts an")
+
+print("== 28. Wurf abbrechen ==")
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+L0, T1 = w.clients[0], w.clients[1]
+L0["ns"].Wurf.Starten(LINK)
+w.weiter(3)
+T1["g"]["__klick"]("Haupt (1-100)")
+for c in w.clients:
+    c["g"]["__ereignis"]("CHAT_MSG_SYSTEM", "Timo rolls 66 (1-100)")
+fest(L0["ns"].Erfassung.AktuelleWuerfe() is not None, "ein Wurf ist da")
+fest(L0["g"]["__klick"]("Abbrechen") is True, "Leiter klickt Abbrechen im Wuerfelfenster")
+w.weiter(5)
+fest(not L0["ns"].Wurf.Aktiv() and not T1["ns"].Wurf.Aktiv(), "der Wurf ist bei allen aus")
+fest(L0["ns"].Erfassung.AktuelleWuerfe() is None, "die Wuerfe zaehlen nirgends mehr")
+fest(not (L0["g"]["FairshareWurfErgebnis"] is not None and L0["g"]["FairshareWurfErgebnis"]._shown), "und es gibt kein Ergebnisfenster")
+ausgabe = [str(x) for x in T1["g"]["__ausgabe"].values()]
+fest(any("abgebrochen" in x for x in ausgabe), "die Spieler erfahren es im Chat")
+
+# neuer Wurf danach: alles frei
+L0["ns"].Wurf.Starten(LINK)
+w.weiter(3)
+fest(T1["g"]["__klick"]("Haupt (1-100)") is True, "danach laesst sich derselbe Gegenstand sauber neu verrollen")
+
+# Abbrechen, wenn das Ergebnis schon offen ist
+w, cl, g, ns, lua = runde()
+fest(g["FairshareWurfErgebnis"] is not None and g["FairshareWurfErgebnis"]._shown, "Ergebnis ist offen")
+fest(g["__klick"]("Wurf verwerfen") is True, "Wurf verwerfen im Ergebnisfenster")
+fest(not g["FairshareWurfErgebnis"]._shown and ns.Erfassung.AktuelleWuerfe() is None, "Ergebnis zu, Wurf verworfen")
+
+# Keiner, der nicht darf, kann bei anderen abbrechen
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+L0, N2 = w.clients[0], w.clients[2]
+L0["ns"].Wurf.Starten(LINK)
+w.weiter(3)
+rid = None
+N2["ns"].Abgleich.Empfangen("X;zzz;a", "Timo-Realm")
+fest(L0["ns"].Wurf.Aktiv() and N2["ns"].Wurf.Aktiv(), "eine Abbruchmeldung eines Mitglieds wird ignoriert")
+ok, grund = tup(w.clients[1]["ns"].Wurf.Abbrechen())
+w.weiter(3)
+fest(L0["ns"].Wurf.Aktiv() is True, "ein Mitglied, das abbricht, beendet nur sein eigenes Fenster")
+sl = L0["g"]["SlashCmdList"]["FAIRSHARE"]
+sl("wurf abbrechen")
+w.weiter(3)
+fest(not L0["ns"].Wurf.Aktiv() and not N2["ns"].Wurf.Aktiv(), "/fs wurf abbrechen beim Leiter: bei allen aus")
+sl("wurf abbrechen")
+fehler = [str(x) for x in L0["g"]["__ausgabe"].values() if "Fehler" in str(x)]
+fest(not fehler, "ohne Fehler")
 
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")

@@ -38,10 +38,10 @@ local function hilfe()
     print(L["  |cffffff78/fs abgleich|r     – Historien der Gruppe zusammenführen (|cffffff78abgleich status|r zeigt den Stand)"])
     print(L["  |cffffff78/fs rolle|r        – wer zeichnet gerade auf, und warum"])
     print(L["  |cffffff78/fs rueckgaengig|r – die letzte Vergabe zurücknehmen (mit Rückfrage; einzelne Vergaben im Verlauf)"])
-    print(L["  |cffffff78/fs wurf|r         – eigenes Würfelfenster starten (|cffffff78wurf <Link>|r, |cffffff78wurf ende|r, |cffffff78wurf ergebnis|r, |cffffff78wurf offen|r, |cffffff78wurf status|r)"])
+    print(L["  |cffffff78/fs wurf|r         – eigenes Würfelfenster starten (|cffffff78wurf <Link>|r, |cffffff78wurf ende|r, |cffffff78wurf abbrechen|r, |cffffff78wurf ergebnis|r, |cffffff78wurf offen|r, |cffffff78wurf status|r)"])
     print(L["  |cffffff78/fs beutetest|r    – Diagnose: Beutefenster und Zuteilung durch den Plündermeister"])
     print(L["  |cffffff78/fs gruppe|r       – Kader und Raidgruppen (|cffffff78gruppe hilfe|r)"])
-    print(L["  |cffffff78/fs bereiche|r     – Garguls Würfelbereiche prüfen (|cffffff78bereiche setzen|r)"])
+    print(L["  |cffffff78/fs bereiche|r     – Würfelbereiche (|cffffff78bereiche haupt 1 100|r, |cffffff78zweit|r, |cffffff78setzen|r in Gargul, |cffffff78uebernehmen|r aus Gargul)"])
     print(L["  |cffffff78/fs auto|r         – Fenster bei Wurfbeginn automatisch öffnen (an/aus)"])
     print(L["  |cffffff78/fs import|r       – Garguls bisherige Aufzeichnungen übernehmen"])
     print(L["  |cffffff78/fs reset|r        – Historie auf diesem Rechner leeren (mit Rückfrage und Sicherung)"])
@@ -297,6 +297,11 @@ befehle["wurf"] = function(arg)
         if not ok then sag(ROT .. tostring(grund) .. "|r") end
         return
     end
+    if kleinn == "abbrechen" or kleinn == "cancel" then
+        local ok, grund = ns.Wurf.Abbrechen()
+        if not ok then sag(ROT .. tostring(grund) .. "|r") end
+        return
+    end
     if kleinn == "status" then
         sag(L["Wurf-Status:"])
         for _, z in ipairs(ns.Wurf.Status()) do print("  " .. z) end
@@ -387,19 +392,54 @@ befehle["abgleich"] = function(arg)
 end
 befehle["sync"] = befehle["abgleich"]
 
+--- Die Wuerfelbereiche: anzeigen, aendern, mit Gargul abgleichen.
+--    /fs bereiche                 zeigt eigene und die von Gargul
+--    /fs bereiche haupt 1 100     Bereich fuer Hauptbedarf
+--    /fs bereiche zweit 1 50      Bereich fuer Zweitbedarf (OS)
+--    /fs bereiche setzen          Fairshare -> Gargul
+--    /fs bereiche uebernehmen     Gargul -> Fairshare
 befehle["bereiche"] = function(arg)
-    if arg == "setzen" or arg == "set" then
-        local ok, grund = Quelle.GargulBereicheSetzen()
+    local was, a, z = (arg or ""):lower():match("^(%S*)%s*(%d*)%s*(%d*)")
+    was = was or ""
+
+    local function eigene()
+        local B = ns.Erfassung.Bereiche()
+        sag(string.format(L["Bei Fairshare gelten: Hauptbedarf %d-%d, Zweitbedarf %d-%d."],
+            B.haupt[1], B.haupt[2], B.zweit[1], B.zweit[2]))
+    end
+
+    if was == "haupt" or was == "main" or was == "zweit" or was == "os" then
+        local ok, grund = ns.Erfassung.BereichSetzen((was == "haupt" or was == "main") and "haupt" or "zweit", a, z)
         if not ok then sag(ROT .. tostring(grund) .. "|r") return end
-        sag(GRUEN .. L["Bei Gargul eingestellt: MS 1-100, OS 1-50."] .. "|r")
+        eigene()
         return
     end
+
+    if was == "uebernehmen" or was == "übernehmen" or was == "adopt" then
+        local ok, grund = Quelle.GargulBereicheUebernehmen()
+        if not ok then sag(ROT .. tostring(grund) .. "|r") return end
+        local B = ns.Erfassung.Bereiche()
+        sag(GRUEN .. string.format(L["Aus Gargul übernommen: Hauptbedarf %d-%d, Zweitbedarf %d-%d."],
+            B.haupt[1], B.haupt[2], B.zweit[1], B.zweit[2]) .. "|r")
+        return
+    end
+
+    if was == "setzen" or was == "set" then
+        local ok, grund = Quelle.GargulBereicheSetzen()
+        if not ok then sag(ROT .. tostring(grund) .. "|r") return end
+        local B = ns.Erfassung.Bereiche()
+        sag(GRUEN .. string.format(L["Bei Gargul eingestellt: MS %d-%d, OS %d-%d."],
+            B.haupt[1], B.haupt[2], B.zweit[1], B.zweit[2]) .. "|r")
+        return
+    end
+
+    eigene()
     local B, grund = Quelle.GargulBereiche()
     if not B then sag(GRAU .. tostring(grund) .. "|r") return end
     sag(B.ok and (GRUEN .. L["Würfelbereiche stimmen."] .. "|r") or (ROT .. L["Würfelbereiche passen nicht."] .. "|r"))
     print(string.format(L["  |cff8E9A94Gargul kennt: %s|r"], table.concat(B.bereiche, ", ")))
     if not B.ok then
-        print(L["  |cffffff78/fs bereiche setzen|r|cff8E9A94 stellt 1-100 (Haupt) und 1-50 (Zweit) ein.|r"])
+        print(L["  |cffffff78/fs bereiche setzen|r|cff8E9A94 überträgt die Bereiche von Fairshare zu Gargul, |r|cffffff78uebernehmen|r|cff8E9A94 holt sie von dort.|r"])
     end
 end
 befehle["brackets"] = befehle["bereiche"]

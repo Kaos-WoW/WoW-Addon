@@ -137,11 +137,6 @@ end
 --
 --  Jeder Bereich bei Gargul: { Name, min, max, Rang, istZweitbedarf, +1 }
 
-local SOLL = {
-    { "MS", 1, 100, 2, false, false },
-    { "OS", 1, 50,  3, true,  false },
-}
-
 --- @return { ok = bool, haupt = bool, zweit = bool, bereiche = { ... } }
 --          oder nil und ein Grund
 function Quelle.GargulBereiche()
@@ -165,18 +160,44 @@ function Quelle.GargulBereiche()
     return { ok = haupt and zweit, haupt = haupt, zweit = zweit, bereiche = alle }
 end
 
---- Stellt Garguls Bereiche auf 100/50.
+--- Stellt Garguls Bereiche auf die von Fairshare (Standard 1-100 und 1-50).
 --  ⚠️ Das ist eine Einstellung bei Gargul, kein Eingriff in seinen Code.
 --  Eigene weitere Bereiche gehen dabei verloren.
 function Quelle.GargulBereicheSetzen()
     local GL = rawget(_G, "Gargul")
     if not (GL and GL.Settings and GL.Settings.set) then return false, L["Gargul ist nicht bereit"] end
 
-    local kopie = {}
-    for i, b in ipairs(SOLL) do kopie[i] = { b[1], b[2], b[3], b[4], b[5], b[6] } end
+    -- { Name, min, max, Rang, istZweitbedarf, +1 }
+    local H, Z = ns.Kern.BEREICHE.haupt, ns.Kern.BEREICHE.zweit
+    local kopie = {
+        { "MS", H[1], H[2], 2, false, false },
+        { "OS", Z[1], Z[2], 3, true,  false },
+    }
     local ok, fehler = pcall(GL.Settings.set, GL.Settings, "RollTracking.Brackets", kopie)
     if not ok then return false, tostring(fehler) end
     return true
+end
+
+--- ⭐ Der umgekehrte Weg: Garguls Bereiche fuer Hauptbedarf (MS) und
+--  Zweitbedarf (OS) werden die von Fairshare. Massgeblich ist der erste
+--  Bereich, der nicht als Zweitbedarf gilt, und der erste, der es tut.
+--  @return true, oder false und ein Grund
+function Quelle.GargulBereicheUebernehmen()
+    local GL = rawget(_G, "Gargul")
+    if not (GL and GL.Settings and GL.Settings.get) then return false, L["Gargul ist nicht bereit"] end
+    local ok, B = pcall(GL.Settings.get, GL.Settings, "RollTracking.Brackets", {})
+    if not ok or type(B) ~= "table" then return false, L["Einstellung nicht lesbar"] end
+
+    local haupt, zweit
+    for _, b in ipairs(B) do
+        if type(b) == "table" and tonumber(b[2]) and tonumber(b[3]) then
+            if b[5] == true then zweit = zweit or b else haupt = haupt or b end
+        end
+    end
+    if not (haupt and zweit) then
+        return false, L["Gargul kennt keinen Bereich für Hauptbedarf und Zweitbedarf."]
+    end
+    return ns.Erfassung.BereicheSetzen(haupt[2], haupt[3], zweit[2], zweit[3])
 end
 
 -- =====================================================================
