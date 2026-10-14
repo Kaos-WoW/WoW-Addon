@@ -1345,6 +1345,81 @@ sl("undo")
 fehler = [str(x) for x in g["__ausgabe"].values() if "Fehler" in str(x)]
 fest(not fehler, "ohne Fehler")
 
+print("== 24. Nach der Vergabe ist der Wurf vorbei (Nutzerfund: Zustand blieb haengen) ==")
+
+
+def wurflaeuft(g):
+    return len([t for t in g["__text"]("Wurf läuft").values() if t]) > 0
+
+
+def sichtbar(g, name):
+    return bool(g[name] is not None and g[name]._shown)
+
+
+# --- Zuteilen per Handel beendet die Wurfanzeige sofort ------------------------
+w, cl, g, ns, lua = runde()
+ns.Fenster.Zeigen(False)
+fest(wurflaeuft(g) and ns.Erfassung.AktuelleWuerfe() is not None, "vor der Vergabe: Wurf laeuft")
+fest(sichtbar(g, "FairshareWurfErgebnis"), "das Ergebnisfenster ist offen")
+g["__klick"]("Zuteilen")
+fest(ns.Erfassung.AktuelleWuerfe() is None, "nach Zuteilen: keine laufende Runde mehr")
+fest(not wurflaeuft(g), "und die Uebersicht zeigt nicht mehr 'Wurf laeuft'")
+fest(not sichtbar(g, "FairshareWurfErgebnis"), "das Ergebnisfenster ist zu")
+
+# --- Ein Handel (ohne Beutemeldung) fuehrt zum Eintrag: auch das beendet --------
+w, cl, g, ns, lua = runde()
+ns.Fenster.Zeigen(False)
+g["__npc"] = "Timo"
+g["__klick"]("Zuteilen")
+g["__ereignis"]("TRADE_SHOW")
+lua.execute("__tasche[1].leer = true")
+g["__ereignis"]("TRADE_CLOSED")
+w.weiter(3)
+fest(not wurflaeuft(g), "nach dem Handel steht nichts mehr von dem Wurf da")
+
+# --- Vergabe ueber die Beutemeldung, waehrend das Ergebnis offen ist -------------
+w, cl, g, ns, lua = runde()
+g["__ereignis"]("CHAT_MSG_LOOT", "Timo receives loot: " + LINK + ".")
+fest(not sichtbar(g, "FairshareWurfErgebnis"), "Vergabe per Beutemeldung schliesst das Ergebnis")
+
+# --- Vergabe, waehrend der Wurf noch laeuft: er endet bei allen -----------------
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+cl = w.clients[0]
+ns, g = cl["ns"], cl["g"]
+ns.Wurf.Starten(LINK)
+w.weiter(3)
+fest(w.clients[1]["ns"].Wurf.Aktiv() is True, "Wurf laeuft bei den Mitspielern")
+g["__ereignis"]("CHAT_MSG_LOOT", "Lina receives loot: " + LINK + ".")
+w.weiter(3)
+fest(not ns.Wurf.Aktiv() and not w.clients[1]["ns"].Wurf.Aktiv(),
+     "die Vergabe beendet den laufenden Wurf bei allen")
+fest(not sichtbar(g, "FairshareWurfErgebnis"), "ohne Ergebnisfenster (der Gegenstand ist ja vergeben)")
+
+# --- Wuerfelfenster mit dem Kreuz geschlossen: der Wurf endet trotzdem ----------
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+cl = w.clients[0]
+ns, g, lua = cl["ns"], cl["g"], cl["lua"]
+ns.Wurf.Starten(LINK)
+w.weiter(3)
+lua.execute("FairshareWurf:Hide()")
+w.weiter(40)
+fest(not ns.Wurf.Aktiv(), "auch ohne sichtbares Fenster endet der Wurf nach der Zeit")
+w.weiter(10)
+fest(ns.Wurf.AktuellerLink() is None, "kein haengender Gegenstand: spaetere Wuerfe gehoeren nicht mehr dazu")
+
+# --- Rueckgaengig-Knoepfe stehen nicht in der Spielerliste -----------------------
+w = welt23()
+ns, g = w.clients[0]["ns"], w.clients[0]["g"]
+ns.Fenster.Zeigen(False)
+g["__klick"]("Verlauf")
+fest(g["__klick"]("Rückgängig") is True, "im Verlauf gibt es den Knopf")
+g["__klick"]("Spieler")
+fest(g["__klick"]("Rückgängig") is False, "zurueck in der Spielerliste ist er weg")
+
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")
 sys.exit(0 if alle_ok else 1)

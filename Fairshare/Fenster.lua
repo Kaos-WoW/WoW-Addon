@@ -516,6 +516,11 @@ local function zeigeListe(H)
 
         local wuerfelt = istWuerfler and istWuerfler(e.name)
         z.spielername = e.name
+        -- ⚠️ Die Zeilen werden von Verlauf und Spielerdetail mitbenutzt: Ein Knopf
+        -- „Rückgängig" aus dem vorigen Reiter darf hier nicht stehen bleiben
+        -- (Screenshot 14.10.2026: er lag ueber der Wurfspalte).
+        z.eintragId = nil
+        z.undo:Hide()
         z.hover:SetShown(false)
         z.markiert:SetShown(wuerfelt and true or false)
 

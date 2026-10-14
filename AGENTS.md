@@ -187,6 +187,17 @@ Englisch heißt Zweitbedarf **„OS"** (Nutzerwunsch), nicht „Off".
   (Obergrenze Haupt, Obergrenze OS), überall daraus lesen; Beschriftungen und Erkennung folgen; Abgleich-Protokoll
   unberührt (die Art steckt im Eintrag, nicht der Bereich).
 
+### Eine Vergabe beendet den Wurf (Nutzerfund 14.10.2026)
+
+Nach einer Vergabe per **Handel** blieb „Wurf läuft" stehen: Ein Handel liefert keine Beutemeldung, und nur die beendete die
+Runde. Jetzt beendet **jedes `Erfassung.Eintragen`** die Runde des Gegenstands und ruft `Wurf.Vergeben(link)` (beendet den
+laufenden Wurf bei allen und schließt das Ergebnisfenster); der Klick auf *Zuteilen* beendet die Runde sofort. ⚠️ Das **Ende
+eines Wurfs hängt nicht mehr am Fenster** (eigener `ticker`): Wer das Würfelfenster mit dem Kreuz schloss, hatte keinen
+`OnUpdate` mehr, der Wurf lief ewig und jeder spätere `/roll` gehörte noch zum alten Gegenstand. Die Zeilen der Übersicht
+dienen mehreren Ansichten: der Knopf *Rückgängig* wird in der Spielerliste ausdrücklich versteckt (er überdeckte die Wurfspalte).
+⚠️ Lua-Falle: Eine Funktion, die **vor** der `local`-Deklaration einer Variable steht, sieht sie nicht (sie liest dann eine
+leere globale); `luacheck.py` meldet das nicht — Variablen, die mehrere Abschnitte teilen, ganz oben deklarieren.
+
 ### Vergabe zurücknehmen (Nutzerwunsch 14.10.2026)
 
 Falsch zugeteilt oder der Spieler gibt das Stück zurück: In **Verlauf** und **Spielerdetail** hat jede Zeile den Knopf

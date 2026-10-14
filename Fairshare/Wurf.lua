@@ -321,6 +321,8 @@ end
 -- =====================================================================
 
 local ergebnisZeigen, ergebnisVerstecken
+local ergebnis            -- das Ergebnisfenster
+local ergebnisDaten       -- { link, zeilen = { { name, wert, art, haupt, zweit } } }
 
 local function beginnen(rid, link, dauer, selbst)
     aktiv = { rid = rid, link = link, dauer = dauer, ende = time() + dauer, selbst = selbst and true or false }
@@ -337,7 +339,8 @@ local function beginnen(rid, link, dauer, selbst)
 end
 
 --- Der Wurf ist vorbei (Zeit, Abbruch oder Meldung des Leiters).
-function Wurf.Ende()
+--  @param ohneErgebnis  true: das Ergebnisfenster nicht zeigen (der Gegenstand ist schon vergeben)
+function Wurf.Ende(ohneErgebnis)
     if not aktiv then return end
     local link, selbst = aktiv.link, aktiv.selbst
     nachlauf = { link = link, bis = time() + NACHLAUF }
@@ -347,7 +350,7 @@ function Wurf.Ende()
 
     -- Wer den Wurf gestartet hat, bekommt das Ergebnis mit den Zuteilen-Knoepfen.
     -- Kurz warten: der letzte Wurf kann noch unterwegs sein.
-    if selbst and C_Timer then
+    if selbst and not ohneErgebnis and C_Timer then
         C_Timer.After(1.5, function() if not aktiv then ergebnisZeigen(link) end end)
     end
 end
@@ -374,13 +377,27 @@ function Wurf.Starten(eingabe)
 end
 
 --- Beendet den laufenden Wurf bei allen.
-function Wurf.BeendenAlle()
+function Wurf.BeendenAlle(ohneErgebnis)
     if not aktiv then return false, L["Es läuft kein Wurf."] end
     if Wurf.DarfStarten() then
         ns.Abgleich.Senden("X;" .. aktiv.rid, true)
     end
-    Wurf.Ende()
+    Wurf.Ende(ohneErgebnis)
     return true
+end
+
+--- ⭐ Der Gegenstand ist vergeben (egal auf welchem Weg: Handel, Beutefenster,
+--  Gargul, Chat): Der laufende Wurf dafuer endet, das Ergebnisfenster geht zu.
+--  Sonst blieb „Wurf laeuft" stehen (Nutzerfund 14.10.2026).
+function Wurf.Vergeben(link)
+    local id = link and tonumber(tostring(link):match("item:(%d+)"))
+    if not id then return end
+    if aktiv and tonumber(tostring(aktiv.link):match("item:(%d+)")) == id then
+        Wurf.BeendenAlle(true)
+    end
+    if ergebnis and ergebnisDaten and tonumber(tostring(ergebnisDaten.link):match("item:(%d+)")) == id then
+        ergebnis:Hide()
+    end
 end
 
 --- Eine Nachricht der Gruppe (Abgleich.Empfangen hat Gruppe und Gilde geprueft).
@@ -658,8 +675,6 @@ end
 -- =====================================================================
 
 local ERG_ZEILEN = 6
-local ergebnis            -- das Fenster
-local ergebnisDaten       -- { link, zeilen = { { name, wert, art, haupt, zweit } } }
 
 local function anzahlImRucksack(id)
     local CI = rawget(_G, "C_Item")
@@ -950,6 +965,8 @@ function Wurf.Zuteilen(z)
         -- Zuteilung bleibt vorgemerkt und wird beim naechsten Handel eingelegt.
         sag(GRAU .. string.format(L["Vorgemerkt: %s für %s. Ist der Spieler zu weit weg, wird der Gegenstand beim nächsten Handel mit ihm automatisch eingelegt. |cffffff78/fs wurf offen|r zeigt alle."], link, name) .. "|r")
     end
+    -- Der Wurf ist entschieden; was jetzt noch aussteht, ist nur der Handel.
+    ns.Erfassung.RundeBeenden(link)
     if ergebnis then ergebnis:Hide() end
 end
 
@@ -1148,5 +1165,17 @@ function Wurf.Beutetest()
     end
     return z
 end
+
+-- ⭐ Das Ende eines Wurfs darf nicht am Fenster haengen: Wer das Wuerfelfenster
+-- mit dem Kreuz schliesst, hat keinen OnUpdate mehr — der Wurf liefe ewig weiter
+-- (und jeder spaetere /roll gehoerte noch zum alten Gegenstand).
+local ticker = CreateFrame("Frame")
+ticker.t = 0
+ticker:SetScript("OnUpdate", function(s, dt)
+    s.t = s.t + dt
+    if s.t < 0.5 then return end
+    s.t = 0
+    if aktiv and time() >= aktiv.ende then pcall(Wurf.Ende) end
+end)
 
 return ns

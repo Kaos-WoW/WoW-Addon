@@ -478,6 +478,11 @@ function Erfassung.Eintragen(name, link, zeit, art, kennung, extra)
     }
 
     if ns.Abgleich then ns.Abgleich.Verteilen(kennung) end
+
+    -- Vergeben: die Wurfanzeige dieses Gegenstands endet, auch ohne Beutemeldung
+    -- (ein Handel liefert keine).
+    Erfassung.RundeBeenden(link)
+    if ns.Wurf and ns.Wurf.Vergeben then ns.Wurf.Vergeben(link) end
     return true, art, kennung
 end
 
