@@ -1,0 +1,46 @@
+Fairshare 0.1.0 (Testfassung)  -  Faire Beuteverteilung fuer WoW Forever
+===========================================================================
+
+INSTALLATION
+ 1. WoW beenden.
+ 2. Den Ordner "Fairshare" aus diesem Zip in den AddOns-Ordner kopieren:
+
+      ...\World of Warcraft\_classic_beta_\Interface\AddOns\
+
+    Danach muss diese Datei existieren:
+
+      ...\AddOns\Fairshare\Fairshare.toc
+
+    (Der Ordner muss genau "Fairshare" heissen, nicht "Fairshare-0.1.0".)
+ 3. WoW starten. Auf dem Charakterbildschirm unter "AddOns" muss Fairshare
+    angehakt sein.
+ 4. Im Spiel:   /fs   oeffnet die Uebersicht      /fs test   prueft das Addon
+
+WAS ES TUT
+ * Zeichnet automatisch auf, wer welches Item bekommen hat und wann.
+   Das uebernimmt das Addon des PLUENDERMEISTERS, ohne Pluendermeister das
+   Addon des RAIDLEITERS. Dort muss es also installiert sein.
+ * Aufgezeichnet wird NUR in einer Gruppe, nie allein.
+ * Alle anderen in der Gruppe bekommen die Eintraege live und koennen alles
+   einsehen. Treffen sich spaeter Gruppen, gleichen sie ihre Daten
+   automatisch ab (es kommt nur hinzu, nichts wird ueberschrieben).
+ * In einer Gruppe zeigt die Liste nur die Spieler, die dabei sind.
+ * Spielerliste (Kader): von Hand oder per Sync mit Gildenraengen.
+   Einstellungen -> Gruppen.
+ * Gewuerfelt wird 100 = Hauptbedarf, 50 = Zweitbedarf. Mit Gargul
+   (Forever-Fassung) bitte unter Einstellungen -> Gargul & Abgleich
+   "Auf 100/50 stellen" klicken.
+
+BEFEHLE (Auswahl)       /fs hilfe zeigt alle
+   /fs                  Uebersicht
+   /fs verlauf          wer bekam was, wann
+   /fs einstellungen    Einstellungen
+   /fs rolle            wer zeichnet gerade auf
+   /fs abgleich status  Stand des Datenabgleichs
+
+BEI FEHLERN bitte diese Ausgaben mitschicken:
+   /fs stand      /fs rolle      /fs abgleich status
+und in einem Satz, was erwartet war und was zu sehen war.
+
+Das Addon spricht die Sprache des Clients (Deutsch oder Englisch).
+Schrift: Inter (SIL OFL), Symbole: Tabler Icons (MIT), Lizenzen im Ordner Media.
