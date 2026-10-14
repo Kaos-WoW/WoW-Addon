@@ -504,6 +504,13 @@ end
 --  sonst niemand etwas sagt: bei Vergaben ueber das Wuerfelfenster und bei
 --  Zuteilung durch den Pluendermeister. Blizzards Gruppenwuerfe und Gargul
 --  melden selbst.
+local function gruppenChat(text)
+    local kanal = (IsInRaid and IsInRaid()) and "RAID" or ((IsInGroup and IsInGroup()) and "PARTY" or nil)
+    local senden = (C_ChatInfo and C_ChatInfo.SendChatMessage) or rawget(_G, "SendChatMessage")
+    if not kanal or type(senden) ~= "function" then return end
+    pcall(senden, text, kanal)
+end
+
 function Erfassung.Ansagen(name, link, art, herkunft)
     if db().ansagen == false then return end
 
@@ -514,13 +521,40 @@ function Erfassung.Ansagen(name, link, art, herkunft)
     end
     if not erlaubt then return end
 
-    local kanal = (IsInRaid and IsInRaid()) and "RAID" or ((IsInGroup and IsInGroup()) and "PARTY" or nil)
-    local senden = (C_ChatInfo and C_ChatInfo.SendChatMessage) or rawget(_G, "SendChatMessage")
-    if not kanal or type(senden) ~= "function" then return end
+    gruppenChat(string.format(art == "zweit" and L["%s wurde an %s vergeben! (OS)"] or L["%s wurde an %s vergeben!"],
+        link, Kern.Anzeigename(name)))
+end
 
-    local text = string.format(art == "zweit" and L["%s wurde an %s vergeben! (OS)"] or L["%s wurde an %s vergeben!"],
-        link, Kern.Anzeigename(name))
-    pcall(senden, text, kanal)
+--- ⭐ Ein Gegenstand geht zum Entzaubern an einen Verzauberer (Wurf.lua). Das ist
+--  KEINE Vergabe im Sinn der Historie und zaehlt dem Verzauberer nicht.
+function Erfassung.EntzauberAnsagen(name, link)
+    if db().ansagen == false then return end
+    gruppenChat(string.format(L["%s wurde zum Entzaubern an %s vergeben!"], link, Kern.Anzeigename(name)))
+end
+
+-- Gegenstaende, die gerade zum Entzaubern uebergeben werden: Die Beutemeldung
+-- „X erhaelt …" darf sie nicht als Vergabe an X eintragen.
+local Entzauberungen = {}   -- { { id, name, zeit } }
+
+function Erfassung.EntzauberMerken(name, link)
+    local id = tonumber(tostring(link):match("item:(%d+)"))
+    if id then Entzauberungen[#Entzauberungen + 1] = { id = id, name = name, zeit = time() } end
+end
+
+--- War das eine Uebergabe zum Entzaubern? (Wird dabei verbraucht.)
+function Erfassung.EntzauberungPruefen(name, link)
+    local id = tonumber(tostring(link):match("item:(%d+)"))
+    local jetzt = time()
+    for i = #Entzauberungen, 1, -1 do
+        local e = Entzauberungen[i]
+        if (jetzt - e.zeit) > 300 then
+            table.remove(Entzauberungen, i)
+        elseif id and e.id == id and Kern.GleicherSpieler(e.name, name) then
+            table.remove(Entzauberungen, i)
+            return true
+        end
+    end
+    return false
 end
 
 --- Traegt eine Vergabe ein.
@@ -770,7 +804,8 @@ function Erfassung.Beutemeldung(text)
         if M.mitName then
             local wer, was = text:match(M.muster)
             if wer and was then
-                if Erfassung.Zaehlenswert(was, wer) and not eingesteckt(wer) then
+                local entz = Erfassung.EntzauberungPruefen(wer, was)
+                if not entz and Erfassung.Zaehlenswert(was, wer) and not eingesteckt(wer) then
                     Erfassung.Eintragen(wer, was)
                 end
                 Erfassung.RundeBeenden(was)   -- vergeben: die Wurfanzeige endet
@@ -780,7 +815,8 @@ function Erfassung.Beutemeldung(text)
             local was = text:match(M.muster)
             if was then
                 local ich = eigenerName()
-                if Erfassung.Zaehlenswert(was, ich) and not eingesteckt(ich) then
+                local entz = Erfassung.EntzauberungPruefen(ich, was)
+                if not entz and Erfassung.Zaehlenswert(was, ich) and not eingesteckt(ich) then
                     Erfassung.Eintragen(ich, was)
                 end
                 Erfassung.RundeBeenden(was)

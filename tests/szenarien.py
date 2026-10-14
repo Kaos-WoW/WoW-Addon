@@ -996,7 +996,7 @@ for befehl in ["wurf", "wurf ende", "wurf " + LINK, "wurf ende", "roll", "beutet
     sl(befehl)
 fehler = [str(x) for x in L0["g"]["__ausgabe"].values() if "Fehler" in str(x)]
 fest(not fehler, "/fs wurf und /fs beutetest ohne Fehler%s" % ((": " + fehler[0][:150]) if fehler else ""))
-fest(L0["ns"].Wurf.Dialog() is True and hat_text(0, "Dauer: 30 s"), "Startdialog oeffnet sich")
+fest(L0["ns"].Wurf.Dialog() is True and hat_text(0, "Dauer (s)"), "Startdialog oeffnet sich")
 fest(T1["ns"].Wurf.Dialog() is False, "fuer ein Mitglied oeffnet er sich nicht")
 zeilen = L0["ns"].Wurf.Beutetest()
 fest(len(list(zeilen.values())) >= 3, "Beutetest liefert Zeilen")
@@ -1669,6 +1669,154 @@ fest(not L0["ns"].Wurf.Aktiv() and not N2["ns"].Wurf.Aktiv(), "/fs wurf abbreche
 sl("wurf abbrechen")
 fehler = [str(x) for x in L0["g"]["__ausgabe"].values() if "Fehler" in str(x)]
 fest(not fehler, "ohne Fehler")
+
+print("== 29. Entzaubern: niemand wuerfelt -> Verzauberer; freie Wuerfelzeit ==")
+
+
+def chatzeilen(g):
+    return [str(c[1]) for c in g["__chat"].values()]
+
+
+def welt29(verz="Lina, Fremder", tasche=True, loot=False):
+    w = gruppe(3)
+    w.ereignis("PLAYER_ENTERING_WORLD")
+    w.weiter(15)
+    cl = w.clients[0]
+    g, ns, lua = cl["g"], cl["ns"], cl["lua"]
+    if verz:
+        ns.Wurf.VerzaubererHinzufuegen(verz)
+    if tasche:
+        lua.execute('__tasche = { { link = "%s", quality = 4, frist = true } }' % LINK)
+    if loot:
+        lua.execute('__loot = { { link = "%s" } }' % LINK)
+    return w, cl, g, ns, lua
+
+
+def sichtbar29(g, name):
+    return bool(g[name] is not None and g[name]._shown)
+
+
+# --- Niemand wuerfelt: das Fenster kommt, der Plündermeister bestaetigt --------------
+w, cl, g, ns, lua = welt29()
+ok, grund = tup(ns.Wurf.Starten(LINK, 10))
+fest(ok is True, "Wurf mit 10 Sekunden gestartet (%s)" % grund)
+w.weiter(8)
+fest(ns.Wurf.Aktiv() is True, "nach 8 s laeuft er noch")
+w.weiter(6)
+fest(not ns.Wurf.Aktiv(), "nach 10 s ist er zu")
+fest(sichtbar29(g, "FairshareWurfEntz"), "niemand hat gewuerfelt: das Fenster zum Entzaubern kommt")
+fest(not sichtbar29(g, "FairshareWurfErgebnis"), "kein Ergebnisfenster")
+fest(len(list(g["__text"]("Niemand hat gewürfelt. Zum Entzaubern vergeben?").values())) > 0, "mit der Frage")
+fest(len(list(g["__text"]("nicht in der Gruppe").values())) > 0 and len(list(g["__text"]("in der Gruppe").values())) > 0,
+     "Lina ist in der Gruppe, Fremder nicht")
+fest(g["__klick"]("Vergeben") is True, "Vergeben bei dem ersten (Lina, sie ist dabei)")
+fest(str(g["__handel"]) == "party2", "Handel mit Lina angefragt (%s)" % g["__handel"])
+v = ns.Wurf.Offene()
+fest(len(list(v.values())) == 1 and v[1]["entzaubern"] is True, "als Entzaubern vorgemerkt")
+fest(not sichtbar29(g, "FairshareWurfEntz"), "das Fenster ist zu")
+g["__npc"] = "Lina"
+g["__ereignis"]("TRADE_SHOW")
+fest(g["__angeboten"][1] == LINK, "der Gegenstand liegt im Handelsfenster")
+fest(len(chatzeilen(g)) == 0, "noch keine Ansage, solange der Handel nicht durch ist")
+lua.execute("__tasche[1].leer = true")
+g["__ereignis"]("TRADE_CLOSED")
+w.weiter(3)
+fest(any("zum Entzaubern an Lina vergeben!" in t and "Schwert der Probe" in t for t in chatzeilen(g)),
+     "danach steht im Gruppenchat: <Gegenstand> wurde zum Entzaubern an Lina vergeben!")
+fest(sum(1 for v in w.hist(0).values() if v["itemID"] == 7100) == 0, "und es gibt KEINEN Eintrag: Lina bekommt keine Beute angerechnet")
+fest(len(list(ns.Wurf.Offene().values())) == 0, "die Vormerkung ist erledigt")
+
+# --- Beutefenster ------------------------------------------------------------------
+w, cl, g, ns, lua = welt29(tasche=False, loot=True)
+ns.Wurf.Starten(LINK, 5)
+w.weiter(8)
+fest(sichtbar29(g, "FairshareWurfEntz"), "auch fuer den Gegenstand im Beutefenster")
+g["__klick"]("Vergeben")
+fest(len(g["__geben"]) == 1 and g["__geben"][1][1] == 1 and g["__geben"][1][2] == 3, "GiveMasterLoot an Lina (Platz 1, Empfaenger 3)")
+fest(any("zum Entzaubern an Lina vergeben!" in t for t in chatzeilen(g)), "die Ansage kommt sofort")
+g["__ereignis"]("CHAT_MSG_LOOT", "Lina receives loot: " + LINK + ".")
+fest(sum(1 for v in w.hist(0).values() if v["itemID"] == 7100) == 0, "die Beutemeldung traegt NICHTS ein")
+g["__ereignis"]("CHAT_MSG_LOOT", "Lina receives loot: " + LINK + ".")      # eine zweite (andere) Beute derselben Art zaehlt wieder
+fest(sum(1 for v in w.hist(0).values() if v["itemID"] == 7100 and v["awardedTo"] == "Lina") <= 1, "(danach zaehlt eine weitere Beute wieder normal)")
+
+# --- Der Plündermeister ist selbst Verzauberer ---------------------------------------
+w, cl, g, ns, lua = welt29(verz="Leiter Kaos")
+ns.Wurf.Starten(LINK, 5)
+w.weiter(8)
+g["__klick"]("Vergeben")
+fest(g["__handel"] is None, "ein Handel mit sich selbst wird nicht angefragt")
+fest(any("zum Entzaubern an Leiter Kaos vergeben!" in t for t in chatzeilen(g)), "Ansage fuer ihn selbst")
+
+# --- Ansage abgeschaltet ----------------------------------------------------------------
+w, cl, g, ns, lua = welt29(verz="Leiter Kaos")
+ns.Erfassung.Einstellungen()["ansagen"] = False
+ns.Wurf.Starten(LINK, 5)
+w.weiter(8)
+g["__klick"]("Vergeben")
+fest(len(chatzeilen(g)) == 0, "mit ausgeschalteter Ansage bleibt der Chat still")
+
+# --- Kein Verzauberer hinterlegt ----------------------------------------------------------
+w, cl, g, ns, lua = welt29(verz=None)
+ns.Wurf.Starten(LINK, 5)
+w.weiter(8)
+fest(len(list(g["__text"]("Kein Verzauberer hinterlegt. Trage welche in den Einstellungen ein.").values())) > 0, "ohne Verzauberer: Hinweis")
+fest(g["__klick"]("Einstellungen") is True, "mit Knopf zu den Einstellungen")
+
+# --- Es hat jemand gewuerfelt: kein Fenster, aber per Knopf trotzdem moeglich --------------
+w, cl, g, ns, lua = runde()
+ns.Wurf.VerzaubererHinzufuegen("Lina")
+fest(not sichtbar29(g, "FairshareWurfEntz"), "wenn jemand gewuerfelt hat, kommt das Fenster nicht von selbst")
+fest(g["__klick"]("Entzaubern") is True, "im Ergebnis gibt es den Knopf Entzaubern")
+fest(sichtbar29(g, "FairshareWurfEntz") and len(list(g["__text"]("Zum Entzaubern vergeben an:").values())) > 0, "er oeffnet die Auswahl")
+sl = g["SlashCmdList"]["FAIRSHARE"]
+g["FairshareWurfEntz"].Hide(g["FairshareWurfEntz"])
+sl("wurf entzaubern")
+fest(sichtbar29(g, "FairshareWurfEntz"), "/fs wurf entzaubern oeffnet sie ebenfalls")
+
+# --- Verzauberer verwalten ---------------------------------------------------------------------
+w, cl, g, ns, lua = welt29(verz=None)
+sl = g["SlashCmdList"]["FAIRSHARE"]
+sl("verzauberer add Moe, Zora ,  Moe")
+fest(len(list(ns.Wurf.Verzauberer().values())) == 2, "zwei Namen, der doppelte wird uebergangen")
+sl("verzauberer")
+sl("verzauberer del Moe")
+fest(len(list(ns.Wurf.Verzauberer().values())) == 1 and ns.Wurf.Verzauberer()[1] == "Zora", "Moe entfernt")
+sl("enchanters del 1")
+fest(len(list(ns.Wurf.Verzauberer().values())) == 0, "per Nummer entfernt, englisch")
+for k in range(12):
+    ns.Wurf.VerzaubererHinzufuegen("Spieler%d" % k)
+fest(len(list(ns.Wurf.Verzauberer().values())) == 8, "hoechstens acht")
+ns.Einstellungen.Zeigen()
+g["__klick"]("Würfeln & Abgleich")
+fest(len(list(g["__text"]("Verzauberer hinzufügen").values())) > 0, "Einstellungsseite: Verzauberer hinzufuegen")
+fest(g["__klick"]("Entfernen") is True, "und ein Knopf Entfernen je Name")
+fehler = [str(x) for x in g["__ausgabe"].values() if "Fehler" in str(x)]
+fest(not fehler, "ohne Fehler")
+
+# --- Freie Wuerfelzeit ------------------------------------------------------------------------------
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+L0, T1 = w.clients[0], w.clients[1]
+ok, grund = tup(L0["ns"].Wurf.Starten(LINK, 3))
+fest(ok is False, "3 Sekunden sind zu wenig (%s)" % grund)
+ok, grund = tup(L0["ns"].Wurf.Starten(LINK, 301))
+fest(ok is False, "301 Sekunden sind zu viel")
+ok, grund = tup(L0["ns"].Wurf.Starten(LINK, "abc"))
+fest(ok is False, "Buchstaben werden abgelehnt")
+ok, grund = tup(L0["ns"].Wurf.Starten(LINK, 90))
+w.weiter(2)
+fest(ok is True and L0["g"]["FairshareDB"]["wurfDauer"] == 90, "90 Sekunden gewaehlt und als neuer Standard gemerkt")
+w.weiter(40)
+fest(L0["ns"].Wurf.Aktiv() and T1["ns"].Wurf.Aktiv(), "nach 42 s laeuft der Wurf noch (bei allen)")
+w.weiter(55)
+fest(not L0["ns"].Wurf.Aktiv() and not T1["ns"].Wurf.Aktiv(), "nach 97 s ist er vorbei")
+L0["g"]["SlashCmdList"]["FAIRSHARE"]("wurf 20 " + LINK)
+w.weiter(2)
+text = " ".join(str(x) for x in L0["ns"].Wurf.Status().values())
+fest("noch 18 s" in text or "noch 19 s" in text or "noch 20 s" in text, "/fs wurf 20 <Link>: zwanzig Sekunden (%s)" % text[:60])
+w.weiter(25)
+fest(not L0["ns"].Wurf.Aktiv(), "und nach 27 s vorbei")
 
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")

@@ -86,7 +86,7 @@ end
 --- Wie lange ein Wurf dauert (Einstellung, 10 bis 120 Sekunden).
 function Wurf.Dauer()
     local d = tonumber(db().wurfDauer) or STANDARDDAUER
-    return math.max(10, math.min(120, d))
+    return math.max(5, math.min(300, d))
 end
 
 --- Darf dieser Spieler einen Wurf starten?
@@ -335,9 +335,11 @@ end
 --  Ablauf
 -- =====================================================================
 
-local ergebnisZeigen, ergebnisVerstecken
+local ergebnisZeigen, ergebnisVerstecken, entzauberZeigen
 local ergebnis            -- das Ergebnisfenster
 local ergebnisDaten       -- { link, zeilen = { { name, wert, art, haupt, zweit } } }
+local entz                -- das Fenster zum Entzaubern
+local entzDaten           -- { link, keinWurf }
 
 local function kopie(B)
     return { haupt = { B.haupt[1], B.haupt[2] }, zweit = { B.zweit[1], B.zweit[2] } }
@@ -352,6 +354,7 @@ local function beginnen(rid, link, dauer, selbst, bereiche)
               bereiche = kopie(Kern.BEREICHE) }
     nachlauf = nil
     ergebnisVerstecken()
+    if entz then entz:Hide() end
 
     -- ⭐ Alle wuerfeln und erkennen mit den Bereichen des Leiters, solange der Wurf
     -- laeuft (nicht gespeichert; danach gelten wieder die eigenen).
@@ -381,6 +384,7 @@ end
 function Wurf.Ende(ohneErgebnis)
     if not aktiv then return end
     local link, selbst, tauschen = aktiv.link, aktiv.selbst, aktiv.tauschen
+    Wurf.letzterLink = link
     nachlauf = { link = link, bis = time() + NACHLAUF }
     aktiv = nil
     if tauschen then ns.Erfassung.BereicheAnwenden() end
@@ -396,7 +400,8 @@ end
 
 --- Startet einen Wurf fuer den Gegenstand im Text.
 --  @return true, oder false und ein Grund
-function Wurf.Starten(eingabe)
+--- @param dauerWunsch  Sekunden fuer DIESEN Wurf (5-300); wird als neuer Standard gemerkt
+function Wurf.Starten(eingabe, dauerWunsch)
     if not (IsInGroup and IsInGroup()) then return false, L["Du bist in keiner Gruppe."] end
     if not ns.Rolle.Berechtigt(ichName()) then
         return false, L["Nur Leiter, Assistenten und der Plündermeister dürfen einen Wurf starten."]
@@ -407,6 +412,12 @@ function Wurf.Starten(eingabe)
     end
 
     local dauer = Wurf.Dauer()
+    if dauerWunsch ~= nil then
+        dauer = tonumber(dauerWunsch)
+        if not dauer or dauer ~= math.floor(dauer) or dauer < 5 or dauer > 300 then
+            return false, L["Die Dauer muss zwischen 5 und 300 Sekunden liegen."]
+        end
+    end
     local rid = string.format("%x", (math.random(0x1000, 0xFFFFF) + time()) % 0xFFFFFF)
     -- Format: S;<Kennung>;<Sekunden>;<h1>,<h2>,<z1>,<z2>;<Link>. Aeltere Fassungen
     -- lesen nur den Link heraus und ignorieren die Bereiche.
@@ -415,6 +426,7 @@ function Wurf.Starten(eingabe)
     if not ns.Abgleich.Senden(string.format("S;%s;%d;%s;%s", rid, dauer, bereiche, link), true) then
         return false, L["Senden nicht möglich."]
     end
+    if dauerWunsch ~= nil then db().wurfDauer = dauer end      -- zuletzt gewaehlt = neuer Standard
     beginnen(rid, link, dauer, true)
     return true
 end
@@ -439,6 +451,7 @@ function Wurf.Abbrechen()
         Wurf.Ende(true)
         nachlauf = nil
         ns.Erfassung.RundeVerwerfen(link)
+        if entz then entz:Hide() end
         sag(L["Wurf abgebrochen."])
         return true
     end
@@ -462,6 +475,9 @@ function Wurf.Vergeben(link)
     end
     if ergebnis and ergebnisDaten and tonumber(tostring(ergebnisDaten.link):match("item:(%d+)")) == id then
         ergebnis:Hide()
+    end
+    if entz and entzDaten and tonumber(tostring(entzDaten.link):match("item:(%d+)")) == id then
+        entz:Hide()
     end
 end
 
@@ -504,7 +520,7 @@ function Wurf.Empfangen(typ, rest, sender, unit)
             return
         end
         merke(string.format(L["Wurf von %s angenommen: %s"], tostring(name), link))
-        beginnen(rid, link, math.max(5, math.min(120, d)), false, bereiche)
+        beginnen(rid, link, math.max(5, math.min(300, d)), false, bereiche)
     elseif typ == "X" then
         local rid, flag = rest:match("^([^;]*);?(%a?)")
         if aktiv and rid == aktiv.rid then
@@ -682,7 +698,8 @@ end
 --- Dauer und Beuteliste neu schreiben (beim Oeffnen und bei Beute-Ereignissen).
 local function starterAuffrischen()
     if not starter then return end
-    starter.dauer:SetText(string.format(L["Dauer: %d s (Einstellungen)"], Wurf.Dauer()))
+    starter.dauer:SetText(L["Dauer (s)"])
+    if not starter.dauerFeld:HasFocus() then starter.dauerFeld:SetText(tostring(Wurf.Dauer())) end
     starterBeute()
 end
 
@@ -693,7 +710,7 @@ local function starterStarten()
     -- den gewaehlten Link selbst. Ein von Hand eingefuegter Link im Feld gilt.
     local text = starter.eingabe:GetText()
     local quelle = (linkAus(text) and text) or starter.gewaehlt or text
-    local ok, grund = Wurf.Starten(quelle)
+    local ok, grund = Wurf.Starten(quelle, starter.dauerFeld:GetText())
     if ok then
         starter.gewaehlt = nil
         starter.eingabe:SetText("")
@@ -771,6 +788,10 @@ local function starterBauen()
 
     s.dauer = S.Text(s, 12, C.mu, "LEFT")
     s.dauer:SetPoint("BOTTOMLEFT", s, "BOTTOMLEFT", 16, 24)
+    s.dauerFeld = S.Eingabe(s, 56, 26)
+    s.dauerFeld:SetPoint("BOTTOMLEFT", s, "BOTTOMLEFT", 78, 16)
+    s.dauerFeld:SetMaxLetters(3)
+    s.dauerFeld:SetScript("OnEnterPressed", function(e) e:ClearFocus(); starterStarten() end)
 
     local los = S.Knopf(s, L["Wurf starten"], "primary", 30)
     los:SetPoint("BOTTOMRIGHT", s, "BOTTOMRIGHT", -16, 16)
@@ -907,7 +928,8 @@ local function vormerken(name, link, id, z)
     for _, e in ipairs(liste) do
         if e.id == id and Kern.GleicherSpieler(e.name, name) then return e end
     end
-    local e = { name = name, link = link, id = id, art = z.art, wert = z.wert, zeit = time() }
+    local e = { name = name, link = link, id = id, art = z.art, wert = z.wert, zeit = time(),
+                entzaubern = z.entzaubern }
     liste[#liste + 1] = e
     return e
 end
@@ -1015,6 +1037,13 @@ local function handelVerbuchen(H, id, link)
     local V
     for _, v in ipairs(offenListe()) do
         if v.id == id and Kern.GleicherSpieler(v.name, H.partner) then V = v break end
+    end
+
+    -- Zum Entzaubern uebergeben: angesagt, aber nicht eingetragen.
+    if V and V.entzaubern then
+        ns.Erfassung.EntzauberAnsagen(H.partner, link)
+        vormerkungLoeschen(V)
+        return
     end
 
     local z
@@ -1133,7 +1162,7 @@ local function ergebnisBauen()
     if ergebnis then return end
     local e = CreateFrame("Frame", "FairshareWurfErgebnis", UIParent)
     ergebnis = e
-    e:SetSize(380, 330)
+    e:SetSize(380, 350)
     e:SetFrameStrata("DIALOG")
     e:SetFrameLevel(55)
     e:SetClampedToScreen(true)
@@ -1183,10 +1212,15 @@ local function ergebnisBauen()
 
     e.fuss = S.Text(e, 11, C.dim, "LEFT", true)
     e.fuss:SetPoint("BOTTOMLEFT", e, "BOTTOMLEFT", 16, 14)
-    e.fuss:SetWidth(230)
+    e.fuss:SetWidth(170)
     e.verwerfen = S.Knopf(e, L["Wurf verwerfen"], "link", 22)
     e.verwerfen:SetPoint("BOTTOMRIGHT", e, "BOTTOMRIGHT", -16, 12)
     e.verwerfen:SetScript("OnClick", function() Wurf.Abbrechen() end)
+    e.entzaubern = S.Knopf(e, L["Entzaubern"], "link", 22)
+    e.entzaubern:SetPoint("RIGHT", e.verwerfen, "LEFT", -10, 0)
+    e.entzaubern:SetScript("OnClick", function()
+        if ergebnisDaten then entzauberZeigen(ergebnisDaten.link, false) end
+    end)
     e.fuss:SetText(L["Beim Handel wird erst eingetragen, wenn er abgeschlossen ist. Bestätigen musst du selbst."])
     e:Hide()
 end
@@ -1195,6 +1229,7 @@ ergebnisZeigen = function(link)
     local zeilen = rangliste(link)
     if #zeilen == 0 then
         sag(GRAU .. L["Niemand hat gewürfelt."] .. "|r")
+        entzauberZeigen(link, true)          -- ⭐ Vorschlag: zum Entzaubern vergeben
         return
     end
     ergebnisBauen()
@@ -1217,6 +1252,240 @@ function Wurf.ErgebnisOeffnen()
     ergebnis:Show()
     ergebnisAktualisieren()
     return true
+end
+
+-- =====================================================================
+--  Entzaubern: Gegenstand ohne Wurf an einen Verzauberer
+-- =====================================================================
+
+--- ⭐ Wuerfelt niemand, geht der Gegenstand zum Entzaubern an einen Spieler mit
+--  Verzauberkunst. Die Verzauberer stehen in den Einstellungen (`verzauberer`).
+--  Das Fenster erscheint, wenn die Wuerfelzeit ohne einen Wurf ablief, und
+--  laesst sich ueber den Knopf *Entzaubern* im Ergebnis oder `/fs wurf
+--  entzaubern` jederzeit oeffnen. Der Plündermeister bestaetigt mit *Vergeben*.
+--
+--  ⚠️ Das zaehlt dem Verzauberer NICHT als Beute: Es kommt kein Eintrag in die
+--  Historie (Beutemeldung und Handel werden dafuer uebergangen), nur eine Zeile
+--  im Gruppenchat.
+local ENT_ZEILEN = 6
+
+--- Die hinterlegten Verzauberer (Namen).
+function Wurf.Verzauberer()
+    local dd = db()
+    dd.verzauberer = dd.verzauberer or {}
+    return dd.verzauberer
+end
+
+--- Namen hinzufuegen (mehrere mit Komma). @return Zahl der neuen
+function Wurf.VerzaubererHinzufuegen(text)
+    local liste, n = Wurf.Verzauberer(), 0
+    for teil in tostring(text or ""):gmatch("[^,;]+") do
+        local name = teil:match("^%s*(.-)%s*$")
+        if name ~= "" and #liste < 8 then
+            local da = false
+            for _, x in ipairs(liste) do
+                if Kern.GleicherSpieler(x, name) then da = true break end
+            end
+            if not da then
+                liste[#liste + 1] = name
+                n = n + 1
+            end
+        end
+    end
+    return n
+end
+
+--- Einen Namen entfernen (Nummer oder Name). @return der entfernte Name oder nil
+function Wurf.VerzaubererEntfernen(wer)
+    local liste = Wurf.Verzauberer()
+    local i = tonumber(wer)
+    if not i then
+        for j, x in ipairs(liste) do
+            if Kern.GleicherSpieler(x, tostring(wer)) then i = j break end
+        end
+    end
+    if i and liste[i] then
+        local name = liste[i]
+        table.remove(liste, i)
+        return name
+    end
+    return nil
+end
+
+--- Die Verzauberer mit ihrem Namen in der Gruppe (nil = nicht dabei); wer dabei ist, steht vorn.
+local function verzaubererListe()
+    local gruppe = (IsInGroup and IsInGroup()) and ns.Rolle.Namen() or {}
+    local liste = {}
+    for i, n in ipairs(Wurf.Verzauberer()) do
+        local voll
+        for _, g in ipairs(gruppe) do
+            if Kern.GleicherSpieler(g, n) then voll = g break end
+        end
+        liste[#liste + 1] = { name = n, voll = voll, idx = i }
+    end
+    table.sort(liste, function(a, b)
+        if (a.voll ~= nil) ~= (b.voll ~= nil) then return a.voll ~= nil end
+        return a.idx < b.idx
+    end)
+    return liste
+end
+
+--- Gibt den Gegenstand zum Entzaubern an `name` (Name in der Gruppe).
+--  Wie beim Zuteilen: im Beutefenster ueber den Plündermeister, im Rucksack ueber
+--  einen vorgemerkten Handel; beim Plündermeister selbst gibt es nichts zu tun.
+function Wurf.Entzaubern(name, link)
+    if not name or not link then return false end
+    local ort = findeGegenstand(link)
+    if not ort then
+        sag(ROT .. L["Gegenstand nicht gefunden – bitte von Hand übergeben."] .. "|r")
+        return false
+    end
+
+    if Kern.GleicherSpieler(name, ichName()) then
+        ns.Erfassung.EntzauberAnsagen(name, link)
+    elseif ort.typ == "beute" then
+        ns.Erfassung.EntzauberMerken(name, link)
+        local ok, grund = ausBeutefenster(name, ort, link)
+        if not ok then
+            ns.Erfassung.EntzauberungPruefen(name, link)      -- Merker wieder weg
+            sag(ROT .. tostring(grund) .. "|r")
+            return false
+        end
+        ns.Erfassung.EntzauberAnsagen(name, link)
+    else
+        -- Rucksack: vorgemerkt wie jede Zuteilung; angesagt wird nach dem Handel.
+        vormerken(name, link, ort.id, { entzaubern = true })
+        if handelAnfragen(name) then
+            sag(string.format(L["Handel mit %s angefragt – der Gegenstand wird eingelegt, sobald das Fenster offen ist."], name))
+        end
+        sag(GRAU .. string.format(L["Vorgemerkt: %s für %s. Ist der Spieler zu weit weg, wird der Gegenstand beim nächsten Handel mit ihm automatisch eingelegt. |cffffff78/fs wurf offen|r zeigt alle."], link, name) .. "|r")
+    end
+
+    ns.Erfassung.RundeBeenden(link)
+    Wurf.Vergeben(link)
+    if entz then entz:Hide() end
+    return true
+end
+
+local function entzAktualisieren()
+    local e, D = entz, entzDaten
+    if not e or not D then return end
+    e.item:SetText(D.link)
+    e.hinweis:SetText(D.keinWurf and L["Niemand hat gewürfelt. Zum Entzaubern vergeben?"] or L["Zum Entzaubern vergeben an:"])
+
+    local liste = verzaubererListe()
+    e.leer:SetShown(#liste == 0)
+    e.einst:SetShown(#liste == 0)
+
+    local erster = true
+    for i = 1, ENT_ZEILEN do
+        local z, v = e.zeilen[i], liste[i]
+        if v then
+            z.daten = v
+            z.name:SetText(v.name)
+            z.status:SetText(v.voll and (GRUEN .. L["in der Gruppe"] .. "|r") or (GRAU .. L["nicht in der Gruppe"] .. "|r"))
+            z.knopf:SetAktiv(v.voll ~= nil)
+            local vorn = v.voll ~= nil and erster
+            if vorn then erster = false end
+            z.knopf:SetArt(vorn and "primary" or "secondary")
+            z.bg:SetShown(vorn)
+            z:Show()
+        else
+            z.daten = nil
+            z:Hide()
+        end
+    end
+end
+
+local function entzBauen()
+    if entz then return end
+    local e = CreateFrame("Frame", "FairshareWurfEntz", UIParent)
+    entz = e
+    e:SetSize(380, 330)
+    e:SetFrameStrata("DIALOG")
+    e:SetFrameLevel(56)
+    e:SetClampedToScreen(true)
+    e:SetMovable(true)
+    e:EnableMouse(true)
+    S.Kasten(e, 10, C.bg, C.ln)
+
+    kopfLeiste(e, "Fairshare  " .. GRAU .. L["Entzaubern"] .. "|r", "wurfEntz", function() e:Hide() end)
+
+    local item = CreateFrame("Button", nil, e)
+    item:SetPoint("TOPLEFT", e, "TOPLEFT", 16, -44)
+    item:SetSize(348, 22)
+    e.item = S.Text(item, 14, C.tx, "LEFT")
+    e.item:SetPoint("LEFT", item, "LEFT", 0, 0)
+    e.item:SetWidth(348)
+    item:SetScript("OnEnter", function(s)
+        if entzDaten and GameTooltip and GameTooltip.SetHyperlink then
+            GameTooltip:SetOwner(s, "ANCHOR_BOTTOM")
+            pcall(GameTooltip.SetHyperlink, GameTooltip, entzDaten.link)
+            GameTooltip:Show()
+        end
+    end)
+    item:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+
+    e.hinweis = S.Text(e, 12, C.mu, "LEFT", true)
+    e.hinweis:SetPoint("TOPLEFT", e, "TOPLEFT", 16, -68)
+    e.hinweis:SetWidth(348)
+
+    e.zeilen = {}
+    for i = 1, ENT_ZEILEN do
+        local z = CreateFrame("Frame", nil, e)
+        z:SetSize(348, 30)
+        z:SetPoint("TOPLEFT", e, "TOPLEFT", 16, -100 - (i - 1) * 32)
+        z.bg = S.Form(z, 5, C.acb)
+        z.name = S.Text(z, 13, C.tx, "LEFT")
+        z.name:SetPoint("LEFT", z, "LEFT", 8, 0)
+        z.name:SetWidth(150)
+        z.status = S.Text(z, 11, C.mu, "LEFT")
+        z.status:SetPoint("LEFT", z, "LEFT", 162, 0)
+        z.status:SetWidth(100)
+        z.knopf = S.Knopf(z, L["Vergeben"], "secondary", 24)
+        z.knopf:SetFest(80)
+        z.knopf:SetPoint("RIGHT", z, "RIGHT", -4, 0)
+        z.knopf:SetScript("OnClick", function()
+            if z.daten and z.daten.voll and entzDaten then Wurf.Entzaubern(z.daten.voll, entzDaten.link) end
+        end)
+        z:Hide()
+        e.zeilen[i] = z
+    end
+
+    e.leer = S.Text(e, 12, C.dim, "LEFT", true)
+    e.leer:SetPoint("TOPLEFT", e, "TOPLEFT", 22, -104)
+    e.leer:SetWidth(330)
+    e.leer:SetText(L["Kein Verzauberer hinterlegt. Trage welche in den Einstellungen ein."])
+    e.einst = S.Knopf(e, L["Einstellungen"], "secondary", 24)
+    e.einst:SetPoint("TOPLEFT", e, "TOPLEFT", 22, -150)
+    e.einst:SetScript("OnClick", function()
+        if ns.Einstellungen then ns.Einstellungen.Zeigen("gargul") end
+    end)
+
+    local zu = S.Knopf(e, L["Abbrechen"], "link", 22)
+    zu:SetPoint("BOTTOMRIGHT", e, "BOTTOMRIGHT", -16, 12)
+    zu:SetScript("OnClick", function() e:Hide() end)
+    e:Hide()
+end
+
+entzauberZeigen = function(link, keinWurf)
+    if not link then
+        sag(ROT .. L["Es gibt kein Ergebnis."] .. "|r")
+        return false
+    end
+    entzBauen()
+    entzDaten = { link = link, keinWurf = keinWurf and true or false }
+    lageSetzen(entz, "wurfEntz", { "CENTER", 0, 80 })
+    entz:Show()
+    entzAktualisieren()
+    return true
+end
+
+--- Das Auswahlfenster fuer das Entzaubern oeffnen (`/fs wurf entzaubern [Link]`).
+--  Ohne Link gilt der Gegenstand des letzten Wurfs.
+function Wurf.EntzauberOeffnen(link)
+    link = link or (ergebnisDaten and ergebnisDaten.link) or Wurf.letzterLink
+    return entzauberZeigen(link, false)
 end
 
 -- Shift-Klick auf einen Gegenstand fuegt den Link ein, solange das Feld den Fokus hat.

@@ -460,7 +460,7 @@ local function seiteWuerfeln(P)
     local kw = karte(P, L["Würfelfenster"],
         L["Der Plündermeister oder Leiter startet einen Wurf; alle in der Gruppe bekommen ein kleines Fenster zum Würfeln für Hauptbedarf oder Zweitbedarf (OS). Gargul wird dafür nicht gebraucht."])
     zeile(kw, { art = "segment", label = L["Dauer eines Wurfs"], werte = DAUERN,
-        beschr = L["Danach endet der Wurf von selbst. Der Leiter kann ihn vorher beenden oder abbrechen."],
+        beschr = L["Danach endet der Wurf von selbst. Im Startdialog lässt sich die Zeit für einen einzelnen Wurf frei wählen und wird dann zum neuen Standard."],
         get = function() return ns.Wurf.Dauer() end,
         set = function(v) d().wurfDauer = v end })
     zeile(kw, { art = "schalter", label = L["Vergabe im Gruppenchat ansagen"],
@@ -472,6 +472,35 @@ local function seiteWuerfeln(P)
         knopf = { text = L["Öffnen"], art = "primary",
             aktiv = function() return ns.Wurf.DarfStarten() end,
             klick = function() ns.Wurf.Dialog() end } })
+
+    -- ⭐ Verzauberer: An sie geht ein Gegenstand, auf den niemand wuerfelt (Entzaubern).
+    local function verz() return ns.Wurf.Verzauberer() end
+    local kv = karte(P, L["Verzauberer"],
+        L["Spieler mit Verzauberkunst. Würfelt niemand auf einen Gegenstand, wird er zum Entzaubern an einen von ihnen vergeben."])
+    for i = 1, 8 do
+        zeile(kv, { art = "knopf",
+            sichtbar = function() return verz()[i] ~= nil end,
+            label = function() return verz()[i] or "" end,
+            beschr = function()
+                local n = verz()[i]
+                if not n then return "" end
+                local da = false
+                for _, g in ipairs(ns.Rolle.Namen()) do
+                    if ns.Kern.GleicherSpieler(g, n) then da = true break end
+                end
+                return da and L["in der Gruppe"] or L["nicht in der Gruppe"]
+            end,
+            knopf = { text = L["Entfernen"], klick = function() ns.Wurf.VerzaubererEntfernen(i) end } })
+    end
+    zeile(kv, { art = "eingabe", label = L["Verzauberer hinzufügen"],
+        beschr = function()
+            return Meldung.verz or L["Name eingeben, mit Nachnamen falls vorhanden. Mehrere mit Komma."]
+        end,
+        knopf = { text = L["Hinzufügen"],
+            klick = function(text)
+                local n = ns.Wurf.VerzaubererHinzufuegen(text)
+                Meldung.verz = farbig(n > 0 and C.ok or C.warn, string.format(L["%d ergänzt"], n))
+            end } })
 
     local kf = karte(P, L["Fenster"])
     zeile(kf, { art = "schalter", label = L["Bei Wurfbeginn selbst öffnen"],
@@ -952,7 +981,7 @@ end
 function Einstellungen.Waehle(id)
     if not Seiten[id] then return end
     aktuelleSeite = id
-    Meldung.bereich, Meldung.gargul, Meldung.gargulHolen = nil, nil, nil
+    Meldung.bereich, Meldung.gargul, Meldung.gargulHolen, Meldung.verz = nil, nil, nil, nil
     loeschenBereit = nil
     verlaufBereit = false
     scroll:Zurueck()

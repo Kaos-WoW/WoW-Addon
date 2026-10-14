@@ -188,6 +188,24 @@ Englisch heißt Zweitbedarf **„OS"** (Nutzerwunsch), nicht „Off".
   (Obergrenze Haupt, Obergrenze OS), überall daraus lesen; Beschriftungen und Erkennung folgen; Abgleich-Protokoll
   unberührt (die Art steckt im Eintrag, nicht der Bereich).
 
+### Entzaubern und freie Würfelzeit (Nutzerwünsche 14.10.2026)
+
+* ⭐ **Entzaubern** (`Wurf.lua`, Abschnitt „Entzaubern"): Würfelt bis zum Ende der Zeit niemand, öffnet sich beim Starter ein
+  Fenster **„Zum Entzaubern vergeben?"** mit den hinterlegten Verzauberern (Einstellungen → *Würfeln & Abgleich* → *Verzauberer*,
+  höchstens 8, `FairshareDB.verzauberer`; `/fs verzauberer add Name, Name`, `del Name|Nr`). Wer in der Gruppe ist, steht vorn
+  und ist wählbar, der Erste mit hervorgehobenem Knopf. **Vergeben** ist die Bestätigung des Plündermeisters. Dasselbe Fenster
+  öffnet sich per Knopf *Entzaubern* im Ergebnis oder `/fs wurf entzaubern [Link]`, auch wenn jemand gewürfelt hat.
+* Ausführung wie beim Zuteilen: Beutefenster → `GiveMasterLoot`, Rucksack → vorgemerkter Handel (`vormerken`, Flag
+  `entzaubern`), der Plündermeister selbst → nichts zu tun. **Chat-Ansage** „[Gegenstand] wurde zum Entzaubern an X vergeben!"
+  (`Erfassung.EntzauberAnsagen`, Schalter `ansagen`): beim Beutefenster sofort, beim Handel erst wenn er durch ist.
+* ⚠️ **Keine Beute für den Verzauberer:** Es wird **nichts in die Historie geschrieben** (`handelVerbuchen` übergeht
+  Vormerkungen mit `entzaubern`; `Erfassung.EntzauberMerken`/`EntzauberungPruefen` lässt die Beutemeldung „X erhält …" den
+  Gegenstand nicht als Vergabe eintragen). Ein Handel, den man **ganz von Hand** an den Verzauberer macht, wird dagegen als
+  Vergabe erkannt — dann per *Rückgängig* korrigieren, oder besser den Weg über das Fenster nehmen.
+* **Freie Würfelzeit:** Der Startdialog hat ein Feld *Dauer (s)* (5–300). Die gewählte Zeit gilt für diesen Wurf und wird der
+  neue Standard (`wurfDauer`); `/fs wurf 45 <Link>` geht auch. Die Voreinstellung 20/30/45/60 bleibt in den Einstellungen.
+  Empfänger nehmen bis 300 s an.
+
 ### Würfelbereiche einstellbar, Ansage, Abbrechen (Nutzerwünsche 14.10.2026)
 
 * ⭐ **Würfelbereiche einstellbar** (Einstellungen → *Würfeln & Abgleich* → *Würfelbereiche*; `/fs bereiche haupt 1 100`,

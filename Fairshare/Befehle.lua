@@ -38,7 +38,8 @@ local function hilfe()
     print(L["  |cffffff78/fs abgleich|r     – Historien der Gruppe zusammenführen (|cffffff78abgleich status|r zeigt den Stand)"])
     print(L["  |cffffff78/fs rolle|r        – wer zeichnet gerade auf, und warum"])
     print(L["  |cffffff78/fs rueckgaengig|r – die letzte Vergabe zurücknehmen (mit Rückfrage; einzelne Vergaben im Verlauf)"])
-    print(L["  |cffffff78/fs wurf|r         – eigenes Würfelfenster starten (|cffffff78wurf <Link>|r, |cffffff78wurf ende|r, |cffffff78wurf abbrechen|r, |cffffff78wurf ergebnis|r, |cffffff78wurf offen|r, |cffffff78wurf status|r)"])
+    print(L["  |cffffff78/fs wurf|r         – eigenes Würfelfenster starten (|cffffff78wurf [Sekunden] <Link>|r, |cffffff78wurf ende|r, |cffffff78wurf abbrechen|r, |cffffff78wurf entzaubern|r, |cffffff78wurf ergebnis|r, |cffffff78wurf offen|r, |cffffff78wurf status|r)"])
+    print(L["  |cffffff78/fs verzauberer|r  – Verzauberer fürs Entzaubern (|cffffff78verzauberer add Name, Name|r, |cffffff78verzauberer del Name|r)"])
     print(L["  |cffffff78/fs beutetest|r    – Diagnose: Beutefenster und Zuteilung durch den Plündermeister"])
     print(L["  |cffffff78/fs gruppe|r       – Kader und Raidgruppen (|cffffff78gruppe hilfe|r)"])
     print(L["  |cffffff78/fs bereiche|r     – Würfelbereiche (|cffffff78bereiche haupt 1 100|r, |cffffff78zweit|r, |cffffff78setzen|r in Gargul, |cffffff78uebernehmen|r aus Gargul)"])
@@ -297,6 +298,11 @@ befehle["wurf"] = function(arg)
         if not ok then sag(ROT .. tostring(grund) .. "|r") end
         return
     end
+    if kleinn:find("^entzaubern") or kleinn:find("^disenchant") then
+        local ok, grund = ns.Wurf.EntzauberOeffnen(arg:match("(|c[^|]*|Hitem:[^|]+|h%[[^%]]*%]|h|r)"))
+        if not ok then sag(ROT .. tostring(grund or L["Es gibt kein Ergebnis."]) .. "|r") end
+        return
+    end
     if kleinn == "abbrechen" or kleinn == "cancel" then
         local ok, grund = ns.Wurf.Abbrechen()
         if not ok then sag(ROT .. tostring(grund) .. "|r") end
@@ -319,7 +325,8 @@ befehle["wurf"] = function(arg)
         end
         sag(L["Vorgemerkte Zuteilungen:"])
         for _, e in ipairs(liste) do
-            print(string.format(L["  %s an %s (vor %d Min.)"], e.link, e.name, math.floor((time() - (e.zeit or 0)) / 60)))
+            print(string.format(L["  %s an %s (vor %d Min.)"], e.link, e.name, math.floor((time() - (e.zeit or 0)) / 60)) ..
+                (e.entzaubern and (" " .. L["(Entzaubern)"]) or ""))
         end
         print(L["  |cff8E9A94Beim nächsten Handel mit dem Spieler wird der Gegenstand eingelegt. |r|cffffff78/fs wurf offen leeren|r|cff8E9A94 löscht alle.|r"])
         return
@@ -333,14 +340,50 @@ befehle["wurf"] = function(arg)
         ns.Wurf.Dialog()
         return
     end
-    local ok, grund = ns.Wurf.Starten(arg)
+    -- „/fs wurf 45 <Link>": die Dauer fuer diesen Wurf vorweg
+    local sek, rest = arg:match("^(%d+)%s+(.+)$")
+    local ok, grund = ns.Wurf.Starten(rest or arg, sek)
     if not ok then
         sag(ROT .. tostring(grund) .. "|r")
         return
     end
-    sag(string.format(L["Wurf gestartet – %d Sekunden."], ns.Wurf.Dauer()))
+    sag(string.format(L["Wurf gestartet – %d Sekunden."], tonumber(sek) or ns.Wurf.Dauer()))
 end
 befehle["roll"] = befehle["wurf"]
+
+--- ⭐ Verzauberer fuers Entzaubern: anzeigen, eintragen, entfernen.
+--    /fs verzauberer                    zeigt die Liste
+--    /fs verzauberer add Name, Name     tragen ein (Komma trennt)
+--    /fs verzauberer del Name|Nummer    entfernt
+befehle["verzauberer"] = function(arg)
+    arg = arg or ""
+    local was, rest = arg:match("^(%S*)%s*(.-)%s*$")
+    was = (was or ""):lower()
+
+    if was == "add" or was == "neu" or was == "hinzu" or was == "+" then
+        local n = ns.Wurf.VerzaubererHinzufuegen(rest)
+        sag(string.format(L["%d ergänzt"], n))
+    elseif was == "del" or was == "weg" or was == "entfernen" or was == "-" then
+        local name = ns.Wurf.VerzaubererEntfernen(rest)
+        sag(name and string.format(L["Verzauberer entfernt: %s."], name) or (ROT .. string.format(L["Nicht gefunden: %s"], rest) .. "|r"))
+    end
+
+    local liste = ns.Wurf.Verzauberer()
+    if #liste == 0 then
+        sag(GRAU .. L["Noch keine Verzauberer. |cffffff78/fs verzauberer add Name|r trägt einen ein."] .. "|r")
+        return
+    end
+    sag(L["Verzauberer:"])
+    local gruppe = (IsInGroup and IsInGroup()) and ns.Rolle.Namen() or {}
+    for i, n in ipairs(liste) do
+        local da = false
+        for _, g in ipairs(gruppe) do
+            if Kern.GleicherSpieler(g, n) then da = true break end
+        end
+        print(string.format("  %d. %s  %s%s|r", i, n, da and GRUEN or GRAU, da and L["in der Gruppe"] or L["nicht in der Gruppe"]))
+    end
+end
+befehle["enchanters"] = befehle["verzauberer"]
 
 --- Diagnose fuer die Zuteilung durch den Pluendermeister (nur lesen).
 befehle["beutetest"] = function()

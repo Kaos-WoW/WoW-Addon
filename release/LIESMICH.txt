@@ -54,6 +54,12 @@ EIGENES WUERFELFENSTER (neu)
  * Ist der Gewinner zu weit weg, bleibt die Zuteilung vorgemerkt: Beim
    naechsten Handel mit ihm wird der Gegenstand eingelegt (/fs wurf offen).
    Auch ein Handel von Hand wird erkannt und eingetragen.
+ * Wuerfelt niemand, kommt ein Fenster "Zum Entzaubern vergeben?": die
+   Verzauberer stehen in den Einstellungen (Wuerfeln & Abgleich) oder per
+   /fs verzauberer add Name. Der Pluendermeister bestaetigt mit "Vergeben";
+   danach schreibt das Addon eine Zeile in den Gruppenchat. Das zaehlt dem
+   Verzauberer nicht als Beute.
+ * Die Wuerfelzeit laesst sich im Startdialog frei waehlen (5-300 s).
  * Falsch zugeteilt? Im Verlauf (oder beim Spieler) steht bei jeder Vergabe
    "Rueckgaengig"; /fs rueckgaengig nimmt die letzte zurueck. Das geht an die
    ganze Gruppe. (Neue Pruefsumme: alle muessen dieselbe Fassung haben.)

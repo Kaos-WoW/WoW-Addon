@@ -29,6 +29,7 @@ local function mock()
         if k == "RegisterEvent" then return function(self, e) self._events[e] = true end end
         if k == "SetText" then return function(self, x) self._text = x end end
         if k == "GetText" then return function(self) return self._text end end
+        if k == "HasFocus" then return function() return false end end
         if k == "SetEnabled" then return function(self, x) self._enabled = x and true or false end end
         if k == "IsEnabled" then return function(self) return self._enabled end end
         if k == "Show" then return function(self) self._shown = true end end
