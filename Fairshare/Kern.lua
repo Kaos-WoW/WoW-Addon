@@ -220,15 +220,26 @@ end
 --  damit der Ueberblick nicht verlorengeht.
 --
 --  @param liste        Ergebnis von Kern.Bilanz
---  @param istWuerfler  Funktion Name -> true/false
+--  @param istWuerfler  Funktion Name -> false/nil (kein Wurf), true (Wurf,
+--                      Art unbekannt), "haupt" oder "zweit"
 function Kern.WurfReihenfolge(liste, istWuerfler)
     if not istWuerfler then return liste end
 
-    table.sort(liste, function(a, b)
-        local wa, wb = istWuerfler(a.name), istWuerfler(b.name)
-        if wa ~= wb then return wa end
+    -- ⭐ Wer fuer Hauptbedarf gewuerfelt hat, steht vor jedem Zweitbedarf —
+    -- egal wie viele Stuecke er schon hat. Erst innerhalb einer Art gilt
+    -- „wenigste zuerst".
+    local function rang(x)
+        if not x then return 0 end
+        if x == "haupt" then return 3 end
+        if x == "zweit" then return 1 end
+        return 2
+    end
 
-        if wa then
+    table.sort(liste, function(a, b)
+        local ra, rb = rang(istWuerfler(a.name)), rang(istWuerfler(b.name))
+        if ra ~= rb then return ra > rb end
+
+        if ra > 0 then
             -- Wenigste zuerst
             if a.haupt ~= b.haupt then return a.haupt < b.haupt end
             if a.zweit ~= b.zweit then return a.zweit < b.zweit end
@@ -286,6 +297,38 @@ function Kern.Muster(vorlage)
     end)
 
     return "^" .. roh .. "$", n
+end
+
+--- Wie Kern.Muster, sagt aber zusaetzlich, welches ARGUMENT der Vorlage jede
+--  Fundstelle ist.
+--
+--  ⚠️ Uebersetzte Vorlagen duerfen die Reihenfolge umstellen
+--  (`%2$s ... %1$d`). Ohne diese Zuordnung landete der Gegenstand im
+--  Namensfeld. Die Wuerfelmeldungen von Blizzards Fenster
+--  (`Need Roll - %d for %s by %s`) brauchen das.
+--
+--  @return Muster, { Argumentnummer je Fundstelle }
+function Kern.MusterGeordnet(vorlage)
+    local muster = Kern.Muster(vorlage)
+    if not muster then return nil end
+
+    local nummern, lauf = {}, 0
+    vorlage:gsub("%%(%d?)%$?[sd]", function(num)
+        lauf = lauf + 1
+        nummern[lauf] = (num ~= "" and tonumber(num)) or lauf
+    end)
+    return muster, nummern
+end
+
+--- Wertet eine Meldung mit einer Vorlage aus Kern.MusterGeordnet aus.
+--  @return { [Argumentnummer] = Text } oder nil, wenn sie nicht passt
+function Kern.Argumente(text, muster, nummern)
+    if type(text) ~= "string" or not muster then return nil end
+    local T = { text:match(muster) }
+    if #T == 0 then return nil end
+    local A = {}
+    for i, wert in ipairs(T) do A[nummern[i] or i] = wert end
+    return A
 end
 
 --- Der Wurfbereich sagt, wofuer gewuerfelt wurde.

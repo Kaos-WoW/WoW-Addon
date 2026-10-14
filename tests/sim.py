@@ -198,6 +198,21 @@ LOOT_ITEM_SELF = "You receive loot: %s."
 LOOT_ITEM_MULTIPLE = "%s receives loot: %sx%d."
 LOOT_ITEM_SELF_MULTIPLE = "You receive loot: %sx%d."
 RANDOM_ROLL_RESULT = "%s rolls %d (%d-%d)"
+LOOT_ROLL_ROLLED_NEED = "Need Roll - %d for %s by %s"
+LOOT_ROLL_ROLLED_NEED_ROLE_BONUS = "Need Roll - %d for %s by %s + Role Bonus"
+LOOT_ROLL_ROLLED_GREED = "Greed Roll - %d for %s by %s"
+LOOT_ROLL_NEED = "%s has selected Need for: %s"
+LOOT_ROLL_NEED_SELF = "You have selected Need for: %s"
+LOOT_ROLL_GREED = "%s has selected Greed for: %s"
+LOOT_ROLL_GREED_SELF = "You have selected Greed for: %s"
+LOOT_ROLL_PASSED = "%s passed on: %s"
+LOOT_ROLL_PASSED_SELF = "You passed on: %s"
+LOOT_ROLL_WON = "%s won: %s"
+LOOT_ROLL_YOU_WON = "You won: %s"
+LOOT_ROLL_ALL_PASSED = "Everyone passed on: %s"
+GetLootRollItemLink = function(id)
+    return "|cff0070dd|Hitem:" .. (7000 + id) .. "::::::::60:::::|h[Rollding " .. id .. "]|h|r"
+end
 
 GetLocale = function() return __locale or "deDE" end
 C_Timer = { After = function(d, fn) __nachher(d, fn) end }

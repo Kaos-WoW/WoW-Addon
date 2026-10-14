@@ -79,7 +79,7 @@ end
 --  Muster aus den Textvorlagen
 -- =====================================================================
 
-local Muster = { beute = {}, wurf = nil }
+local Muster = { beute = {}, wurf = nil, wuerfe = {} }
 
 --- Baut die Suchmuster aus den GlobalStrings.
 --  ⚠️ Jede Vorlage einzeln pruefen: Fehlt eine, faellt nur sie aus.
@@ -112,6 +112,49 @@ function Erfassung.MusterBauen()
     local wurfVorlage = rawget(_G, "RANDOM_ROLL_RESULT")
     Muster.wurf = type(wurfVorlage) == "string" and Kern.Muster(wurfVorlage) or nil
 
+    -- ⭐ Blizzards Wuerfelfenster (Bedarf / Gier) meldet im Chat:
+    --     „Need Roll - 87 for [Item] by Name"   (der Wurf)
+    --     „Name has selected Need for: [Item]"  (die Wahl, sofort)
+    --     „Name passed on: [Item]"              (Verzicht)
+    -- Bedarf = Hauptbedarf, Gier = Zweitbedarf (wie in Blizzbeute.lua).
+    -- Je Eintrag: { Vorlagenname, Art, Aktion, Argumentnummern }
+    -- ⚠️ Uebersetzte Vorlagen duerfen die Reihenfolge umstellen — darum die
+    -- Zuordnung ueber Kern.MusterGeordnet.
+    local W3 = { wert = 1, item = 2, name = 3 }
+    local WurfVorlagen = {
+        { "LOOT_ROLL_ROLLED_NEED",            "haupt", "wurf", W3 },
+        { "LOOT_ROLL_ROLLED_NEED_ROLE_BONUS", "haupt", "wurf", W3 },
+        { "LOOT_ROLL_ROLLED_GREED",           "zweit", "wurf", W3 },
+        { "LOOT_ROLL_ROLLED_TRANSMOG",        "zweit", "wurf", W3 },
+        { "LOOT_ROLL_NEED",        "haupt", "wahl", { name = 1, item = 2 } },
+        { "LOOT_ROLL_NEED_SELF",   "haupt", "wahl", { item = 1, ich = true } },
+        { "LOOT_ROLL_GREED",       "zweit", "wahl", { name = 1, item = 2 } },
+        { "LOOT_ROLL_GREED_SELF",  "zweit", "wahl", { item = 1, ich = true } },
+        { "LOOT_ROLL_TRANSMOG",      "zweit", "wahl", { name = 1, item = 2 } },
+        { "LOOT_ROLL_TRANSMOG_SELF", "zweit", "wahl", { item = 1, ich = true } },
+        { "LOOT_ROLL_PASSED",      nil, "pass", { name = 1, item = 2 } },
+        { "LOOT_ROLL_PASSED_SELF", nil, "pass", { item = 1, ich = true } },
+        -- Die Runde ist entschieden
+        { "LOOT_ROLL_WON",         nil, "ende", { name = 1, item = 2 } },
+        { "LOOT_ROLL_YOU_WON",     nil, "ende", { item = 1 } },
+        { "LOOT_ROLL_ALL_PASSED",  nil, "ende", { item = 1 } },
+    }
+
+    Muster.wuerfe = {}
+    for _, V in ipairs(WurfVorlagen) do
+        local vorlage = rawget(_G, V[1])
+        if type(vorlage) == "string" then
+            local muster, nummern = Kern.MusterGeordnet(vorlage)
+            if muster then
+                Muster.wuerfe[#Muster.wuerfe + 1] =
+                    { muster = muster, nummern = nummern, art = V[2], aktion = V[3], arg = V[4], quelle = V[1] }
+            end
+        end
+    end
+    -- Die laengere zuerst: „Need Roll - %d for %s by %s" darf die Fassung
+    -- „… + Role Bonus" nicht mit einem falschen Namen verschlucken.
+    table.sort(Muster.wuerfe, function(a, b) return #a.muster > #b.muster end)
+
     return #Muster.beute, Muster.wurf ~= nil
 end
 
@@ -123,11 +166,44 @@ end
 --  Wuerfe merken
 -- =====================================================================
 
-local Wuerfe = {}   -- Schluessel -> { art, zeit, wert }
+local Wuerfe = {}   -- Schluessel -> { art, zeit, wert }: der letzte Wurf je Spieler
 
---- Merkt sich einen Bedarfswurf.
---  @param art  bereits bekannte Bedarfsart; sonst aus dem Bereich
-function Erfassung.WurfMerken(name, wert, min, max, art)
+-- ⭐ Je Gegenstand eine Wurfrunde. Blizzards Fenster wuerfelt oft mehrere
+-- Gegenstaende zugleich; in EINER Liste gemischt waeren sie unlesbar.
+-- Gegenstandsnummer -> { link, zeit, Spieler = { Schluessel -> { name, art, wert } } }
+-- (Nummer "" = Wuerfe ohne bekannten Gegenstand, z. B. ein getipptes /rnd.)
+local Runden = {}
+
+local function gegenstandsKey(link)
+    if type(link) ~= "string" or link == "" then return "" end
+    return link:match("item:(%d+)") or link
+end
+
+local function runde(link, anlegen)
+    local key = gegenstandsKey(link)
+    local r = Runden[key]
+    if not r and anlegen then
+        r = { link = (key ~= "") and link or nil, zeit = time(), Spieler = {} }
+        Runden[key] = r
+    end
+    return r
+end
+
+--- Fenster auffrischen, bei Bedarf (neue Runde) von selbst oeffnen.
+local function fensterAnstossen(oeffnen)
+    if not ns.Fenster then return end
+    if oeffnen and ns.Fenster.AutoOeffnen() then
+        ns.Fenster.Zeigen(false)
+    else
+        ns.Fenster.Aktualisieren()
+    end
+end
+
+--- Merkt sich einen Bedarfswurf oder eine Bedarfsmeldung.
+--  @param art   bereits bekannte Bedarfsart; sonst aus dem Bereich
+--  @param wert  nil = Spieler hat „Bedarf" gewaehlt, der Wurf steht noch aus
+--  @param link  der Gegenstand, falls bekannt (trennt gleichzeitige Wuerfe)
+function Erfassung.WurfMerken(name, wert, min, max, art, link)
     art = art or Kern.Bedarfsart(min, max)
     if not art then return false end
 
@@ -137,21 +213,54 @@ function Erfassung.WurfMerken(name, wert, min, max, art)
     -- Beginnt hier eine neue Wurfrunde? Dann darf sich das Fenster oeffnen.
     local ersterDerRunde = Erfassung.AktuelleWuerfe() == nil
 
+    -- 0 und nil heissen „noch nicht gewuerfelt" und ueberschreiben nie einen
+    -- bekannten Wert.
+    local zahl = tonumber(wert)
+    if zahl and zahl <= 0 then zahl = nil end
+
     -- Der juengste Wurf gilt: Wer nachtraeglich fuer Zweitbedarf wuerfelt,
     -- meint das auch so.
-    Wuerfe[k] = { art = art, zeit = time(), wert = tonumber(wert) or 0, name = name }
+    local alt = Wuerfe[k]
+    Wuerfe[k] = { art = art, zeit = time(), wert = zahl or (alt and alt.wert) or 0, name = name }
+
+    local r = runde(link, true)
+    r.zeit = time()
+    local S = r.Spieler[k]
+    r.Spieler[k] = { name = name, art = art, wert = zahl or (S and S.wert) or 0 }
 
     -- ⚠️ Ohne Gargul gibt es kein ROLLOFF_STARTED. Der erste Bedarfswurf
     -- einer Runde ist der beste Ersatz dafuer.
-    if ns.Fenster then
-        if ersterDerRunde and ns.Fenster.AutoOeffnen() then
-            ns.Fenster.Zeigen(false)
-        else
-            ns.Fenster.Aktualisieren()
-        end
-    end
+    fensterAnstossen(ersterDerRunde)
 
     return true, art
+end
+
+--- Blizzards Wuerfelfenster geht fuer einen Gegenstand auf (START_LOOT_ROLL).
+--  Das Fenster zeigt ab jetzt „Wurf laeuft", auch bevor jemand gewaehlt hat.
+function Erfassung.WurfBeginnt(link)
+    local r = runde(link, true)
+    r.zeit = time()
+    fensterAnstossen(true)
+end
+
+--- Ein Spieler verzichtet („passt") auf den Gegenstand.
+function Erfassung.WurfZurueckziehen(name, link)
+    local k = Kern.Schluessel(name)
+    if not k then return end
+    local r = runde(link, false)
+    if r and r.Spieler[k] then
+        r.Spieler[k] = nil
+        fensterAnstossen(false)
+    end
+end
+
+--- Der Gegenstand ist vergeben: seine Runde ist vorbei.
+function Erfassung.RundeBeenden(link)
+    local key = gegenstandsKey(link)
+    if key ~= "" and Runden[key] then
+        Runden[key] = nil
+        fensterAnstossen(false)
+    end
 end
 
 --- Wofuer hat dieser Spieler zuletzt gewuerfelt?
@@ -171,22 +280,33 @@ end
 --  Chat allein laesst sich das nicht ablesen — die Reihenfolge und die
 --  Hervorhebung stimmen trotzdem, und darum geht es.
 --
+--  Gezeigt wird die Runde mit der juengsten Bewegung (bei mehreren
+--  Gegenstaenden gleichzeitig also der, an dem gerade etwas passiert).
+--
 --  @param fenster  Sekunden; was aelter ist, gilt als vorbei
---  @return { Wuerfe = { Schluessel -> Wert }, namen = { ... } } oder nil
+--  @return { Wuerfe = { Schluessel -> Wert }, Arten = { Schluessel -> "haupt"|"zweit" },
+--            namen = { ... }, link = Gegenstand oder nil } oder nil
 function Erfassung.AktuelleWuerfe(fenster)
     fenster = fenster or 120
     local jetzt = time()
 
-    local Werte, namen = {}, {}
-    for k, W in pairs(Wuerfe) do
-        if (jetzt - W.zeit) <= fenster then
-            Werte[k] = W.wert
-            namen[#namen + 1] = W.name
+    local beste
+    for key, r in pairs(Runden) do
+        if (jetzt - r.zeit) > fenster then
+            Runden[key] = nil
+        elseif not beste or r.zeit > beste.zeit then
+            beste = r
         end
     end
+    if not beste then return nil end
 
-    if #namen == 0 then return nil end
-    return { Wuerfe = Werte, namen = namen }
+    local Werte, Arten, namen = {}, {}, {}
+    for k, S in pairs(beste.Spieler) do
+        Werte[k] = S.wert
+        Arten[k] = S.art
+        namen[#namen + 1] = S.name
+    end
+    return { Wuerfe = Werte, Arten = Arten, namen = namen, link = beste.link }
 end
 
 function Erfassung.OffeneWuerfe()
@@ -199,6 +319,7 @@ end
 
 function Erfassung.WuerfeVergessen()
     Wuerfe = {}
+    Runden = {}
 end
 
 -- =====================================================================
@@ -496,6 +617,7 @@ function Erfassung.Beutemeldung(text)
                 if Erfassung.Zaehlenswert(was, wer) then
                     Erfassung.Eintragen(wer, was)
                 end
+                Erfassung.RundeBeenden(was)   -- vergeben: die Wurfanzeige endet
                 return
             end
         else
@@ -505,10 +627,38 @@ function Erfassung.Beutemeldung(text)
                 if Erfassung.Zaehlenswert(was, ich) then
                     Erfassung.Eintragen(ich, was)
                 end
+                Erfassung.RundeBeenden(was)
                 return
             end
         end
     end
+end
+
+--- Eine Meldung aus Blizzards Wuerfelfenster auswerten.
+--  @return true, wenn es eine solche Meldung war (dann ist es keine Beute)
+function Erfassung.Wurfmeldung(text)
+    if type(text) ~= "string" then return false end
+
+    for _, M in ipairs(Muster.wuerfe) do
+        local A = Kern.Argumente(text, M.muster, M.nummern)
+        if A then
+            local name = M.arg.ich and eigenerName() or A[M.arg.name]
+            local link = A[M.arg.item]
+            if M.aktion == "ende" then
+                Erfassung.RundeBeenden(link)
+            elseif name and name ~= "" then
+                if M.aktion == "wurf" then
+                    Erfassung.WurfMerken(name, A[M.arg.wert], nil, nil, M.art, link)
+                elseif M.aktion == "wahl" then
+                    Erfassung.WurfMerken(name, nil, nil, nil, M.art, link)
+                else
+                    Erfassung.WurfZurueckziehen(name, link)
+                end
+            end
+            return true
+        end
+    end
+    return false
 end
 
 --- Eine Systemmeldung auf einen Wurf pruefen.
@@ -526,6 +676,18 @@ local rahmen = CreateFrame("Frame")
 rahmen:RegisterEvent("PLAYER_ENTERING_WORLD")
 rahmen:RegisterEvent("CHAT_MSG_LOOT")
 rahmen:RegisterEvent("CHAT_MSG_SYSTEM")
+-- Blizzards Wuerfelfenster geht auf. ⚠️ Nicht jede Fassung kennt das Ereignis.
+pcall(function() rahmen:RegisterEvent("START_LOOT_ROLL") end)
+
+--- Der Gegenstand einer Wuerfelrunde (nur lesen, alles geprueft).
+local function wurfGegenstand(rollID)
+    local f = rawget(_G, "GetLootRollItemLink")
+    if type(f) ~= "function" then return nil end
+    local ok, link = pcall(f, rollID)
+    if ok and type(link) == "string" then return link end
+    return nil
+end
+
 rahmen:SetScript("OnEvent", function(_, ereignis, a1)
     if ereignis == "PLAYER_ENTERING_WORLD" then
         Erfassung.MusterBauen()
@@ -534,8 +696,10 @@ rahmen:SetScript("OnEvent", function(_, ereignis, a1)
 
     -- ⚠️ Ein Fehler hier darf nicht den Chat mitreissen.
     local ok, fehler = pcall(function()
-        if ereignis == "CHAT_MSG_LOOT" then
-            Erfassung.Beutemeldung(a1)
+        if ereignis == "START_LOOT_ROLL" then
+            Erfassung.WurfBeginnt(wurfGegenstand(a1))
+        elseif ereignis == "CHAT_MSG_LOOT" then
+            if not Erfassung.Wurfmeldung(a1) then Erfassung.Beutemeldung(a1) end
         else
             Erfassung.Systemmeldung(a1)
         end

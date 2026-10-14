@@ -92,7 +92,9 @@ function Blizzbeute.Gegenstand(encounterID, lootListKey)
     -- Begegnung und Beuteplatz leisten das; die Zeit taete es nicht.
     local kennung = string.format("blizz:%s:%s", tostring(encounterID), tostring(lootListKey))
 
-    return ns.Erfassung.Eintragen(Gewinner.playerName, Drop.itemHyperlink, zeit, art, kennung)
+    local ok = ns.Erfassung.Eintragen(Gewinner.playerName, Drop.itemHyperlink, zeit, art, kennung)
+    ns.Erfassung.RundeBeenden(Drop.itemHyperlink)   -- vergeben: die Wurfanzeige endet
+    return ok
 end
 
 --- Merkt sich die laufenden Wuerfe fuer die Anzeige.
@@ -104,7 +106,7 @@ function Blizzbeute.WuerfeMerken(Drop)
         if W.playerName then
             local art = Blizzbeute.Bedarfsart(W.state)
             if art then
-                ns.Erfassung.WurfMerken(W.playerName, W.roll or 0, nil, nil, art)
+                ns.Erfassung.WurfMerken(W.playerName, W.roll, nil, nil, art, Drop.itemHyperlink)
                 n = n + 1
             end
         end

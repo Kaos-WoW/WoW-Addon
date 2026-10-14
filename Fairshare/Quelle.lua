@@ -206,16 +206,30 @@ function Quelle.Wurf()
         return ns.Erfassung and ns.Erfassung.AktuelleWuerfe() or nil
     end
 
-    local Wuerfe, namen = {}, {}
+    -- ⭐ Je Spieler zaehlt Hauptbedarf vor Zweitbedarf (wer beides wirft, meint
+    -- das Wichtigere), innerhalb einer Art der hoechste Wurf. Die Art kommt
+    -- aus dem Bereich des Wurfs (1-100 Haupt, 1-50 Zweit), hilfsweise aus
+    -- dem Namen des Bereichs bei Gargul („MS"/„OS").
+    local RANG = { haupt = 2, zweit = 1 }
+    local Wuerfe, Arten, namen = {}, {}, {}
     for _, W in pairs(Aktuell.Rolls or {}) do
         local k = W and W.player and ns.Kern.Schluessel(W.player)
         if k then
             local wert = tonumber(W.amount) or 0
+            local art = ns.Kern.Bedarfsart(W.min, W.max)
+            if not art and type(W.classification) == "string" then
+                local c = W.classification:upper()
+                if c == "MS" then art = "haupt" elseif c == "OS" then art = "zweit" end
+            end
+
             if Wuerfe[k] == nil then
                 namen[#namen + 1] = W.player
-                Wuerfe[k] = wert
-            elseif wert > Wuerfe[k] then
-                Wuerfe[k] = wert
+                Wuerfe[k], Arten[k] = wert, art
+            else
+                local neuerRang, alterRang = RANG[art] or 0, RANG[Arten[k]] or 0
+                if neuerRang > alterRang or (neuerRang == alterRang and wert > Wuerfe[k]) then
+                    Wuerfe[k], Arten[k] = wert, art
+                end
             end
         end
     end
@@ -224,6 +238,7 @@ function Quelle.Wurf()
         link  = Aktuell.itemLink,
         name  = Aktuell.itemName,
         Wuerfe = Wuerfe,
+        Arten = Arten,
         namen = namen,
     }
 end
@@ -320,19 +335,20 @@ end
 --  einer, der in der Historie gar nicht vorkommt — der Fall, der sonst
 --  durchs Raster fiele.
 function Quelle.BeispielWurf()
-    local Wuerfe, namen = {}, {}
+    local Wuerfe, Arten, namen = {}, {}, {}
     local gewuerfelt = {
-        { "Xalessa", 87 },
-        { "Renbi",   64 },
-        { "Deters",  41 },
-        { "Nuhkomm", 93 },   -- taucht in der Beispiel-Historie nicht auf
-        { "Velera",  12 },
+        { "Xalessa", 87, "haupt" },
+        { "Renbi",   64, "haupt" },
+        { "Deters",  41, "zweit" },
+        { "Nuhkomm", 93, "haupt" },   -- taucht in der Beispiel-Historie nicht auf
+        { "Velera",  12, "zweit" },
     }
     for _, W in ipairs(gewuerfelt) do
         namen[#namen + 1] = W[1]
         Wuerfe[ns.Kern.Schluessel(W[1])] = W[2]
+        Arten[ns.Kern.Schluessel(W[1])] = W[3]
     end
-    return { link = nil, name = "Zorn des Verräters", Wuerfe = Wuerfe, namen = namen }
+    return { link = nil, name = "Zorn des Verräters", Wuerfe = Wuerfe, Arten = Arten, namen = namen }
 end
 
 return ns

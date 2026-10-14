@@ -759,6 +759,120 @@ fest(anz(w, 0) == 0 and anz(w, 1) == 5, "Leiter leert, die anderen haben noch al
 w.weiter(150)    # der Abstand zwischen zwei automatischen Laeufen betraegt zwei Minuten
 fest(anz(w, 0) == 5, "der automatische Abgleich bringt es zurueck (nur Hinzufuegen)")
 
+print("== 19. Blizzards Wuerfelfenster: Fenster oeffnet sich, Haupt/Zweit je Wurf ==")
+import re
+
+
+def roh(t):
+    return re.sub(r"\|r|\|c[0-9a-fA-F]{8}", "", str(t))
+
+
+w = gruppe(4)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+cl = w.clients[0]
+ns, g, lua = cl["ns"], cl["g"], cl["lua"]
+# Vorgeschichte: Timo 3 Stuecke, Lina 1, Moe 0
+for i in range(3):
+    w.setze(0, "v%d" % i, {"awardedTo": "Timo", "itemID": 9600 + i, "timestamp": int(w.t) - (i + 1) * 4000})
+w.setze(0, "v9", {"awardedTo": "Lina", "itemID": 9609, "timestamp": int(w.t) - 5000})
+A1 = "|cff0070dd|Hitem:7001::::::::60:::::|h[Rollding 1]|h|r"
+A2 = "|cff0070dd|Hitem:7002::::::::60:::::|h[Rollding 2]|h|r"
+
+
+def chat(text):
+    g["__ereignis"]("CHAT_MSG_LOOT", text)
+
+
+def texte():
+    return [roh(x) for x in g["__text"]("").values()]
+
+
+def zeile_von(name):
+    """Platz des Namens in der Zeilenfolge (Reihenfolge der erzeugten Textfelder)."""
+    fr = g["__frames"]
+    for i in range(1, len(fr) + 1):
+        if roh(fr[i]["_text"] or "") == name:
+            return i
+    return None
+
+
+fest(ns.Fenster.Sichtbar() is False, "Fenster ist zu")
+g["__ereignis"]("START_LOOT_ROLL", 1)
+fest(ns.Fenster.Sichtbar() is True, "START_LOOT_ROLL oeffnet das Fenster")
+fest(any("Wurf läuft" in t and "Rollding 1" in t for t in texte()), "Wurfzeile nennt den Gegenstand")
+
+chat("Timo has selected Greed for: " + A1)
+chat("Lina has selected Need for: " + A1)
+fest(any("1 Haupt · 1 Zweit" in t for t in texte()), "Zaehler: 1 Haupt, 1 Zweit (schon vor dem Wurf)")
+fest(zeile_von("Lina") < zeile_von("Timo"), "Haupt steht vor Zweit, obwohl Timo mehr Stuecke hat als... (Lina vor Timo)")
+
+chat("Greed Roll - 41 for " + A1 + " by Timo")
+chat("Need Roll - 87 for " + A1 + " by Lina")
+fest(any(t == "87  Haupt" for t in texte()), "Lina: 87 Haupt")
+fest(any(t == "41  Zweit" for t in texte()), "Timo: 41 Zweit")
+
+# Ein dritter wuerfelt Haupt mit weniger Stuecken: steht vor Lina
+chat("Moe has selected Need for: " + A1)
+chat("Need Roll - 12 for " + A1 + " by Moe")
+fest(zeile_von("Moe") < zeile_von("Lina") < zeile_von("Timo"), "Haupt wenigste zuerst, dann Haupt mit mehr, dann Zweit")
+
+# Verzicht nimmt den Spieler aus der Liste
+chat("Timo passed on: " + A1)
+fest(not any(t == "41  Zweit" for t in texte()), "Timo verzichtet: sein Wurf verschwindet")
+
+# Rollenbonus-Fassung wird nicht als Name „Zora + Role Bonus" gelesen
+chat("Need Roll - 55 for " + A1 + " by Zora + Role Bonus")
+R = ns.Erfassung.AktuelleWuerfe()
+fest(R["Wuerfe"]["zora"] == 55 and R["Wuerfe"]["zora + role bonus"] is None,
+     "Wurf mit Rollenbonus: Name sauber erkannt (ohne den Zusatz)")
+
+# Der Gewinner: Eintrag mit richtiger Art, die Wurfanzeige endet
+chat("Lina receives loot: " + A1 + ".")
+fest(any(v["awardedTo"] == "Lina" and v["itemID"] == 7001 for v in w.hist(0).values()), "Gewinn wird aufgezeichnet")
+e = [v for v in w.hist(0).values() if v["itemID"] == 7001][0]
+fest(e["OS"] is None, "Hauptbedarf-Wurf: kein Zweitbedarf")
+fest(not any("Wurf läuft" in t for t in texte()), "nach der Vergabe endet die Wurfanzeige")
+
+# Zwei Gegenstaende gleichzeitig bleiben getrennt
+g["__ereignis"]("START_LOOT_ROLL", 1)
+g["__ereignis"]("START_LOOT_ROLL", 2)
+chat("Need Roll - 70 for " + A1 + " by Timo")
+w.weiter(2)
+chat("Greed Roll - 33 for " + A2 + " by Lina")
+fest(any("Rollding 2" in t and "Wurf läuft" in t for t in texte()), "gezeigt wird der Gegenstand mit der juengsten Bewegung")
+fest(not any(t == "70  Haupt" for t in texte()), "die Wuerfe des anderen Gegenstands stehen nicht darin")
+chat("Lina receives loot: " + A2 + ".")
+fest(any("Rollding 1" in t and "Wurf läuft" in t for t in texte()), "danach zeigt es den anderen Gegenstand")
+fest(any(t == "70  Haupt" for t in texte()), "dessen Wuerfe sind noch da")
+
+# Zweitbedarf-Gewinn (Gier) wird als Zweitbedarf eingetragen
+chat("Need Roll - 20 for " + A1 + " by Moe")
+chat("Greed Roll - 90 for " + A1 + " by Zora")
+chat("Zora receives loot: " + A1 + ".")
+e = [v for v in w.hist(0).values() if v["awardedTo"] == "Zora"][0]
+fest(e["OS"] is True, "Gier-Gewinn: als Zweitbedarf eingetragen")
+
+# Gargul: die Art kommt aus dem Wurfbereich
+w2 = gruppe(2)
+w2.ereignis("PLAYER_ENTERING_WORLD")
+w2.weiter(5)
+ns2, g2, lua2 = w2.clients[0]["ns"], w2.clients[0]["g"], w2.clients[0]["lua"]
+lua2.execute("""
+Gargul = { RollOff = { inProgress = true, CurrentRollOff = { itemLink = "x", Rolls = {
+  { player = "Timo", amount = 87, min = 1, max = 100 },
+  { player = "Lina", amount = 41, min = 1, max = 50 },
+  { player = "Moe",  amount = 30, min = 1, max = 100 },
+  { player = "Moe",  amount = 45, min = 1, max = 50 },
+  { player = "Zora", amount = 60, min = 1, max = 99, classification = "OS" },
+} } } }
+""")
+W = ns2.Quelle.Wurf()
+fest(W["Arten"]["timo"] == "haupt" and W["Wuerfe"]["timo"] == 87, "Gargul: 1-100 ist Haupt")
+fest(W["Arten"]["lina"] == "zweit" and W["Wuerfe"]["lina"] == 41, "Gargul: 1-50 ist Zweit")
+fest(W["Arten"]["moe"] == "haupt" and W["Wuerfe"]["moe"] == 30, "wer beides wirft, zaehlt als Haupt")
+fest(W["Arten"]["zora"] == "zweit", "Gargul: Bereichsname OS gilt als Zweit")
+
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")
 sys.exit(0 if alle_ok else 1)

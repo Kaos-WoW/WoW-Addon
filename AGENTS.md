@@ -165,6 +165,31 @@ Absenders und seine Zuordnung.
 
 ---
 
+## Wurfanzeige (Übersicht während eines Wurfs, seit 14.10.2026)
+
+Drei Quellen füllen dieselbe Anzeige (`Quelle.Wurf()`), jede liefert `Wuerfe`, **`Arten`** (`haupt`/`zweit`), `namen`, `link`:
+
+* **Gargul** (`RollOff.CurrentRollOff.Rolls`): die Art kommt aus dem Wurfbereich (`Kern.Bedarfsart`: 1-100 Haupt, 1-50
+  Zweit), hilfsweise aus dem Bereichsnamen („MS"/„OS"). Wer beides wirft, zählt als Haupt.
+* **Blizzards Würfelfenster** (Bedarf/Gier, Gruppenbeute) — Ergebnis des ersten Livetests: *öffnete das Fenster nicht*.
+  Jetzt: `START_LOOT_ROLL` öffnet es (`Erfassung.WurfBeginnt`, Gegenstand über `GetLootRollItemLink`), die
+  Chatmeldungen kommen aus den GlobalStrings `LOOT_ROLL_ROLLED_NEED/_GREED`, `LOOT_ROLL_NEED/_GREED` (Wahl, sofort),
+  `LOOT_ROLL_PASSED` (Verzicht) und `LOOT_ROLL_WON/_YOU_WON/_ALL_PASSED` (Ende). **Bedarf = Haupt, Gier = Zweit**
+  (wie in `Blizzbeute.lua`). `Kern.MusterGeordnet` ordnet die Fundstellen den Argumenten zu (übersetzte Vorlagen
+  dürfen umstellen), die längere Vorlage steht zuerst („… + Role Bonus").
+* **`/rnd`** im Chat (ohne Gargul): `RANDOM_ROLL_RESULT`, Art aus dem Bereich.
+
+⭐ **Je Gegenstand eine Runde** (`Erfassung`, `Runden`): mehrere gleichzeitige Gegenstände vermischen sich nicht; gezeigt
+wird die Runde mit der jüngsten Bewegung. Eine Runde endet mit der Vergabe (Beutemeldung, Blizzards Historie, „X won")
+oder nach 120 s ohne Bewegung. Die Zeile je Spieler zeigt **„87  Haupt"** / **„41  Zweit"**; hat er nur gewählt
+und noch nicht gewürfelt, nur die Art. Reihenfolge (`Kern.WurfReihenfolge`): **Haupt vor Zweit**, innerhalb davon
+wenigste Stücke zuerst. Die Namen aus Chat und Liste werden über `Kern.GleicherSpieler` verglichen (Nachname).
+
+⚠️ Ungemessen im Spiel: ob Forever `START_LOOT_ROLL` und die `LOOT_ROLL_*`-Meldungen so liefert (Gruppenbeute).
+Fehlt etwas, bleibt nur die Anzeige leer, aufgezeichnet wird weiterhin über Beutemeldung und `C_LootHistory`.
+
+---
+
 ## Gruppen und Kader (`Gruppen.lua`, Modell vom 14.10.2026)
 
 Entscheid des Gildenleiters: **so wenige Handgriffe wie möglich.** Es gibt nur noch **eine** Art Gruppe

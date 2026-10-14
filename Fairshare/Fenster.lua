@@ -40,6 +40,7 @@ local HELL  = S.Code(C.white)
 local GRAU  = S.Code(C.mu)
 local GELB  = S.Code(C.warn)
 local ROT   = S.Code(C.bad)
+local AKZENT = S.Code(C.ac)
 
 local rahmen, kopfZeile, tafel, fuss, unterzeile, kopfTag
 local zeilen = {}
@@ -63,7 +64,7 @@ local function layout(name, w)
                  { 214, math.max(80, w - 214), "LEFT" }, { 0, 1, "LEFT" } }
     end
     -- liste: Spieler | Haupt | Zweit | Zuletzt | Wurf
-    local ew, dw, cw, bw = 100, 170, 60, 60
+    local ew, dw, cw, bw = 120, 160, 60, 60
     local ex = w - ew
     local dx = ex - L6 - dw
     local cx = dx - L6 - cw
@@ -421,6 +422,37 @@ local function zuletztText(letzte)
     return string.format(L["vor %d Tagen"], tage)
 end
 
+--- Der Schluessel dieses Spielers in den Wuerfen, oder nil.
+--  ⚠️ Die Namen aus dem Chat und aus der Liste muessen nicht gleich
+--  geschrieben sein (Nachname fehlt auf einer Seite): erst genau, dann
+--  ueber Kern.GleicherSpieler.
+local function wurfSchluessel(W, name)
+    local k = Kern.Schluessel(name)
+    if k and W.Wuerfe[k] ~= nil then return k end
+    for _, n in ipairs(W.namen or {}) do
+        if Kern.GleicherSpieler(n, name) then return Kern.Schluessel(n) end
+    end
+    return nil
+end
+
+--- „87  Haupt" / „41  Zweit" — der Wurf und wofuer er galt.
+--  Ohne Zahl (Spieler hat gewaehlt, aber noch nicht gewuerfelt): nur die Art.
+local function wurfText(W, name)
+    local k = wurfSchluessel(W, name)
+    if not k then return "" end
+    local wert, art = W.Wuerfe[k], W.Arten and W.Arten[k]
+
+    local zahl = (wert and wert > 0) and (HELL .. wert .. "|r") or ""
+    local label = ""
+    if art == "haupt" then
+        label = AKZENT .. L["Haupt"] .. "|r"
+    elseif art == "zweit" then
+        label = GRAU .. L["Zweit"] .. "|r"
+    end
+    if zahl ~= "" and label ~= "" then return zahl .. "  " .. label end
+    return zahl .. label
+end
+
 local function zeigeListe(H)
     local W = wurf()
 
@@ -442,8 +474,11 @@ local function zeigeListe(H)
 
     local istWuerfler
     if W then
+        -- false = kein Wurf, sonst die Art ("haupt"/"zweit") oder true
         istWuerfler = function(name)
-            return W.Wuerfe[Kern.Schluessel(name)] ~= nil
+            local k = wurfSchluessel(W, name)
+            if not k then return false end
+            return (W.Arten and W.Arten[k]) or true
         end
         Kern.WurfReihenfolge(liste, istWuerfler)
     end
@@ -470,12 +505,7 @@ local function zeigeListe(H)
         z.c:SetText(e.zweit > 0 and (GRAU .. e.zweit .. "|r") or "")
         z.d:SetText(zuletztText(e.letzte))
 
-        if W then
-            local w = W.Wuerfe[Kern.Schluessel(e.name)]
-            z.e:SetText(w and (HELL .. w .. "|r") or "")
-        else
-            z.e:SetText("")
-        end
+        z.e:SetText(W and wurfText(W, e.name) or "")
     end
     leereZeilen(gezeigt + 1)
 
@@ -490,8 +520,12 @@ local function zeigeListe(H)
 
     if W then
         local was = W.link or W.name
+        local haupt, zweit = 0, 0
+        for _, art in pairs(W.Arten or {}) do
+            if art == "haupt" then haupt = haupt + 1 elseif art == "zweit" then zweit = zweit + 1 end
+        end
         unterzeile:SetText(GELB .. L["Wurf läuft"] .. "|r  " .. (was and (was .. "  ") or "") ..
-            GRAU .. "—  " .. L["Würfelnde oben, wenigste Stücke zuerst"] .. "|r")
+            GRAU .. "—  " .. string.format(L["%d Haupt · %d Zweit · wenigste Stücke zuerst"], haupt, zweit) .. "|r")
     else
         unterzeile:SetText("")
     end

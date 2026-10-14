@@ -194,6 +194,41 @@ local function testWurfReihenfolge()
     gleich("ohne Wurf unveraendert", Kern.WurfReihenfolge(unveraendert, nil)[1].name, "A")
 end
 
+local function testWurfArt()
+    -- Haupt vor Zweit, auch wenn der Zweit-Wuerfler weniger Stuecke hat
+    local liste = {
+        { name = "ZweitLeer",  haupt = 0, zweit = 0, letzte = 0   },
+        { name = "HauptViel",  haupt = 8, zweit = 0, letzte = 500 },
+        { name = "HauptWenig", haupt = 1, zweit = 0, letzte = 400 },
+        { name = "Aussen",     haupt = 3, zweit = 0, letzte = 300 },
+    }
+    local art = { ZweitLeer = "zweit", HauptViel = "haupt", HauptWenig = "haupt" }
+    Kern.WurfReihenfolge(liste, function(n) return art[n] or false end)
+    gleich("Haupt, wenigste zuerst",    liste[1].name, "HauptWenig")
+    gleich("Haupt mit vielen danach",   liste[2].name, "HauptViel")
+    gleich("Zweit erst nach allen Haupt", liste[3].name, "ZweitLeer")
+    gleich("kein Wurf ganz unten",      liste[4].name, "Aussen")
+end
+
+local function testWurfMeldung()
+    -- Blizzards Meldung: Wert, Gegenstand, Name (englische Vorlage)
+    local muster, nr = Kern.MusterGeordnet("Need Roll - %d for %s by %s")
+    local A = Kern.Argumente("Need Roll - 87 for |cff0070dd|Hitem:6948::::|h[Ding]|h|r by Yondaime Kaos", muster, nr)
+    gleich("Wert",      A and A[1], "87")
+    gleich("Name mit Nachnamen", A and A[3], "Yondaime Kaos")
+    gleich("Gegenstand", A and A[2] and A[2]:match("%[(.-)%]"), "Ding")
+
+    -- Eine uebersetzte Vorlage darf die Reihenfolge umstellen
+    local m2, n2 = Kern.MusterGeordnet("%3$s wuerfelt %1$d fuer %2$s")
+    local B = Kern.Argumente("Kaos wuerfelt 42 fuer Schwert", m2, n2)
+    gleich("umgestellt: Wert",  B and B[1], "42")
+    gleich("umgestellt: Stueck", B and B[2], "Schwert")
+    gleich("umgestellt: Name",  B and B[3], "Kaos")
+
+    -- Passt die Meldung nicht, gibt es nichts
+    gleich("fremde Meldung", Kern.Argumente("Etwas anderes", muster, nr), nil)
+end
+
 local function testSpieler()
     local H = {
         a = { awardedTo = "Kaos", timestamp = 1000 },
@@ -627,6 +662,8 @@ function Tests.Alle(ausgeben)
     testPflichtnamen()
     testNur()
     testWurfReihenfolge()
+    testWurfArt()
+    testWurfMeldung()
     testSpieler()
     testMuster()
     testBedarfsart()
