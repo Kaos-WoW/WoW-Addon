@@ -26,6 +26,7 @@ local function hilfe()
     sag("Befehle:")
     print("  " .. GELB .. "/lh|r          – Fenster öffnen und schließen")
     print("  " .. GELB .. "/lh verlauf|r  – wer bekam was, wann")
+    print("  " .. GELB .. "/lh einstellungen|r – das Einstellungsfenster")
     print("  " .. GELB .. "/lh demo|r     – Fenster mit Beispieldaten (nichts wird gespeichert)")
     print("  " .. GELB .. "/lh liste|r    – dieselbe Auswertung im Chat, " .. GELB .. "liste 4|r für 4 Wochen")
     print("  " .. GELB .. "/lh <Name>|r   – Einzelvergaben eines Spielers im Chat")
@@ -179,6 +180,11 @@ end
 befehle["verlauf"] = function()
     Fenster.ZeigenAnsicht("verlauf")
 end
+
+befehle["einstellungen"] = function()
+    ns.Einstellungen.Umschalten()
+end
+befehle["optionen"] = befehle["einstellungen"]
 
 befehle["test"] = function()
     if ns.Tests and ns.Tests.Alle then ns.Tests.Alle() else sag("Keine Tests geladen.") end

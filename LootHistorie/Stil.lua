@@ -1,0 +1,416 @@
+--[[----------------------------------------------------------------------
+    Stil.lua  —  Bausteine im Look von KaosUI
+
+    Dunkle, flache Flaechen, Petrol als Akzent, Inter als Schrift, runde
+    Ecken ohne Grafikdatei. Dasselbe Aussehen wie das Optionsfenster von
+    KaosUI, aber **ohne Abhaengigkeit zu KaosUI**: Die Bausteine sind hier
+    neu geschrieben, damit Loot-Historie allein funktioniert.
+
+    ⚠️ Nur eigene Frames, keine Blizzard-Vorlagen (kein UIDropDownMenu,
+    kein UIPanelButtonTemplate) — ein Teil weniger, das beim naechsten
+    Patch bricht, und es sieht ueberall gleich aus.
+
+    ⚠️ Runde Ecken: drei Streifen plus vier Viertelkreise, die eine
+    Kreis-Maske bekommen. Fehlt `CreateMaskTexture`, bleiben die Ecken eckig
+    — es sieht dann schlichter aus, funktioniert aber.
+------------------------------------------------------------------------]]
+
+local ADDON, ns = ...
+
+local Stil = {}
+ns.Stil = Stil
+
+local WHITE  = "Interface\\Buttons\\WHITE8X8"
+local CIRCLE = "Interface\\Masks\\CircleMaskScalable"
+local MEDIA  = "Interface\\AddOns\\" .. ADDON .. "\\Media\\"
+local SCHRIFT = MEDIA .. "Fonts\\Inter-Medium.ttf"
+
+-- WoW rendert Schrift ohne die Kantenschaerfung eines Browsers; Inter wirkt
+-- im Spiel duenn. Darum Medium und einen Punkt groesser (Erfahrung KaosUI).
+local GROESSE_PLUS = 1
+
+-- Die Schrift beim Laden einmal anfassen: eine Schriftdatei, die der
+-- Client noch nie geladen hat, zeigt beim ersten SetFont sonst leeren Text.
+do
+    local halter = CreateFrame("Frame")
+    halter:Hide()
+    local fs = halter:CreateFontString(nil, "OVERLAY")
+    fs:SetFont(SCHRIFT, 13, "")
+    fs:SetText("Loot-Historie äöü")
+end
+
+-- =====================================================================
+--  Farben (wie KaosUI; Petrol #1f8f80 ist der Akzent)
+-- =====================================================================
+
+local function hex(h, a)
+    return { tonumber(h:sub(1, 2), 16) / 255, tonumber(h:sub(3, 4), 16) / 255,
+             tonumber(h:sub(5, 6), 16) / 255, a or 1 }
+end
+
+local C = {
+    bg      = hex("101314"),   -- Fenster, Seitenleiste, Inhalt
+    p1      = hex("161a1c"),   -- Kopf, Fuss, Karten
+    p2      = hex("1c2123"),   -- Felder, Segmentwahl
+    ln      = hex("2a3235"),   -- Linien und Raender
+    hover   = hex("232a2c"),
+    tx      = hex("e4ebe8"),
+    mu      = hex("a3aeaa"),   -- Erklaertexte
+    dim     = hex("5c6764"),
+    ac      = hex("1f8f80"),
+    ach     = hex("26a896"),
+    acb     = hex("122725"),   -- Petrol, 16 % ueber bg
+    badge   = hex("7fd6c8"),
+    tgOff   = hex("333b3e"),
+    knobOff = hex("cfd8d5"),
+    track   = hex("2d3133"),
+    white   = hex("ffffff"),
+    warn    = hex("e6a633"),
+    warnBg  = hex("2a2418"),
+    ok      = hex("7fd69a"),
+    bad     = hex("e67e7e"),
+}
+Stil.C = C
+
+--- Farbe als Textcode, fuer |cff...|r in Zeichenketten.
+function Stil.Code(c)
+    return string.format("|cff%02x%02x%02x",
+        math.floor(c[1] * 255 + 0.5), math.floor(c[2] * 255 + 0.5), math.floor(c[3] * 255 + 0.5))
+end
+
+-- =====================================================================
+--  Grundbausteine
+-- =====================================================================
+
+local function Tex(eltern, ebene, c, a, unter)
+    local t = eltern:CreateTexture(nil, ebene or "BACKGROUND", nil, unter or 0)
+    t:SetTexture(WHITE)
+    t:SetVertexColor(c[1], c[2], c[3], a or c[4] or 1)
+    return t
+end
+Stil.Tex = Tex
+
+local function Faerbe(t, c, a)
+    t:SetVertexColor(c[1], c[2], c[3], a or c[4] or 1)
+end
+Stil.Faerbe = Faerbe
+
+local function Schrift(fs, groesse)
+    local px = (groesse or 12) + GROESSE_PLUS
+    fs:SetFont(SCHRIFT, px, "")
+    -- Fehlt die Datei (unvollstaendig ausgerollt), bleibt die Standardschrift.
+    if not fs:GetFont() then
+        local pfad = GameFontNormal and GameFontNormal:GetFont()
+        if pfad then fs:SetFont(pfad, px, "") end
+    end
+end
+Stil.Schrift = Schrift
+
+local function Text(eltern, groesse, c, ausrichtung, umbruch)
+    local fs = eltern:CreateFontString(nil, "OVERLAY")
+    Schrift(fs, groesse)
+    fs:SetJustifyH(ausrichtung or "LEFT")
+    fs:SetShadowOffset(0, 0)
+    c = c or C.tx
+    fs:SetTextColor(c[1], c[2], c[3], c[4] or 1)
+    if umbruch then
+        fs:SetWordWrap(true)
+        fs:SetJustifyV("TOP")
+    end
+    return fs
+end
+Stil.Text = Text
+
+function Stil.TextFarbe(fs, c)
+    fs:SetTextColor(c[1], c[2], c[3], c[4] or 1)
+end
+
+--- Symbol aus Media/Icons (Tabler Icons, MIT; weiss, wird getoent).
+local function Symbol(eltern, name, groesse, c, ebene)
+    local t = eltern:CreateTexture(nil, ebene or "ARTWORK")
+    t:SetTexture(MEDIA .. "Icons\\" .. name)
+    t:SetSize(groesse, groesse)
+    Faerbe(t, c or C.mu)
+    return t
+end
+Stil.Symbol = Symbol
+
+local function Maske(rahmen, tex, bezug, groesse)
+    if not rahmen.CreateMaskTexture then return end
+    local m = rahmen:CreateMaskTexture()
+    m:SetTexture(CIRCLE, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    if groesse then m:SetSize(groesse, groesse) else m:SetAllPoints(bezug or tex) end
+    tex:AddMaskTexture(m)
+    return m
+end
+
+--- Kreisflaeche (Schalterknopf).
+function Stil.Rund(rahmen, tex)
+    Maske(rahmen, tex)
+end
+
+--- Abgerundetes Rechteck ohne Grafikdatei.
+--  r = Radius, ecken = nil (alle rund) oder { tl, tr, bl, br }
+local function Form(rahmen, r, c, a, ebene, unter, einzug, ecken, bezug)
+    einzug, bezug = einzug or 0, bezug or rahmen
+    local s = { teile = {} }
+    local function add(t) s.teile[#s.teile + 1] = t; return t end
+    local function hat(k) return ecken == nil or (ecken[k] and true or false) end
+
+    if r <= 0 then
+        local t = add(Tex(rahmen, ebene, c, a, unter))
+        t:SetPoint("TOPLEFT", bezug, "TOPLEFT", einzug, -einzug)
+        t:SetPoint("BOTTOMRIGHT", bezug, "BOTTOMRIGHT", -einzug, einzug)
+    else
+        local tl, tr, bl, br = hat("tl"), hat("tr"), hat("bl"), hat("br")
+
+        local mitte = add(Tex(rahmen, ebene, c, a, unter))
+        mitte:SetPoint("TOPLEFT", bezug, "TOPLEFT", einzug + r, -einzug)
+        mitte:SetPoint("BOTTOMRIGHT", bezug, "BOTTOMRIGHT", -einzug - r, einzug)
+
+        local links = add(Tex(rahmen, ebene, c, a, unter))
+        links:SetWidth(r)
+        links:SetPoint("TOPLEFT", bezug, "TOPLEFT", einzug, -einzug - (tl and r or 0))
+        links:SetPoint("BOTTOMLEFT", bezug, "BOTTOMLEFT", einzug, einzug + (bl and r or 0))
+
+        local rechts = add(Tex(rahmen, ebene, c, a, unter))
+        rechts:SetWidth(r)
+        rechts:SetPoint("TOPRIGHT", bezug, "TOPRIGHT", -einzug, -einzug - (tr and r or 0))
+        rechts:SetPoint("BOTTOMRIGHT", bezug, "BOTTOMRIGHT", -einzug, einzug + (br and r or 0))
+
+        local function ecke(punkt, x, y)
+            local t = add(Tex(rahmen, ebene, c, a, unter))
+            t:SetSize(r, r)
+            t:SetPoint(punkt, bezug, punkt, x, y)
+            local m = Maske(rahmen, t, nil, r * 2)
+            if m then m:SetPoint(punkt, bezug, punkt, x, y) end
+        end
+        if tl then ecke("TOPLEFT", einzug, -einzug) end
+        if tr then ecke("TOPRIGHT", -einzug, -einzug) end
+        if bl then ecke("BOTTOMLEFT", einzug, einzug) end
+        if br then ecke("BOTTOMRIGHT", -einzug, einzug) end
+    end
+
+    function s:SetColor(c2, a2) for _, t in ipairs(self.teile) do Faerbe(t, c2, a2) end end
+    function s:SetShown(an) for _, t in ipairs(self.teile) do t:SetShown(an and true or false) end end
+    return s
+end
+Stil.Form = Form
+
+--- Abgerundete Flaeche mit 1px-Rand.
+local function Kasten(rahmen, r, fuell, rand, ebene, unter, ecken)
+    ebene, unter = ebene or "BACKGROUND", unter or 0
+    local k = {
+        rand  = Form(rahmen, r, rand or fuell, nil, ebene, unter, 0, ecken),
+        fuell = Form(rahmen, math.max(0, r - 1), fuell, nil, ebene, unter + 1, 1, ecken),
+    }
+    function k:SetFill(c, a) self.fuell:SetColor(c, a) end
+    function k:SetEdge(c, a) self.rand:SetColor(c, a) end
+    function k:SetShown(an) self.rand:SetShown(an); self.fuell:SetShown(an) end
+    return k
+end
+Stil.Kasten = Kasten
+
+-- =====================================================================
+--  Knoepfe, Eingabe, Auswahl
+-- =====================================================================
+
+local function KnopfFarbe(b)
+    local an = b:IsEnabled()
+    local heiss = b._hover and an
+    if b.art == "primary" then
+        local c = heiss and C.ach or C.ac
+        b.kasten:SetFill(c); b.kasten:SetEdge(c)
+        Stil.TextFarbe(b.text, C.white)
+    elseif b.art == "link" then
+        Stil.TextFarbe(b.text, heiss and C.tx or C.mu)
+    else
+        b.kasten:SetFill(heiss and C.hover or C.p2)
+        b.kasten:SetEdge(C.ln)
+        Stil.TextFarbe(b.text, C.tx)
+    end
+    b:SetAlpha(an and 1 or 0.4)
+end
+
+local function KnopfMasse(b)
+    local tb = math.ceil(b.text:GetStringWidth())
+    local rand = (b.art == "link") and 0 or 12
+    local w = b.festeBreite or (tb + rand * 2)
+    b:SetWidth(w)
+    b.text:ClearAllPoints()
+    b.text:SetPoint("CENTER", b, "CENTER", 0, 0)
+end
+
+--- art: "secondary" (Standard) | "primary" (Petrol) | "link" (nur Text)
+function Stil.Knopf(eltern, text, art, hoehe)
+    local b = CreateFrame("Button", nil, eltern)
+    b.art = art or "secondary"
+    b:SetHeight(hoehe or 24)
+    if b.art ~= "link" then
+        local c = (b.art == "primary") and C.ac or C.p2
+        b.kasten = Kasten(b, 5, c, (b.art == "primary") and C.ac or C.ln)
+    end
+    b.text = Text(b, b.art == "link" and 12 or 13, C.tx, "CENTER")
+    b:SetScript("OnEnter", function(s) s._hover = true; KnopfFarbe(s) end)
+    b:SetScript("OnLeave", function(s) s._hover = false; KnopfFarbe(s) end)
+
+    function b:SetLabel(t)
+        self.text:SetText(t or "")
+        KnopfMasse(self)
+    end
+    function b:SetFest(w)
+        self.festeBreite = w
+        KnopfMasse(self)
+    end
+    function b:SetAktiv(an)
+        self:SetEnabled(an and true or false)
+        KnopfFarbe(self)
+    end
+
+    b:SetLabel(text)
+    KnopfFarbe(b)
+    return b
+end
+
+--- Eingabefeld mit Rand, der beim Tippen petrol wird.
+function Stil.Eingabe(eltern, breite, hoehe, groesse)
+    local e = CreateFrame("EditBox", nil, eltern)
+    e:SetSize(breite, hoehe or 26)
+    e:SetAutoFocus(false)
+    Schrift(e, groesse or 13)
+    e:SetTextColor(C.tx[1], C.tx[2], C.tx[3])
+    e:SetTextInsets(8, 8, 0, 0)
+    e.kasten = Kasten(e, 5, C.p2, C.ln)
+    e:SetScript("OnEditFocusGained", function(s) s.kasten:SetEdge(C.ac) end)
+    e:SetScript("OnEditFocusLost", function(s) s.kasten:SetEdge(C.ln) end)
+    e:SetScript("OnEscapePressed", function(s) s:ClearFocus() end)
+    e:SetScript("OnEnterPressed", function(s) s:ClearFocus() end)
+    return e
+end
+
+--- Segmentwahl: ein paar Werte nebeneinander, der gewaehlte in Petrol.
+function Stil.Segment(eltern, beiWahl)
+    local f = CreateFrame("Frame", nil, eltern)
+    f:SetHeight(26)
+    f.kasten = Kasten(f, 6, C.p2, C.ln)
+    f.knoepfe = {}
+
+    function f:SetWerte(werte)
+        local x = 3
+        for i, w in ipairs(werte or {}) do
+            local b = self.knoepfe[i]
+            if not b then
+                b = CreateFrame("Button", nil, self)
+                b:SetHeight(20)
+                b.bg = Form(b, 4, C.ac)
+                b.text = Text(b, 13, C.mu, "CENTER")
+                b.text:SetPoint("CENTER", 0, 0)
+                b:SetScript("OnClick", function(s) if beiWahl then beiWahl(s.wert) end end)
+                b:SetScript("OnEnter", function(s) if not s.an then Stil.TextFarbe(s.text, C.tx) end end)
+                b:SetScript("OnLeave", function(s) if not s.an then Stil.TextFarbe(s.text, C.mu) end end)
+                self.knoepfe[i] = b
+            end
+            b.wert = w.wert
+            b.text:SetText(w.label or tostring(w.wert))
+            local breite = math.ceil(b.text:GetStringWidth()) + 20
+            b:SetWidth(breite)
+            b:ClearAllPoints()
+            b:SetPoint("LEFT", self, "LEFT", x, 0)
+            x = x + breite
+            b:Show()
+        end
+        for i = #(werte or {}) + 1, #self.knoepfe do self.knoepfe[i]:Hide() end
+        self:SetWidth(x + 3)
+        return x + 3
+    end
+
+    function f:SetWahl(wert)
+        for _, b in ipairs(self.knoepfe) do
+            b.an = b:IsShown() and b.wert == wert
+            b.bg:SetShown(b.an)
+            Stil.TextFarbe(b.text, b.an and C.white or C.mu)
+        end
+    end
+    return f
+end
+
+--- Schalter 32x18 (statt Kontrollkaestchen).
+function Stil.Schalter(eltern)
+    local b = CreateFrame("Button", nil, eltern)
+    b:SetSize(32, 18)
+    local bahn = Form(b, 9, C.tgOff, nil, "ARTWORK")
+    local knopf = Tex(b, "OVERLAY", C.knobOff)
+    knopf:SetSize(14, 14)
+    Stil.Rund(b, knopf)
+
+    function b:SetAn(an)
+        self.an = an and true or false
+        bahn:SetColor(self.an and C.ac or C.tgOff)
+        Faerbe(knopf, self.an and C.white or C.knobOff)
+        knopf:ClearAllPoints()
+        knopf:SetPoint("LEFT", b, "LEFT", self.an and 16 or 2, 0)
+    end
+    b:SetAn(false)
+    return b
+end
+
+-- =====================================================================
+--  Bildlauf: Mausrad plus ein schmaler Balken, keine Blizzard-Vorlage
+-- =====================================================================
+
+function Stil.Bildlauf(eltern, schritt)
+    schritt = schritt or 40
+    local sf = CreateFrame("ScrollFrame", nil, eltern)
+    local kind = CreateFrame("Frame", nil, sf)
+    kind:SetSize(1, 1)
+    sf:SetScrollChild(kind)
+    sf.kind = kind
+
+    local balken = CreateFrame("Frame", nil, eltern)
+    balken:SetWidth(4)
+    balken:SetPoint("TOPRIGHT", sf, "TOPRIGHT", 0, 0)
+    balken:SetPoint("BOTTOMRIGHT", sf, "BOTTOMRIGHT", 0, 0)
+    balken:Hide()
+
+    local function balkenZeichnen()
+        local max = sf:GetVerticalScrollRange() or 0
+        if max <= 1 then balken:Hide() return end
+        balken:Show()
+        local h = balken:GetHeight()
+        local sicht = sf:GetHeight()
+        local gesamt = sicht + max
+        local dh = math.max(24, h * sicht / gesamt)
+        local oben = (h - dh) * (sf:GetVerticalScroll() / max)
+        if not balken.streifen then
+            balken.streifen = Tex(balken, "ARTWORK", C.ln)
+            balken.streifen:SetWidth(4)
+        end
+        balken.streifen:ClearAllPoints()
+        balken.streifen:SetPoint("TOPLEFT", balken, "TOPLEFT", 0, -oben)
+        balken.streifen:SetHeight(dh)
+    end
+    sf:EnableMouseWheel(true)
+    sf:SetScript("OnMouseWheel", function(s, richtung)
+        local max = s:GetVerticalScrollRange() or 0
+        local neu = math.max(0, math.min(max, s:GetVerticalScroll() - richtung * schritt))
+        s:SetVerticalScroll(neu)
+        balkenZeichnen()
+    end)
+    sf:SetScript("OnSizeChanged", function(s, w)
+        if w and w > 0 then kind:SetWidth(w - 10) end
+        balkenZeichnen()
+    end)
+    sf:SetScript("OnScrollRangeChanged", balkenZeichnen)
+
+    function sf:SetInhaltHoehe(h)
+        kind:SetHeight(math.max(1, h))
+        balkenZeichnen()
+    end
+    function sf:Zurueck()
+        self:SetVerticalScroll(0)
+        balkenZeichnen()
+    end
+    return sf
+end
+
+return ns

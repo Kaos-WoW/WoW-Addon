@@ -32,6 +32,7 @@ foreach ($client in $clients) {
 
     Copy-Item -Path (Join-Path $src "LootHistorie.toc") -Destination $target
     Copy-Item -Path (Join-Path $src "*.lua")            -Destination $target
+    Copy-Item -Path (Join-Path $src "Media")            -Destination $target -Recurse
 
     Write-Host "ausgerollt: $client" -ForegroundColor Green
     $ausgerollt++

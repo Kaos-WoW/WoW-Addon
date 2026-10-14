@@ -7,7 +7,7 @@
       * nach einem Klick die Einzelvergaben eines Spielers
       * waehrend eines Wurfs: die Wuerfelnden oben, hervorgehoben,
         **der mit den wenigsten Stuecken zuerst**
-      * die Einstellungen
+      * (die Einstellungen sind ein eigenes Fenster, Einstellungen.lua)
 
     ⚠️ Bewusst ohne Bibliotheken und ohne Bildlaufleiste: ein fester Satz
     Zeilen plus Mausrad-Versatz. Das laeuft in jeder Client-Fassung gleich,
@@ -42,7 +42,7 @@ local listeBtn, verlaufBtn, gruppeBtn, abgleichBtn
 local Zeitraum = {}
 
 local zustand = { wochen = 0, beispiel = false, spieler = nil, versatz = 0, maxVersatz = 0,
-                  einstellungen = false, ansicht = "liste", gruppe = nil }
+                  ansicht = "liste", gruppe = nil }
 
 -- Spaltenlagen je Ansicht: { x, Breite, Ausrichtung }
 local LAYOUT = {
@@ -212,9 +212,7 @@ local function baueFenster()
     einstellBtn:SetPoint("TOPRIGHT", rahmen, "TOPRIGHT", -124, -46)
     einstellBtn:SetText("Einstellungen")
     einstellBtn:SetScript("OnClick", function()
-        zustand.einstellungen = not zustand.einstellungen
-        zustand.spieler = nil
-        Fenster.Aktualisieren()
+        if ns.Einstellungen then ns.Einstellungen.Umschalten() end
     end)
 
     zurueckBtn = CreateFrame("Button", nil, rahmen, "UIPanelButtonTemplate")
@@ -296,8 +294,6 @@ local function baueFenster()
 
     Zeile = {}
     for i = 1, ZEILEN do Zeile[i] = baueZeile(i) end
-
-    if ns.Einstellungen then ns.Einstellungen.Bauen(rahmen, BREITE) end
 
     fuss = groesser(rahmen:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall"))
     fuss:SetPoint("BOTTOMLEFT", rahmen, "BOTTOMLEFT", 16, 18)
@@ -491,33 +487,9 @@ local function zeigeVerlauf(H)
     unterzeile:SetText("")
 end
 
---- Liste samt Kopfzeile zeigen oder verbergen.
-local function inhaltZeigen(an)
-    kopf:SetShown(an)
-    for i = 1, ZEILEN do Zeile[i]:SetShown(an) end
-    unterzeile:SetShown(an)
-end
-
 function Fenster.Aktualisieren()
     if not rahmen then return end
 
-    einstellBtn:SetText(zustand.einstellungen and "Zur Liste" or "Einstellungen")
-
-    -- Einstellungsansicht: die Liste tritt beiseite
-    if zustand.einstellungen then
-        titel:SetText(GRUEN .. "Loot-Historie|r   " .. GRAU .. "Einstellungen|r")
-        inhaltZeigen(false)
-        zurueckBtn:Hide()
-        for _, b in ipairs(Zeitraum) do b:Hide() end
-        demoBtn:Hide()
-        listeBtn:Hide(); verlaufBtn:Hide(); gruppeBtn:Hide(); abgleichBtn:Hide()
-        fuss:SetText("")
-        if ns.Einstellungen then ns.Einstellungen.Zeigen() end
-        return
-    end
-
-    if ns.Einstellungen then ns.Einstellungen.Verstecken() end
-    inhaltZeigen(true)
     for _, b in ipairs(Zeitraum) do b:Show() end
     demoBtn:Show()
     listeBtn:Show(); verlaufBtn:Show(); gruppeBtn:Show(); abgleichBtn:Show()
@@ -594,7 +566,6 @@ function Fenster.Zeigen(beispiel)
     if beispiel ~= nil then zustand.beispiel = beispiel and true or false end
     zustand.spieler = nil
     zustand.versatz = 0
-    zustand.einstellungen = false
     zustand.ansicht = "liste"
     rahmen:Show()
     Fenster.Aktualisieren()

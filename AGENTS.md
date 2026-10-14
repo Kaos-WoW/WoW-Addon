@@ -47,7 +47,8 @@ das nur liest, weder Haupt/Zweit noch Gruppen noch Abgleich leisten kann.
 | `Erfassung.lua` | Chat, Würfe, Einstellungen, Eintragen, Gargul-Vergaben | ja |
 | `Abgleich.lua` | Hallo, Live-Meldung, Abgleich, Hinweis-Fenster | ja |
 | `Blizzbeute.lua` | Blizzards `C_LootHistory` als zweite Quelle | ja |
-| `Einstellungen.lua` | Einstellungsseiten im Fenster | ja |
+| `Stil.lua` | Bausteine im KaosUI-Look (Farben, runde Ecken, Knopf, Schalter, Segmentwahl, Bildlauf) | ja |
+| `Einstellungen.lua` | das Einstellungsfenster (Karten und Zeilen, drei Seiten) | ja |
 | `Fenster.lua` | Liste, Verlauf, Spielerdetail, Wurf-Modus | ja |
 | `Befehle.lua` | `/lh` | ja |
 | `Tests.lua` | Prüfstand für `Kern.lua` | **nein** |
@@ -203,7 +204,23 @@ eine Zeile zu viel nur lästig.** `/lh filter 4` hebt die Schwelle. Dazu der
 **Ort** (`raid` | `instanz` | `überall`) und `filter wurf` (nur
 Ausgewürfeltes, Standard aus).
 
-### Das Fenster kommt ohne Bibliotheken aus
+### Das Einstellungsfenster sieht aus wie das von KaosUI
+
+Eigenes Fenster neben der Übersicht (`/lh einstellungen` oder Knopf *Einstellungen*): Kopf mit
+Logo und Versionskästchen, Seitenleiste, Karten mit Zeilen, Fußleiste. Petrol `#1f8f80` als Akzent,
+Inter Medium als Schrift (**SIL OFL**, `Media/Fonts/LICENSE-Inter.txt`), Symbole aus Tabler Icons
+(**MIT**, `Media/Icons/LICENSE-Tabler.txt`). Beides stammt aus KaosUI, **die Bausteine sind aber neu
+geschrieben** (`Stil.lua`) — Loot-Historie hängt nicht von KaosUI ab.
+
+Eine Zeile ist eine Datentabelle (`art` = schalter | segment | knopf | eingabe | info, dazu
+`label`, `beschr`, `get`/`set`); Texte und Zustand setzt `update()`, die Höhen rechnet
+`kartenMessen`. **Keine Anker zwischen Zeilen** — dieselbe Lehre wie beim KaosUI-Umbau. Neue Option =
+eine Zeile in `seiteErfassung`/`seiteGargul`/`seiteGruppen`.
+
+⚠️ Die Optik ist nur im Spiel prüfbar; `tests/szenarien.py` prüft, dass jede Zeile, jeder Knopf und
+jede Seite ohne Fehler läuft und speichert.
+
+### Die Übersicht kommt ohne Bibliotheken aus
 
 Fester Satz Zeilen plus Mausrad-Versatz. Ein Teil weniger, das beim nächsten
 Patch bricht. Es hält keinen Zustand über die Sitzung hinaus und liest bei

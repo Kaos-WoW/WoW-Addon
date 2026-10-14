@@ -235,6 +235,9 @@ local function fensterAktualisieren()
     if ns.Fenster and ns.Fenster.Sichtbar and ns.Fenster.Sichtbar() then
         ns.Fenster.Aktualisieren()
     end
+    if ns.Einstellungen and ns.Einstellungen.Sichtbar and ns.Einstellungen.Sichtbar() then
+        ns.Einstellungen.Aktualisieren()
+    end
 end
 
 --- Vergleicht den eigenen Stand mit dem der Mitspieler.

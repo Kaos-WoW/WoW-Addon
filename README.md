@@ -27,12 +27,14 @@ Nur für **WoW Forever** (Beta). Für TBC wird es nicht gebraucht.
 ## Benutzen
 
 `/lh` öffnet das Fenster. Oben: **Spieler** (Liste), **Verlauf** (wer bekam
-was, wann), **Gruppe**, **Abgleichen**, **Einstellungen**.
+was, wann), **Gruppe**, **Abgleichen**, **Einstellungen** (eigenes Fenster im Look von
+KaosUI).
 
 | Befehl | Zweck |
 |---|---|
 | `/lh` | Fenster öffnen und schließen |
 | `/lh verlauf` | wer bekam was, wann |
+| `/lh einstellungen` | das Einstellungsfenster |
 | `/lh demo` | Beispieldaten ansehen — nichts wird gespeichert |
 | `/lh liste` | dieselbe Auswertung im Chat, `liste 4` für vier Wochen |
 | `/lh <Name>` | Einzelvergaben eines Spielers |

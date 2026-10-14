@@ -14,7 +14,7 @@ from lupa import lua51
 
 A = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "LootHistorie")
 DATEIEN = ["Kern.lua", "Quelle.lua", "Rolle.lua", "Gruppen.lua", "Erfassung.lua", "Abgleich.lua",
-          "Blizzbeute.lua", "Einstellungen.lua", "Fenster.lua", "Befehle.lua", "Tests.lua"]
+          "Blizzbeute.lua", "Stil.lua", "Einstellungen.lua", "Fenster.lua", "Befehle.lua", "Tests.lua"]
 
 STUBS = r'''
 local welt = __welt
@@ -22,6 +22,8 @@ local welt = __welt
 local function mock()
     local o = { _scripts = {}, _events = {}, _text = "", _enabled = true, _shown = true, _checked = false }
     return setmetatable(o, { __index = function(t, k)
+        -- Wie im echten Client: nur API-Methoden (GrossBuchstabe) gibt es, unbekannte Felder sind nil.
+        if type(k) ~= "string" or not k:find("^%u") then return nil end
         if k == "SetScript" then return function(self, n, f) self._scripts[n] = f end end
         if k == "GetScript" then return function(self, n) return self._scripts[n] end end
         if k == "RegisterEvent" then return function(self, e) self._events[e] = true end end
@@ -38,11 +40,28 @@ local function mock()
         if k == "CreateFontString" or k == "CreateTexture" then
             return function(self, ...)
                 local f = mock()
+                f._eltern = self
                 __frames[#__frames + 1] = f
                 return f
             end
         end
         if k == "GetFont" then return function() return nil end end
+        if k == "GetStringWidth" then return function(self) return #tostring(self._text or "") * 7 end end
+        if k == "GetStringHeight" then
+            return function(self)
+                local n = #tostring(self._text or "")
+                if n == 0 then return 0 end
+                return 14 * (1 + math.floor(n * 7 / (self._w or 500)))
+            end
+        end
+        if k == "SetWidth" then return function(self, w) self._w = w end end
+        if k == "SetHeight" then return function(self, h) self._h = h end end
+        if k == "SetSize" then return function(self, w, h) self._w = w; self._h = h end end
+        if k == "GetWidth" then return function(self) return self._w or 100 end end
+        if k == "GetHeight" then return function(self) return self._h or 20 end end
+        if k == "GetVerticalScrollRange" then return function() return 0 end end
+        if k == "GetVerticalScroll" then return function() return 0 end end
+        if k == "IsMouseOver" then return function() return true end end
         if k == "GetHighlightTexture" then return function(self) return self end end
         return function(self, ...) return self end
     end })
@@ -54,10 +73,26 @@ __klick = function(text)
         local t = f._text
         if type(t) == "string" then
             t = t:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
-            if t == text and f._scripts.OnClick and f._enabled then
-                f._scripts.OnClick(f)
-                return true
+            if t == text then
+                -- Der Text steht entweder am Knopf selbst oder in einem Kind-Textfeld.
+                local k = f
+                if not k._scripts.OnClick and f._eltern then k = f._eltern end
+                if k._scripts.OnClick and k._enabled and k._shown ~= false then
+                    k._scripts.OnClick(k)
+                    return true
+                end
             end
+        end
+    end
+    return false
+end
+
+-- Zeile anklicken, deren Beschriftung 'text' ist (Schalter-Zeilen: Klick auf die ganze Zeile)
+__zeile = function(text)
+    for _, f in ipairs(__frames) do
+        if f._text == text and f._eltern and f._eltern._scripts.OnMouseUp then
+            f._eltern._scripts.OnMouseUp(f._eltern, "LeftButton")
+            return true
         end
     end
     return false
@@ -85,6 +120,7 @@ __sichtbar = function(text)
     return nil
 end
 SlashCmdList = {}
+GetAddOnMetadata = function() return "0.1.0" end
 __ausgabe = {}
 print = function(...)
     local t = {}
