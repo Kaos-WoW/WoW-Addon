@@ -1420,6 +1420,65 @@ fest(g["__klick"]("Rückgängig") is True, "im Verlauf gibt es den Knopf")
 g["__klick"]("Spieler")
 fest(g["__klick"]("Rückgängig") is False, "zurueck in der Spielerliste ist er weg")
 
+print("== 25. Mitspieler koennen nicht wuerfeln: derselbe Gegenstand, andere Gilde, Diagnose ==")
+
+
+def systemwurf2(w, wer, wert, bereich):
+    for c in w.clients:
+        c["g"]["__ereignis"]("CHAT_MSG_SYSTEM", "%s rolls %d (1-%d)" % (wer, wert, bereich))
+
+
+# --- Derselbe Gegenstand zweimal hintereinander (ohne Vergabe dazwischen) -------
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+ns0 = w.clients[0]["ns"]
+T = w.clients[1]
+ns0.Wurf.Starten(LINK)
+w.weiter(3)
+fest(T["g"]["__klick"]("Haupt (1-100)") is True, "erste Runde: Timo wuerfelt")
+systemwurf2(w, "Timo", 50, 100)
+w.weiter(1)
+ns0.Wurf.BeendenAlle()
+w.weiter(4)
+ns0.Wurf.Starten(LINK)                      # derselbe Gegenstand noch einmal
+w.weiter(3)
+fest(T["g"]["__klick"]("Haupt (1-100)") is True, "zweite Runde, gleicher Gegenstand: die Knoepfe gehen wieder")
+fest(len(T["g"]["__wurfLog"]) == 2, "und Timo wuerfelt tatsaechlich noch einmal")
+systemwurf2(w, "Timo", 90, 100)
+R = ns0.Erfassung.AktuelleWuerfe()
+fest(R["Wuerfe"]["timo"] == 90, "der neue Wurf zaehlt (90), nicht der alte (%s)" % R["Wuerfe"]["timo"])
+
+# --- Spieler aus einer anderen Gilde: der Leiter ist fuer sie kein Gildenmitglied ---
+w = Welt([{"name": "Leiter Kaos", "leader": True, "gilde": False}, {"name": "Timo"}], "-Realm")
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+ok, grund = tup(w.clients[0]["ns"].Wurf.Starten(LINK))
+w.weiter(3)
+fest(ok is True and w.clients[1]["ns"].Wurf.Aktiv() is True,
+     "Wuerfelfenster geht auch auf, wenn der Leiter nicht in der eigenen Gilde ist")
+
+# --- Diagnose: warum ging bei jemandem nichts auf? -------------------------------
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+N = w.clients[2]
+ns2, g2 = N["ns"], N["g"]
+fest(len(list(ns2.Wurf.Status().values())) >= 2, "Status liefert Zeilen")
+ns2.Abgleich.Empfangen("S;x1;30;" + LINK, "Fremder-Realm")
+ns2.Abgleich.Empfangen("S;x2;30;" + LINK, "Timo-Realm")
+ns2.Abgleich.Empfangen("S;x3;30;kein link", "Leiter Kaos-Realm")
+ns2.Abgleich.Empfangen("S;x4;30;" + LINK, "Leiter Kaos-Realm")
+text = " | ".join(str(x) for x in ns2.Wurf.Status().values())
+fest("nicht in der Gruppe erkannt" in text, "Status nennt: Absender nicht erkannt")
+fest("weder Plündermeister" in text, "Status nennt: Absender nicht berechtigt")
+fest("ungültig" in text, "Status nennt: Nachricht ungueltig")
+fest("angenommen" in text and ns2.Wurf.Aktiv() is True, "Status nennt: Wurf angenommen")
+sl = g2["SlashCmdList"]["FAIRSHARE"]
+sl("wurf status")
+fehler = [str(x) for x in g2["__ausgabe"].values() if "Fehler" in str(x)]
+fest(not fehler, "/fs wurf status ohne Fehler")
+
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")
 sys.exit(0 if alle_ok else 1)

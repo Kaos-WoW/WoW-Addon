@@ -38,7 +38,7 @@ local function hilfe()
     print(L["  |cffffff78/fs abgleich|r     – Historien der Gruppe zusammenführen (|cffffff78abgleich status|r zeigt den Stand)"])
     print(L["  |cffffff78/fs rolle|r        – wer zeichnet gerade auf, und warum"])
     print(L["  |cffffff78/fs rueckgaengig|r – die letzte Vergabe zurücknehmen (mit Rückfrage; einzelne Vergaben im Verlauf)"])
-    print(L["  |cffffff78/fs wurf|r         – eigenes Würfelfenster starten (|cffffff78wurf <Link>|r, |cffffff78wurf ende|r, |cffffff78wurf ergebnis|r, |cffffff78wurf offen|r)"])
+    print(L["  |cffffff78/fs wurf|r         – eigenes Würfelfenster starten (|cffffff78wurf <Link>|r, |cffffff78wurf ende|r, |cffffff78wurf ergebnis|r, |cffffff78wurf offen|r, |cffffff78wurf status|r)"])
     print(L["  |cffffff78/fs beutetest|r    – Diagnose: Beutefenster und Zuteilung durch den Plündermeister"])
     print(L["  |cffffff78/fs gruppe|r       – Kader und Raidgruppen (|cffffff78gruppe hilfe|r)"])
     print(L["  |cffffff78/fs bereiche|r     – Garguls Würfelbereiche prüfen (|cffffff78bereiche setzen|r)"])
@@ -295,6 +295,11 @@ befehle["wurf"] = function(arg)
     if kleinn == "ende" or kleinn == "end" or kleinn == "stop" then
         local ok, grund = ns.Wurf.BeendenAlle()
         if not ok then sag(ROT .. tostring(grund) .. "|r") end
+        return
+    end
+    if kleinn == "status" then
+        sag(L["Wurf-Status:"])
+        for _, z in ipairs(ns.Wurf.Status()) do print("  " .. z) end
         return
     end
     if kleinn == "offen" or kleinn == "pending" or kleinn == "offen leeren" or kleinn == "pending clear" then

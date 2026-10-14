@@ -62,7 +62,7 @@ BEFEHLE (Auswahl)       /fs hilfe zeigt alle
    /fs abgleich status  Stand des Datenabgleichs
 
 BEI FEHLERN bitte diese Ausgaben mitschicken:
-   /fs stand      /fs rolle      /fs abgleich status
+   /fs stand      /fs rolle      /fs abgleich status      /fs wurf status
 und in einem Satz, was erwartet war und was zu sehen war.
 
 Das Addon spricht die Sprache des Clients (Deutsch oder Englisch).

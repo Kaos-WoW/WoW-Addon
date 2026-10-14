@@ -252,6 +252,11 @@ end
 --  @param oeffnen  false: die Runde anlegen, die Uebersicht aber nicht aufspringen
 --                  lassen (Wurf.lua: nur der Leiter braucht sie)
 function Erfassung.WurfBeginnt(link, oeffnen)
+    -- ⭐ Ein neuer Wurf ist eine NEUE Runde. Blieb die alte (gleicher Gegenstand,
+    -- etwa zweimal dasselbe Stueck oder ein Wurf nach einer Ruecknahme) stehen,
+    -- galten die alten Wuerfe weiter: Spieler, die schon gewuerfelt hatten,
+    -- waren gesperrt, und der Leiter sah veraltete Zahlen.
+    if gegenstandsKey(link) ~= "" then Runden[gegenstandsKey(link)] = nil end
     local r = runde(link, true)
     r.zeit = time()
     fensterAnstossen(oeffnen ~= false)

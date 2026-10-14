@@ -198,6 +198,22 @@ dienen mehreren Ansichten: der Knopf *Rückgängig* wird in der Spielerliste aus
 ⚠️ Lua-Falle: Eine Funktion, die **vor** der `local`-Deklaration einer Variable steht, sieht sie nicht (sie liest dann eine
 leere globale); `luacheck.py` meldet das nicht — Variablen, die mehrere Abschnitte teilen, ganz oben deklarieren.
 
+### Mitspieler können nicht würfeln (Nutzerfund 14.10.2026)
+
+„Teilweise können Mitglieder nicht auf Items würfeln, einer konnte einmal, beim zweiten Mal nicht." Gefunden und behoben:
+
+* ⭐ **Neuer Wurf = neue Runde** (`Erfassung.WurfBeginnt` verwirft die alte Runde dieses Gegenstands). Vorher blieb sie stehen,
+  wenn derselbe Gegenstand noch einmal verrollt wurde (zwei Stück, oder nach einer Rücknahme): Das Würfelfenster fand den
+  alten Wurf des Spielers (`WurfVon`) und sperrte die Knöpfe; der Leiter sah alte Zahlen. Szenario 25 stellt es nach.
+* **Gilde wird für Wurfmeldungen nicht mehr verlangt** (`Abgleich.Empfangen` reicht `S`/`X` vor der Gildenprüfung an
+  `Wurf.Empfangen`): Spieler aus einer anderen Gilde im Raid bekamen das Fenster nicht, weil der Leiter für sie kein
+  Gildenmitglied ist. Geprüft wird weiter, dass der Absender Plündermeister/Leiter/Assistent **ihrer Gruppe** ist.
+* ⭐ **Diagnose `/fs wurf status`** (bei dem Spieler, bei dem nichts aufgeht): ob ein Wurf läuft, ob er starten darf, und die
+  letzten Wurfmeldungen mit Grund („Absender nicht in der Gruppe erkannt" = Namensproblem mit Nachnamen; „weder Plündermeister
+  noch Leiter noch Assistent" = Rollenerkennung; „angenommen"). Kommt gar nichts an: Fassung 0.1.0 (kein Wurffenster) oder die
+  Nachricht wurde nicht zugestellt.
+* Nicht die Ursache: ob jemand das Item tragen kann. Das Fenster erscheint für alle, `RandomRoll` kennt keine Klassen.
+
 ### Vergabe zurücknehmen (Nutzerwunsch 14.10.2026)
 
 Falsch zugeteilt oder der Spieler gibt das Stück zurück: In **Verlauf** und **Spielerdetail** hat jede Zeile den Knopf

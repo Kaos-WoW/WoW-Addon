@@ -400,20 +400,66 @@ function Wurf.Vergeben(link)
     end
 end
 
---- Eine Nachricht der Gruppe (Abgleich.Empfangen hat Gruppe und Gilde geprueft).
-function Wurf.Empfangen(typ, rest, name)
-    if type(rest) ~= "string" or not ns.Rolle.Berechtigt(name) then return end
+-- Die letzten Wurfmeldungen und was daraus wurde — damit sich bei einem Spieler,
+-- bei dem „nichts aufgeht", nachlesen laesst, WARUM (/fs wurf status).
+local protokoll = {}
+
+local function merke(text)
+    protokoll[#protokoll + 1] = date("%H:%M:%S", time()) .. "  " .. text
+    if #protokoll > 8 then table.remove(protokoll, 1) end
+end
+
+--- Eine Nachricht der Gruppe. `unit` ist der Absender in unserer Gruppe (oder nil).
+--  Die Gilde wird hier NICHT verlangt (siehe Abgleich.Empfangen).
+function Wurf.Empfangen(typ, rest, sender, unit)
+    if not unit then
+        merke(string.format(L["%s von %s: Absender nicht in der Gruppe erkannt"], typ, tostring(sender)))
+        return
+    end
+    if UnitIsUnit and UnitIsUnit(unit, "player") then return end    -- das waren wir selbst
+
+    local name = (GetUnitName and GetUnitName(unit, true)) or sender
+    if type(rest) ~= "string" or not ns.Rolle.Berechtigt(name) then
+        merke(string.format(L["%s von %s: Absender ist weder Plündermeister noch Leiter noch Assistent"], typ, tostring(name)))
+        return
+    end
 
     if typ == "S" then
         local rid, d, text = rest:match("^([^;]*);(%d+);(.*)$")
         local link = linkAus(text)
         d = tonumber(d)
-        if not rid or #rid > 12 or not d or not link then return end
+        if not rid or #rid > 12 or not d or not link then
+            merke(string.format(L["%s von %s: Nachricht ungültig"], typ, tostring(name)))
+            return
+        end
+        merke(string.format(L["Wurf von %s angenommen: %s"], tostring(name), link))
         beginnen(rid, link, math.max(5, math.min(120, d)), false)
     elseif typ == "X" then
         local rid = rest:match("^([^;]*)")
-        if aktiv and rid == aktiv.rid then Wurf.Ende() end
+        if aktiv and rid == aktiv.rid then
+            merke(string.format(L["Wurf beendet von %s"], tostring(name)))
+            Wurf.Ende()
+        end
     end
+end
+
+--- Diagnose: laeuft ein Wurf, und was kam zuletzt an?
+--  @return Liste von Zeilen
+function Wurf.Status()
+    local z = {}
+    if aktiv then
+        z[#z + 1] = string.format(L["Es läuft ein Wurf: %s (noch %d s)"], aktiv.link, math.max(0, aktiv.ende - time()))
+    else
+        z[#z + 1] = L["Es läuft kein Wurf."]
+    end
+    z[#z + 1] = string.format(L["Du darfst einen Wurf starten: %s"], Wurf.DarfStarten() and L["ja"] or L["nein"])
+    if #protokoll == 0 then
+        z[#z + 1] = L["Noch keine Wurfmeldung empfangen – kein Wurf gestartet, oder die Nachricht kam nicht an."]
+    else
+        z[#z + 1] = L["Letzte Wurfmeldungen:"]
+        for _, t in ipairs(protokoll) do z[#z + 1] = "  " .. t end
+    end
+    return z
 end
 
 -- =====================================================================

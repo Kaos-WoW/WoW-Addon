@@ -534,6 +534,17 @@ function Abgleich.Empfangen(text, sender)
     if not typ then return end
 
     local gilde, unit = ns.Rolle.Absender(sender)
+
+    -- ⭐ Wuerfelfenster (Wurf.lua): Beginn und Ende eines Wurfs. Bewusst VOR der
+    -- Gildenpruefung: Wer im Raid in einer anderen Gilde ist, soll mitwuerfeln
+    -- koennen; geprueft wird, dass der Absender Pluendermeister, Leiter oder
+    -- Assistent der Gruppe ist. Wurf.lua fuehrt Buch, warum etwas abgelehnt wurde
+    -- (/fs wurf status).
+    if typ == "S" or typ == "X" then
+        if ns.Wurf then ns.Wurf.Empfangen(typ, rest, sender, unit) end
+        return
+    end
+
     if not unit then return end                         -- nicht in unserer Gruppe
     if UnitIsUnit and UnitIsUnit(unit, "player") then return end   -- das waren wir
 
@@ -553,11 +564,7 @@ function Abgleich.Empfangen(text, sender)
     -- Alles Weitere nur von Gildenmitgliedern
     if not gilde then return end
 
-    if typ == "S" or typ == "X" then
-        -- Wuerfelfenster (Wurf.lua): Beginn und Ende eines Wurfs
-        if ns.Wurf then ns.Wurf.Empfangen(typ, rest, name) end
-
-    elseif typ == "L" then
+    if typ == "L" then
         -- Neue Vergabe vom Schreiber: nur von Leiter, Assistent, Pluendermeister
         local _, zeile = rest:match("^([^;]*);(.*)$")
         if not zeile or not ns.Rolle.Berechtigt(name) then return end
