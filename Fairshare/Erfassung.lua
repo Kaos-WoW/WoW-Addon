@@ -634,6 +634,33 @@ local function eigenerName()
     return (UnitName("player"))
 end
 
+--- ⭐ Eine Vergabe zuruecknehmen (falsch zugeteilt, jemand gibt sie zurueck).
+--  Der Eintrag bleibt liegen, zaehlt aber nicht mehr — Loeschen brachte der
+--  Abgleich zurueck. Das Merkmal geht an die Gruppe (live) und wird beim
+--  naechsten Abgleich auch bei allen nachgezogen, die nicht dabei waren.
+--  ⚠️ Es laesst sich nicht wieder aufheben (das macht das Zusammenfuehren
+--  eindeutig): Ein Versehen korrigiert man mit einer neuen Vergabe.
+function Erfassung.DarfZuruecknehmen()
+    if not (IsInGroup and IsInGroup()) then return true end
+    return (ns.Rolle and ns.Rolle.Berechtigt(eigenerName())) and true or false
+end
+
+--- @return true und der Eintrag, oder false und ein Grund
+function Erfassung.Zuruecknehmen(id)
+    local e = Erfassung.Historie()[id]
+    if not e then return false, L["Eintrag nicht gefunden."] end
+    if e.zurueck then return false, L["Schon zurückgenommen."] end
+    if not Erfassung.DarfZuruecknehmen() then
+        return false, L["Nur Leiter, Assistenten und der Plündermeister dürfen eine Vergabe zurücknehmen."]
+    end
+    e.zurueck = true
+    if ns.Abgleich then
+        ns.Abgleich.Verteilen(id)
+        ns.Abgleich.HalloSpaeter(2)
+    end
+    return true, e
+end
+
 --- ⭐ Steckt der Pluendermeister die Beute selbst ein, ist das keine Vergabe:
 --  Er verteilt sie spaeter (Wurf.lua traegt dann den Gewinner ein).
 local function eingesteckt(name)

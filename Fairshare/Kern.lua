@@ -176,10 +176,11 @@ function Kern.Spieler(historie, name, seit)
     seit = seit or 0
 
     local liste = {}
-    for _, e in pairs(historie) do
+    for id, e in pairs(historie) do
         if Kern.Zaehlt(e) and e.timestamp >= seit
            and Kern.Schluessel(e.awardedTo) == gesucht then
             liste[#liste + 1] = {
+                id      = id,
                 zeit    = e.timestamp,
                 eintrag = e,
                 zweit   = e.OS and true or false,
@@ -409,9 +410,12 @@ end
 --  @return Anzahl der Eintraege, Summe
 function Kern.Pruefsumme(historie, alias)
     local n, summe = 0, 0
-    for id in pairs(historie or {}) do
+    for id, e in pairs(historie or {}) do
         n = n + 1
-        summe = (summe + Kern.Hash(id)) % MODUL
+        -- ⭐ Der Zustand „zurueckgenommen" gehoert in die Summe: Sonst saehe fuer
+        -- jemanden, der bei der Ruecknahme nicht dabei war, alles „gleich" aus
+        -- und er erfuehre es nie.
+        summe = (summe + Kern.Hash(e.zurueck and (id .. "!") or id)) % MODUL
     end
     for id in pairs(alias or {}) do
         summe = (summe + Kern.Hash(id)) % MODUL
@@ -430,7 +434,7 @@ function Kern.Tagesstand(historie, alias, tagOf)
         local t = tagOf(e.timestamp or 0)
         local d = tage[t] or { n = 0, summe = 0 }
         d.n = d.n + 1
-        d.summe = (d.summe + Kern.Hash(id)) % MODUL
+        d.summe = (d.summe + Kern.Hash(e.zurueck and (id .. "!") or id)) % MODUL
         tage[t] = d
     end
     for id, ziel in pairs(alias or {}) do
@@ -703,13 +707,14 @@ function Kern.NachGruppe(historie, gruppe)
 end
 
 --- Der Verlauf: wer bekam was, wann. Neueste zuerst.
---  @return Liste aus { zeit, name, zweit, eintrag }
+--  @return Liste aus { id, zeit, name, zweit, eintrag }
 function Kern.Verlauf(historie, seit, gruppe)
     local liste = {}
     seit = seit or 0
-    for _, e in pairs(Kern.NachGruppe(historie, gruppe) or {}) do
+    for id, e in pairs(Kern.NachGruppe(historie, gruppe) or {}) do
         if Kern.Zaehlt(e) and e.timestamp >= seit then
             liste[#liste + 1] = {
+                id      = id,
                 zeit    = e.timestamp,
                 name    = Kern.Anzeigename(e.awardedTo),
                 zweit   = e.OS and true or false,

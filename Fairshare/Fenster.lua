@@ -58,10 +58,10 @@ local function layout(name, w)
         local a, b, c = 120, 190, 70
         local dx = a + L6 + b + L6 + c + L6
         return { { 0, a, "LEFT" }, { a + L6, b, "LEFT" }, { a + L6 + b + L6, c, "LEFT" },
-                 { dx, math.max(80, w - dx), "LEFT" }, { 0, 1, "LEFT" } }
+                 { dx, math.max(80, w - dx - 96), "LEFT" }, { 0, 1, "LEFT" } }
     elseif name == "spieler" then
         return { { 0, 120, "LEFT" }, { 126, 80, "LEFT" }, { 0, 1, "LEFT" },
-                 { 214, math.max(80, w - 214), "LEFT" }, { 0, 1, "LEFT" } }
+                 { 214, math.max(80, w - 214 - 96), "LEFT" }, { 0, 1, "LEFT" } }
     end
     -- liste: Spieler | Haupt | Zweit | Zuletzt | Wurf
     local ew, dw, cw, bw = 120, 160, 60, 60
@@ -170,6 +170,13 @@ local function baueZeile(index)
         zustand.versatz = 0
         Fenster.Aktualisieren()
     end)
+
+    -- Vergabe zurücknehmen (nur in Verlauf und Spielerdetail sichtbar)
+    z.undo = S.Knopf(z, L["Rückgängig"], "link", 20)
+    z.undo:SetPoint("RIGHT", z, "RIGHT", 0, 0)
+    z.undo:SetFrameLevel(z:GetFrameLevel() + 3)
+    z.undo:Hide()
+    z.undo:SetScript("OnClick", function() Fenster.RueckgaengigKlick(z.eintragId) end)
     return z
 end
 
@@ -407,6 +414,8 @@ local function leereZeilen(ab)
     for i = math.max(ab, 1), MAXZEILEN do
         local z = zeilen[i]
         z.spielername = nil
+        z.eintragId = nil
+        z.undo:Hide()
         z.hover:SetShown(false)
         z.markiert:SetShown(false)
         z.a:SetText(""); z.b:SetText(""); z.c:SetText(""); z.d:SetText(""); z.e:SetText("")
@@ -541,6 +550,39 @@ local function zeigeListe(H)
     end
 end
 
+--- Der Knopf „Rückgängig" einer Zeile: nur wer zurücknehmen darf, sieht ihn.
+--  Zweistufig: Der erste Klick fragt („Wirklich?"), der zweite nimmt zurück.
+local function undoZeile(z, id)
+    z.eintragId = id
+    if not (zustand.darfUndo and id) then z.undo:Hide() return end
+    local frage = zustand.rueckfrage
+    if frage and frage.id == id and (time() - frage.zeit) <= 8 then
+        z.undo:SetLabel(GELB .. L["Wirklich?"] .. "|r")
+    else
+        z.undo:SetLabel(L["Rückgängig"])
+    end
+    z.undo:Show()
+end
+
+--- Klick auf „Rückgängig".
+function Fenster.RueckgaengigKlick(id)
+    if not id then return end
+    local frage = zustand.rueckfrage
+    if frage and frage.id == id and (time() - frage.zeit) <= 8 then
+        zustand.rueckfrage = nil
+        local ok, e = ns.Erfassung.Zuruecknehmen(id)
+        if ok then
+            print("|cff1B6B57Fairshare|r: " .. string.format(L["Zurückgenommen: %s an %s."],
+                Quelle.Gegenstandstext(e), Kern.Anzeigename(e.awardedTo)))
+        else
+            print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(e) .. "|r")
+        end
+    else
+        zustand.rueckfrage = { id = id, zeit = time() }
+    end
+    Fenster.Aktualisieren()
+end
+
 local function zeigeSpieler(H)
     setzeKopf(L["Datum"], L["Art"], nil, L["Gegenstand"], nil)
 
@@ -563,6 +605,7 @@ local function zeigeSpieler(H)
         z.c:SetText("")
         z.d:SetText(Quelle.Gegenstandstext(e.eintrag))
         z.e:SetText("")
+        undoZeile(z, e.id)
     end
     leereZeilen(gezeigt + 1)
 
@@ -595,6 +638,7 @@ local function zeigeVerlauf(H)
         z.c:SetText(e.zweit and (GRAU .. L["Zweit"] .. "|r") or L["Haupt"])
         z.d:SetText(Quelle.Gegenstandstext(e.eintrag))
         z.e:SetText("")
+        undoZeile(z, e.id)
     end
     leereZeilen(gezeigt + 1)
 
@@ -641,6 +685,7 @@ function Fenster.Aktualisieren()
     end
     abgleichBtn:SetAktiv(not zustand.beispiel)
 
+    zustand.darfUndo = not zustand.beispiel and ns.Erfassung.DarfZuruecknehmen()
     local imGruppe = IsInGroup and IsInGroup() and true or false
     wurfBtn:SetShown(not zustand.beispiel and ns.Wurf ~= nil and ns.Wurf.DarfStarten())
     nurBtn:SetShown(imGruppe and not zustand.beispiel and zustand.ansicht == "liste" and zustand.spieler == nil)

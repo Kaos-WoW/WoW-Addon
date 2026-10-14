@@ -210,6 +210,27 @@ local function testWurfArt()
     gleich("kein Wurf ganz unten",      liste[4].name, "Aussen")
 end
 
+local function testRuecknahmeInPruefsumme()
+    local H1 = { a = { awardedTo = "Kaos", timestamp = 1000 }, b = { awardedTo = "Timo", timestamp = 2000 } }
+    local H2 = { a = { awardedTo = "Kaos", timestamp = 1000 }, b = { awardedTo = "Timo", timestamp = 2000, zurueck = true } }
+    local n1, s1 = Kern.Pruefsumme(H1, {})
+    local n2, s2 = Kern.Pruefsumme(H2, {})
+    gleich("gleiche Anzahl", n1, n2)
+    gleich("aber andere Summe, wenn einer zurueckgenommen ist", s1 ~= s2, true)
+
+    local tag = function() return "t" end
+    local T1, T2 = Kern.Tagesstand(H1, {}, tag), Kern.Tagesstand(H2, {}, tag)
+    gleich("auch der Tagesstand unterscheidet sich", T1.t.summe ~= T2.t.summe, true)
+
+    -- Die Listen kennen die Kennung (fuer den Knopf Rueckgaengig)
+    local v = Kern.Verlauf(H1, 0, nil)
+    gleich("Verlauf traegt die Kennung", v[1].id ~= nil, true)
+    local sp = Kern.Spieler(H1, "Kaos", 0)
+    gleich("Spielerdetail traegt die Kennung", sp[1].id, "a")
+    local v2 = Kern.Verlauf(H2, 0, nil)
+    gleich("zurueckgenommene Vergaben fehlen im Verlauf", #v2, 1)
+end
+
 local function testWurfWert()
     -- Gleiche Stueckzahl: der hoehere Wurf steht oben
     local liste = {
@@ -680,6 +701,7 @@ function Tests.Alle(ausgeben)
     testWurfReihenfolge()
     testWurfArt()
     testWurfWert()
+    testRuecknahmeInPruefsumme()
     testWurfMeldung()
     testSpieler()
     testMuster()

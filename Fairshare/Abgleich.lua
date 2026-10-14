@@ -42,7 +42,9 @@ ns.Abgleich = Abgleich
 local Kern = ns.Kern
 
 local PRAEFIX    = "FSHARE"
-local VERSION    = 1
+-- 2: die Pruefsumme zaehlt „zurueckgenommen" mit (14.10.2026). Staende mit 1
+-- werden nicht verglichen, sonst wuerden sie ewig als „abweichend" gelten.
+local VERSION    = 2
 local PAKETLAENGE = 215      -- Nutzlast je Nachricht; der Kopf kommt dazu
 local TAKT       = 0.25      -- Sekunden zwischen zwei Nachrichten
 local MAXEINTRAEGE = 600     -- je Abgleich und Spieler
@@ -361,6 +363,14 @@ end
 --  Abgleich starten
 -- =====================================================================
 
+--- ⭐ Schluessel fuer „diesen Eintrag hat schon jemand geschickt".
+--  Der Zustand gehoert dazu: Hat einer den Eintrag noch als NICHT zurueckgenommen
+--  geschickt, darf das die Sendung dessen nicht unterdruecken, der ihn als
+--  zurueckgenommen kennt — sonst erfuehre es nie jemand (Fund im Szenario 23).
+local function gesehenSchluessel(id, e)
+    return id .. ((e and e.zurueck) and "!" or "")
+end
+
 --- Sendet die eigenen Eintraege fuer die genannten Tage.
 local function eintraegeSenden(sid, tage)
     local S = Sitzungen[sid]
@@ -368,7 +378,7 @@ local function eintraegeSenden(sid, tage)
 
     local ids = {}
     for id, e in pairs(H) do
-        if tage[utcTag(e.timestamp or 0)] and not (S and S.gesehen[id]) then
+        if tage[utcTag(e.timestamp or 0)] and not (S and S.gesehen[gesehenSchluessel(id, e)]) then
             ids[#ids + 1] = id
         end
     end
@@ -593,7 +603,7 @@ function Abgleich.Empfangen(text, sender)
         local zeilen = Kern.Entpacken(paket)
         if #zeilen > 40 then return end
         local liste = einfuehren(zeilen, "abgleich")
-        for _, X in ipairs(liste) do S.gesehen[X.id] = true end
+        for _, X in ipairs(liste) do S.gesehen[gesehenSchluessel(X.id, X.e)] = true end
         Abgleich.AbschlussMelden()
         fensterAktualisieren()
     end

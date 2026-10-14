@@ -1256,6 +1256,95 @@ fest(len(list(ns.Wurf.Offene().values())) == 0, "/fs wurf offen leeren loescht s
 fehler = [str(x) for x in g["__ausgabe"].values() if "Fehler" in str(x)]
 fest(not fehler, "ohne Fehler")
 
+print("== 23. Vergabe zuruecknehmen: Knopf, Befehl, Abgleich, Rechte ==")
+
+
+def gezaehlt(w, k):
+    return sum(1 for v in w.hist(k).values() if not v["zurueck"])
+
+
+def welt23():
+    w = gruppe(3, auto=True)
+    w.ereignis("PLAYER_ENTERING_WORLD")
+    w.weiter(15)
+    for k in (0, 1, 2):
+        w.setze(k, "u1", {"awardedTo": "Timo", "itemID": 9801, "timestamp": int(w.t) - 7000})
+        w.setze(k, "u2", {"awardedTo": "Lina", "itemID": 9802, "timestamp": int(w.t) - 3000})
+    w.ereignis("GROUP_ROSTER_UPDATE")
+    w.weiter(20)
+    return w
+
+
+# --- Der Knopf im Verlauf: zweistufig, wirkt live bei allen --------------------
+w = welt23()
+cl = w.clients[0]
+ns, g = cl["ns"], cl["g"]
+fest(w.stand(0) == w.stand(1) == w.stand(2), "Ausgangslage: alle gleich")
+ns.Fenster.Zeigen(False)
+g["__klick"]("Verlauf")
+fest(g["__klick"]("Rückgängig") is True, "im Verlauf gibt es den Knopf Rückgängig (Leiter)")
+fest(gezaehlt(w, 0) == 2, "der erste Klick fragt nur")
+fest(len(list(g["__text"]("Wirklich?").values())) > 0, "und fragt: Wirklich?")
+fest(g["__klick"]("Wirklich?") is True, "zweiter Klick")
+fest(gezaehlt(w, 0) == 1, "danach zaehlt eine Vergabe weniger")
+neuester = [v for v in w.hist(0).values() if v["zurueck"]]
+fest(len(neuester) == 1 and neuester[0]["awardedTo"] == "Lina", "und zwar die neueste (Lina)")
+w.weiter(15)
+fest(gezaehlt(w, 1) == 1 and gezaehlt(w, 2) == 1, "bei beiden Mitspielern ist sie ebenfalls zurueckgenommen")
+liste = tup(ns.Kern.Bilanz(w.hist(0), 0))[0]
+fest(sum(1 for _ in liste.keys()) == 1, "die Liste fuehrt Lina nicht mehr")
+fest(w.stand(0) == w.stand(1) == w.stand(2), "und die Pruefsummen sind wieder gleich")
+
+# --- Ein Mitglied hat es verpasst: der Abgleich holt es nach --------------------
+w = welt23()
+leiter = w.clients[0]["ns"]
+w.hist(0)["u2"]["zurueck"] = True          # zurueckgenommen, ohne dass jemand es mitbekam
+fest(w.stand(0) != w.stand(1), "die Pruefsumme verraet die Ruecknahme (vorher blieb sie gleich)")
+w.ereignis("GROUP_ROSTER_UPDATE")
+w.weiter(130)      # der Abstand zwischen zwei automatischen Laeufen betraegt zwei Minuten
+fest(gezaehlt(w, 1) == 1 and gezaehlt(w, 2) == 1, "der Abgleich zieht die Ruecknahme bei den anderen nach")
+fest(w.stand(0) == w.stand(1) == w.stand(2), "danach sind alle gleich")
+
+# --- Rechte --------------------------------------------------------------------
+w = welt23()
+ns1 = w.clients[1]["ns"]
+ok, grund = tup(ns1.Erfassung.Zuruecknehmen("u1"))
+fest(ok is False, "ein Mitglied darf nicht zuruecknehmen (%s)" % grund)
+fest(gezaehlt(w, 1) == 2, "und es bleibt alles, wie es war")
+ns1.Fenster.Zeigen(False)
+w.clients[1]["g"]["__klick"]("Verlauf")
+fest(w.clients[1]["g"]["__klick"]("Rückgängig") is False, "bei einem Mitglied gibt es den Knopf nicht")
+ok, grund = tup(w.clients[0]["ns"].Erfassung.Zuruecknehmen("gibtesnicht"))
+fest(ok is False, "unbekannter Eintrag wird abgelehnt (%s)" % grund)
+w.clients[0]["ns"].Erfassung.Zuruecknehmen("u1")
+ok, grund = tup(w.clients[0]["ns"].Erfassung.Zuruecknehmen("u1"))
+fest(ok is False, "doppelt zuruecknehmen geht nicht (%s)" % grund)
+
+# --- Spielerdetail: auch dort ---------------------------------------------------
+w = welt23()
+ns, g = w.clients[0]["ns"], w.clients[0]["g"]
+ns.Fenster.Zeigen(False)
+g["__klick"]("Timo")
+fest(g["__klick"]("Rückgängig") is True, "im Spielerdetail gibt es den Knopf")
+g["__klick"]("Wirklich?")
+fest(gezaehlt(w, 0) == 1 and w.hist(0)["u1"]["zurueck"] is True, "Timos Vergabe ist zurueckgenommen")
+
+# --- Befehl ------------------------------------------------------------------------
+w = welt23()
+ns, g = w.clients[0]["ns"], w.clients[0]["g"]
+sl = g["SlashCmdList"]["FAIRSHARE"]
+sl("rueckgaengig ja")
+fest(gezaehlt(w, 0) == 2, "ohne vorherige Rueckfrage passiert nichts")
+sl("rueckgaengig")
+fest(gezaehlt(w, 0) == 2, "/fs rueckgaengig fragt nur")
+sl("rueckgaengig ja")
+fest(gezaehlt(w, 0) == 1 and w.hist(0)["u2"]["zurueck"] is True, "/fs rueckgaengig ja nimmt die letzte Vergabe zurueck")
+sl("undo"); sl("undo yes")
+fest(gezaehlt(w, 0) == 0, "englisch: /fs undo, /fs undo yes")
+sl("undo")
+fehler = [str(x) for x in g["__ausgabe"].values() if "Fehler" in str(x)]
+fest(not fehler, "ohne Fehler")
+
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")
 sys.exit(0 if alle_ok else 1)

@@ -187,6 +187,22 @@ Englisch heißt Zweitbedarf **„OS"** (Nutzerwunsch), nicht „Off".
   (Obergrenze Haupt, Obergrenze OS), überall daraus lesen; Beschriftungen und Erkennung folgen; Abgleich-Protokoll
   unberührt (die Art steckt im Eintrag, nicht der Bereich).
 
+### Vergabe zurücknehmen (Nutzerwunsch 14.10.2026)
+
+Falsch zugeteilt oder der Spieler gibt das Stück zurück: In **Verlauf** und **Spielerdetail** hat jede Zeile den Knopf
+**Rückgängig** (zweistufig: „Wirklich?" binnen 8 s); `/fs rueckgaengig` (`undo`) zeigt die letzte Vergabe, `… ja` bestätigt
+binnen einer Minute. `Erfassung.Zuruecknehmen(id)` setzt das bestehende Merkmal `zurueck` (der Eintrag bleibt, zählt aber
+nicht — Löschen brächte der Abgleich zurück) und verteilt es live. Berechtigt: Plündermeister/Leiter/Assistent; ohne Gruppe
+darf man lokal. ⚠️ **Nicht wieder aufhebbar** (das Merkmal wechselt nur von nein auf ja, das macht das Zusammenführen
+eindeutig); ein Versehen korrigiert man mit einer neuen Vergabe. Der Gegenstand ist danach wieder frei (neuer Wurf).
+
+⭐ **Zwei Folgen im Abgleich** (beide fand erst Szenario 23): (1) **Die Prüfsumme zählt `zurueck` mit**
+(`Kern.Pruefsumme`/`Tagesstand`: Kennung + „!"). Vorher blieb sie bei einer Rücknahme gleich, wer bei der Rücknahme nicht
+dabei war, erfuhr sie nie. Darum **Protokollversion 2** (`Abgleich.VERSION`): Stände mit 1 werden nicht verglichen, sonst
+gälten sie ewig als abweichend. (2) Die **Unterdrückung doppelter Sendungen** (`S.gesehen`) schlüsselt nach Kennung **und
+Zustand** (`gesehenSchluessel`): Die Sendung eines Mitglieds mit dem alten Stand darf die des Leiters mit dem
+zurückgenommenen nicht unterdrücken.
+
 ### Beute aus dem Rucksack verteilen, Zuteilen (Stufe 2, 14.10.2026)
 
 ⭐ **Üblicher Ablauf der Gilde:** Der Plündermeister steckt die Beute selbst ein und lässt sie auf dem Weg zum nächsten Boss

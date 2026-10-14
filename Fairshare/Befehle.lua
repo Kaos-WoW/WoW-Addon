@@ -37,6 +37,7 @@ local function hilfe()
     print(L["  |cffffff78/fs <Name>|r       – Einzelvergaben eines Spielers im Chat"])
     print(L["  |cffffff78/fs abgleich|r     – Historien der Gruppe zusammenführen (|cffffff78abgleich status|r zeigt den Stand)"])
     print(L["  |cffffff78/fs rolle|r        – wer zeichnet gerade auf, und warum"])
+    print(L["  |cffffff78/fs rueckgaengig|r – die letzte Vergabe zurücknehmen (mit Rückfrage; einzelne Vergaben im Verlauf)"])
     print(L["  |cffffff78/fs wurf|r         – eigenes Würfelfenster starten (|cffffff78wurf <Link>|r, |cffffff78wurf ende|r, |cffffff78wurf ergebnis|r, |cffffff78wurf offen|r)"])
     print(L["  |cffffff78/fs beutetest|r    – Diagnose: Beutefenster und Zuteilung durch den Plündermeister"])
     print(L["  |cffffff78/fs gruppe|r       – Kader und Raidgruppen (|cffffff78gruppe hilfe|r)"])
@@ -337,6 +338,38 @@ befehle["beutetest"] = function()
     for _, z in ipairs(ns.Wurf.Beutetest()) do print(z) end
 end
 befehle["lootcheck"] = befehle["beutetest"]
+
+--- ⭐ Die letzte Vergabe zuruecknehmen: erst zeigen, dann (binnen einer Minute) bestaetigen.
+--  Einzelne Vergaben nimmt man im Verlauf oder im Spielerdetail zurueck (Knopf „Rückgängig").
+local undoBereit = nil
+
+befehle["rueckgaengig"] = function(arg)
+    arg = (arg or ""):lower()
+    local liste = Kern.Verlauf(ns.Erfassung.Historie(), 0, nil)
+    local e = liste[1]
+    if not e then sag(GRAU .. L["Keine Vergabe vorhanden."] .. "|r") return end
+
+    if arg == "ja" or arg == "yes" then
+        if not undoBereit or undoBereit.id ~= e.id or (time() - undoBereit.zeit) > 60 then
+            sag(ROT .. L["Erst |cffffff78/fs rueckgaengig|r eingeben, dann innerhalb einer Minute bestätigen."] .. "|r")
+            return
+        end
+        undoBereit = nil
+        local ok, grund = ns.Erfassung.Zuruecknehmen(e.id)
+        if ok then
+            sag(GRUEN .. string.format(L["Zurückgenommen: %s an %s."], Quelle.Gegenstandstext(e.eintrag), e.name) .. "|r")
+        else
+            sag(ROT .. tostring(grund) .. "|r")
+        end
+        return
+    end
+
+    undoBereit = { id = e.id, zeit = time() }
+    sag(string.format(L["Zurücknehmen: %s an %s (%s)?"], Quelle.Gegenstandstext(e.eintrag), e.name, date(L["%d.%m. %H:%M"], e.zeit)))
+    print(L["  Zum Bestätigen innerhalb einer Minute: |cffffff78/fs rueckgaengig ja|r"])
+end
+befehle["undo"] = befehle["rueckgaengig"]
+befehle["revert"] = befehle["rueckgaengig"]
 
 befehle["abgleich"] = function(arg)
     if arg == "status" or arg == "stand" then

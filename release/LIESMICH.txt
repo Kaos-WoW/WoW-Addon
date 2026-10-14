@@ -47,6 +47,9 @@ EIGENES WUERFELFENSTER (neu)
  * Ist der Gewinner zu weit weg, bleibt die Zuteilung vorgemerkt: Beim
    naechsten Handel mit ihm wird der Gegenstand eingelegt (/fs wurf offen).
    Auch ein Handel von Hand wird erkannt und eingetragen.
+ * Falsch zugeteilt? Im Verlauf (oder beim Spieler) steht bei jeder Vergabe
+   "Rueckgaengig"; /fs rueckgaengig nimmt die letzte zurueck. Das geht an die
+   ganze Gruppe. (Neue Pruefsumme: alle muessen dieselbe Fassung haben.)
  * Beute, die der Pluendermeister selbst einsteckt, zaehlt nicht als Vergabe.
  * Neue Datei Wurf.lua: nach dem Kopieren WoW komplett neu starten.
 
