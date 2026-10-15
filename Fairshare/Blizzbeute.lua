@@ -144,6 +144,8 @@ pcall(function() rahmen:RegisterEvent("LOOT_HISTORY_UPDATE_DROP") end)
 pcall(function() rahmen:RegisterEvent("LOOT_HISTORY_UPDATE_ENCOUNTER") end)
 
 rahmen:SetScript("OnEvent", function(_, ereignis, a1, a2)
+    -- Ohne Plündermeister als Beutemethode ruht das Addon (Rolle.Aktiv).
+    if not (ns.Rolle and ns.Rolle.Aktiv()) then return end
     local ok, fehler = pcall(function()
         if ereignis == "LOOT_HISTORY_UPDATE_DROP" then
             -- a1 encounterID, a2 lootListKey

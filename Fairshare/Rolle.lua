@@ -157,6 +157,49 @@ end
 --  Entscheid
 -- =====================================================================
 
+--- ⭐ Ist das Addon gerade im Dienst? Nur in einer Gruppe mit Plündermeister
+--  als Beutemethode (Entscheid des Gildenleiters, 15.10.2026). Bei Gruppen-
+--  beute, Bedarf/Gier & Co. tut es nichts: keine Aufzeichnung, kein
+--  aufspringendes Fenster, keine Wurfanzeige. Die Methode wird bei jedem
+--  Aufruf frisch gelesen, ein Wechsel gilt also sofort.
+--  @return true/false, Grund als Text
+function Rolle.Aktiv()
+    if not (IsInGroup and IsInGroup()) then
+        return false, L["keine Gruppe – allein wird nichts aufgezeichnet"]
+    end
+    local methode = lootMethode()
+    if methode ~= "master" then
+        return false, L["Beutemethode ist nicht Plündermeister – das Addon schläft"]
+    end
+    local nutzung = Rolle.Nutzung()
+    if nutzung == "nein" then
+        return false, L["Du hast Fairshare für diese Gruppe abgelehnt – das Addon schläft"]
+    elseif nutzung ~= "ja" then
+        return false, L["Fairshare wartet auf deine Antwort – /fs nutzung"]
+    end
+    return true
+end
+
+--- Die Beutemethode als Text ("master", "group", …) oder nil, wenn sie nicht lesbar ist.
+function Rolle.Methode()
+    return (lootMethode())
+end
+
+--- ⭐ Die Antwort auf „Fairshare nutzen?" (Nutzung.lua) für die aktuelle Gruppe.
+--  @return "ja", "nein" oder nil (noch nicht gefragt/beantwortet)
+function Rolle.Nutzung()
+    local v = ns.Erfassung.Einstellungen().nutzung
+    if v == "ja" or v == "nein" then return v end
+    return nil
+end
+
+--- @param wert "ja" | "nein" | nil (zurücknehmen: es wird neu gefragt)
+function Rolle.NutzungSetzen(wert)
+    local d = ns.Erfassung.Einstellungen()
+    d.nutzung = (wert == "ja" or wert == "nein") and wert or nil
+    if ns.Nutzung then ns.Nutzung.Entschieden(d.nutzung) end
+end
+
 --- Zeichnet DIESER Spieler gerade auf?
 --  @return true/false, Grund als Text
 function Rolle.IchSchreibe()
@@ -167,15 +210,15 @@ function Rolle.IchSchreibe()
     -- (Entscheid des Gildenleiters, 14.10.2026): Das Addon ist fuer
     -- Gruppeninhalt gedacht. Wer allein etwas Seltenes bekommt, gehoert
     -- nicht in die Historie, und Fuenfer-Instanzen dienen nur dem Erproben
-    -- des Raid-Ablaufs mit einer Gruppe.
-    if not (IsInGroup and IsInGroup()) then
-        return false, L["keine Gruppe – allein wird nichts aufgezeichnet"]
-    end
+    -- des Raid-Ablaufs mit einer Gruppe. Ebenso nie ohne Plündermeister als
+    -- Beutemethode (15.10.2026).
+    local aktiv, warum = Rolle.Aktiv()
+    if not aktiv then return false, warum end
 
     if modus == "immer" then return true, L["eingestellt: immer"] end
     if modus == "nie"   then return false, L["eingestellt: nie"] end
 
-    local kandidaten, methode = Rolle.Kandidaten()
+    local kandidaten = Rolle.Kandidaten()
     if #kandidaten == 0 then
         -- Weder Leiter noch Plündermeister auszumachen: lieber doppelt als gar nicht.
         return true, L["kein Leiter erkennbar"]
@@ -189,7 +232,7 @@ function Rolle.IchSchreibe()
         return false, L["weder Plündermeister noch Leiter haben das Addon"]
     end
     if wahl.ich then
-        return true, (wahl.rolle or L["Kandidat"]) .. (methode == "master" and "" or (" " .. L["(kein Plündermeister)"]))
+        return true, wahl.rolle or L["Kandidat"]
     end
     return false, string.format(L["%s zeichnet auf"], wahl.name or "?")
 end

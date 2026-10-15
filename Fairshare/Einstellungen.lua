@@ -401,6 +401,19 @@ local function seiteErfassung(P)
         get = function() return d().nurGewuerfelt end,
         set = function(v) d().nurGewuerfelt = v end })
 
+    local k1 = karte(P, L["Nutzung"],
+        L["Fairshare ist nur mit der Beutemethode Plündermeister im Dienst und nur, wenn du zustimmst. Sonst schläft das Addon."])
+    zeile(k1, { art = "segment", label = L["Fairshare in dieser Gruppe nutzen"],
+        werte = { { wert = "ja", label = L["Ja"] }, { wert = "nein", label = L["Nein"] } },
+        beschr = function()
+            local _, grund = ns.Rolle.Aktiv()
+            return grund or L["Fairshare ist aktiv: Es verwaltet die Beuteverteilung."]
+        end,
+        get = function() return ns.Rolle.Nutzung() or "" end,
+        set = function(v)
+            if ns.Rolle.Methode() == "master" and IsInGroup and IsInGroup() then ns.Rolle.NutzungSetzen(v) end
+        end })
+
     local k2 = karte(P, L["Wer zeichnet auf"],
         L["Nur einer pro Gruppe führt die Historie, damit nichts doppelt entsteht."])
     zeile(k2, { art = "segment", label = L["Aufzeichner"], werte = MODI,
@@ -470,10 +483,14 @@ local function seiteWuerfeln(P)
         beschr = L["Danach endet der Wurf von selbst. Im Startdialog lässt sich die Zeit für einen einzelnen Wurf frei wählen und wird dann zum neuen Standard."],
         get = function() return ns.Wurf.Dauer() end,
         set = function(v) d().wurfDauer = v end })
-    zeile(kw, { art = "schalter", label = L["Vergabe im Gruppenchat ansagen"],
-        beschr = L["Der Aufzeichner schreibt nach jeder eingetragenen Vergabe eine Zeile in den Raid- oder Gruppenchat."],
+    zeile(kw, { art = "schalter", label = L["Wurf und Vergabe im Gruppenchat ansagen"],
+        beschr = L["Beim Wurfbeginn schreibt der Starter eine Zeile in den Raid- oder Gruppenchat (damit auch Spieler ohne Addon mitwürfeln), und der Aufzeichner meldet jede eingetragene Vergabe."],
         get = function() return d().ansagen ~= false end,
         set = function(v) d().ansagen = v end })
+    zeile(kw, { art = "schalter", label = L["Startdialog beim Plündern selbst öffnen"],
+        beschr = L["Als Plündermeister geht der Dialog zum Wurf starten auf, sobald das Beutefenster etwas Verteilbares zeigt."],
+        get = function() return d().startAuto ~= false end,
+        set = function(v) d().startAuto = v end })
     zeile(kw, { art = "knopf", label = L["Wurf starten"],
         beschr = L["Öffnet den Dialog: Gegenstand per Shift-Klick einfügen oder aus der Beute wählen. Auch: /fs wurf <Link>."],
         knopf = { text = L["Öffnen"], art = "primary",

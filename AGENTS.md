@@ -11,7 +11,7 @@ auf, gleicht ab, verwaltet Gruppen). Ordner `Fairshare/`, SavedVariables `Fairsh
 macht `deploy.ps1` einmalig und **nur bei beendetem WoW** (sonst bricht es ab, ohne etwas zu ändern); die alte
 Datei bleibt als Sicherung. Spätere Umbenennungen brauchen denselben Weg.
 
-Stand 14.10.2026, Version 0.1.3 (Testfassung für die Gildenleitung, nicht veröffentlicht). Nur für Forever.
+Stand 15.10.2026, Version 0.1.4 (Testfassung für die Gildenleitung, nicht veröffentlicht). Nur für Forever.
 
 ---
 
@@ -55,6 +55,7 @@ das nur liest, weder Haupt/Zweit noch Gruppen noch Abgleich leisten kann.
 | `Abgleich.lua` | Hallo, Live-Meldung, Abgleich, Hinweis-Fenster | ja |
 | `Blizzbeute.lua` | Blizzards `C_LootHistory` als zweite Quelle | ja |
 | `Wurf.lua` | eigenes Würfelfenster: Haupt (1-100) / OS (1-50) / Passen, Startdialog, `/fs beutetest` | ja |
+| `Nutzung.lua` | Dialog „Fairshare nutzen?": Antwort ja/nein je Gruppe mit Plündermeister, sonst schläft das Addon | ja |
 | `Konfig.lua` | Einstellungen teilen: einer stellt ein, alle bekommen es (Gilde, Rangprüfung, Nachfragen) | ja |
 | `Stil.lua` | Bausteine im KaosUI-Look (Farben, runde Ecken, Knopf, Schalter, Segmentwahl, Bildlauf) | ja |
 | `Einstellungen.lua` | das Einstellungsfenster (Karten und Zeilen, drei Seiten) | ja |
@@ -86,6 +87,22 @@ der das Addon nachweislich hat (Hallo-Meldung) oder man selbst ist.
 * ⭐ **Ohne Gruppe wird nie aufgezeichnet** (auch nicht bei „immer“; Entscheid 14.10.2026): Das Addon ist für
   Gruppeninhalt da, ein Solo-Fund gehört nicht in die Historie, Fünfer-Instanzen dienen nur dem Erproben des
   Raid-Ablaufs *mit* einer Gruppe. Zentral in `Rolle.IchSchreibe`, daran hängen Chat, Blizzard-Historie und Gargul.
+* ⭐ **Fairshare ist nur mit Plündermeister UND Zustimmung im Dienst, sonst schläft es** (Entscheid 15.10.2026): `Rolle.Aktiv()` =
+  Gruppe **und** Methode „master" (bei jedem Aufruf frisch gelesen) **und** `FairshareDB.nutzung == "ja"`. `Nutzung.lua` fragt in einem
+  Dialog „Fairshare nutzen?", sobald Plündermeister aktiv ist (Ja / Nein / Kreuz = keine Antwort, nicht erneut fragen); jede andere
+  Beutemethode (Gruppenbeute, Bedarf vor Gier, Reihum, Jeder gegen Jeden, persönliche Beute) oder das Verlassen der Gruppe löscht die
+  Antwort (`Nutzung.Auswerten` bei `GROUP_ROSTER_UPDATE`, `PARTY_LOOT_METHOD_CHANGED`, 4 s nach dem Anmelden). Von Hand: `/fs nutzung
+  [ja|nein|fragen]`, Einstellungen → Würfeln & Abgleich → Nutzung. Neue Datei → WoW-Neustart.
+  Gesperrt sind die Ereigniseingänge (`Erfassung`: `START_LOOT_ROLL`, `CHAT_MSG_LOOT`,
+  `CHAT_MSG_SYSTEM`; `Blizzbeute`; Garguls `ROLLOFF_STARTED`), `Wurf.DarfStarten`, `Wurf.Empfangen` und `IchSchreibe` (auch bei „immer").
+  Auch Abgleich (Hallo, Hinweis-Fenster, Automatik), Einstellungen teilen (Nachfragen/Empfangen) und der Kader-Sync beim Anmelden ruhen;
+  `PARTY_LOOT_METHOD_CHANGED` weckt sie sofort (Hallo, Nachfrage). Slash-Befehle, Übersicht und Einstellungen bleiben benutzbar. Szenario 32.
+  Tests: `Welt(..., ml=0)` ist jetzt Standard, `ml=None` = Gruppenbeute.
+* **Beutefenster als Plündermeister** (`LOOT_OPENED`, `Wurf.lua` `beuteOeffnet`): Ist etwas Verteilbares darin (Qualität/Ort wie bei
+  der Aufzeichnung), öffnet sich der Startdialog von selbst (Schalter `startAuto`, Standard an; Szenario 34).
+* **Wurfbeginn im Chat** (`Erfassung.WurfAnsage`, Szenario 35): Der Starter schreibt eine Zeile mit Gegenstand, beiden `/roll`-Bereichen
+  und Zeit, damit auch Spieler ohne Addon mitwürfeln — als **Raidwarnung (`RAID_WARNING`)**, wenn er im Raid Leiter oder Assistent ist,
+  sonst Raid-/Gruppenchat; Schalter `ansagen`. **Dasselbe gilt für die Vergabe-Ansage** („X wurde an Y vergeben!“, auch fürs Entzaubern).
 * Bis die Hallo-Meldungen da sind (wenige Sekunden nach dem Beitritt),
   zeichnet zur Not auch der Leiter auf. **Doppelt ist besser als gar nicht**;
   der Abgleich fängt Doppelte ab, eine fehlende Vergabe nicht.

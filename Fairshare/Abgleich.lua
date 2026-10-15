@@ -263,6 +263,13 @@ end
 
 --- Vergleicht den eigenen Stand mit dem der Mitspieler.
 function Abgleich.Pruefen()
+    -- Ohne Plündermeister als Beutemethode ruht das Addon: kein Hinweis, kein Abgleich.
+    if not ns.Rolle.Aktiv() then
+        Abgleich.Abweichend = {}
+        letzteSignatur = nil
+        popupVerstecken()
+        return
+    end
     local n, summe = Abgleich.Stand()
     local liste = {}
 
@@ -324,7 +331,7 @@ end
 local hallo = { token = 0, zuletzt = 0, n = nil, summe = nil }
 
 local function halloSenden()
-    if not kanal() then return end
+    if not kanal() or not ns.Rolle.Aktiv() then return end
     local n, summe = Abgleich.Stand()
 
     -- ⚠️ Nicht unnoetig oft: nur bei Aenderung oder nach einer Weile.
@@ -672,9 +679,18 @@ local rahmen = CreateFrame("Frame")
 rahmen:RegisterEvent("CHAT_MSG_ADDON")
 rahmen:RegisterEvent("GROUP_ROSTER_UPDATE")
 rahmen:RegisterEvent("PLAYER_ENTERING_WORLD")
+-- Die Beutemethode wechselt: auf Plündermeister sofort melden, davon weg alles still stellen.
+pcall(function() rahmen:RegisterEvent("PARTY_LOOT_METHOD_CHANGED") end)
 rahmen:SetScript("OnEvent", function(_, ereignis, praefix, text, kanalName, sender)
     local ok, fehler = pcall(function()
-        if ereignis == "CHAT_MSG_ADDON" then
+        -- ⭐ Nur mit Plündermeister als Beutemethode im Dienst (Entscheid 15.10.2026).
+        if not ns.Rolle.Aktiv() then
+            Abgleich.Pruefen()   -- räumt Hinweis und Liste weg
+            return
+        end
+        if ereignis == "PARTY_LOOT_METHOD_CHANGED" then
+            Abgleich.HalloSpaeter(2)
+        elseif ereignis == "CHAT_MSG_ADDON" then
             if praefix == PRAEFIX then Abgleich.Empfangen(text, sender, kanalName) end
         elseif ereignis == "GROUP_ROSTER_UPDATE" then
             Abgleich.HalloSpaeter(6)

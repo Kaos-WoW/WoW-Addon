@@ -514,14 +514,19 @@ local angefragtGilde, letzteGruppenfrage = false, 0
 local rahmen = CreateFrame("Frame")
 rahmen:RegisterEvent("PLAYER_ENTERING_WORLD")
 rahmen:RegisterEvent("GROUP_ROSTER_UPDATE")
+pcall(function() rahmen:RegisterEvent("PARTY_LOOT_METHOD_CHANGED") end)
 rahmen:SetScript("OnEvent", function(_, ereignis)
     local ok, fehler = pcall(function()
         if not C_Timer then return end
+        -- ⭐ Nur mit Plündermeister als Beutemethode im Dienst (Entscheid 15.10.2026).
+        if not ns.Rolle.Aktiv() then return end
         if ereignis == "PLAYER_ENTERING_WORLD" then
             if not angefragtGilde then
                 angefragtGilde = true
                 -- Die Gildenliste und der Chat brauchen einen Moment.
-                C_Timer.After(25, function() pcall(Konfig.Anfragen, "GUILD") end)
+                C_Timer.After(25, function()
+                    if ns.Rolle.Aktiv() then pcall(Konfig.Anfragen, "GUILD") end
+                end)
             end
         elseif IsInGroup and IsInGroup() and (jetzt() - letzteGruppenfrage) > 300 then
             letzteGruppenfrage = jetzt()

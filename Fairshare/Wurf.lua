@@ -91,7 +91,7 @@ end
 
 --- Darf dieser Spieler einen Wurf starten?
 function Wurf.DarfStarten()
-    if not (IsInGroup and IsInGroup()) then return false end
+    if not ns.Rolle.Aktiv() then return false end
     return ns.Rolle.Berechtigt(ichName()) and true or false
 end
 
@@ -428,6 +428,7 @@ function Wurf.Starten(eingabe, dauerWunsch)
     end
     if dauerWunsch ~= nil then db().wurfDauer = dauer end      -- zuletzt gewaehlt = neuer Standard
     beginnen(rid, link, dauer, true)
+    ns.Erfassung.WurfAnsage(link, dauer)
     return true
 end
 
@@ -493,6 +494,7 @@ end
 --- Eine Nachricht der Gruppe. `unit` ist der Absender in unserer Gruppe (oder nil).
 --  Die Gilde wird hier NICHT verlangt (siehe Abgleich.Empfangen).
 function Wurf.Empfangen(typ, rest, sender, unit)
+    if not ns.Rolle.Aktiv() then return end    -- ohne Plündermeister ruht das Addon
     if not unit then
         merke(string.format(L["%s von %s: Absender nicht in der Gruppe erkannt"], typ, tostring(sender)))
         return
@@ -564,6 +566,32 @@ end
 -- =====================================================================
 
 local ZEILEN = 10
+
+--- ⭐ Die Qualitaet eines Beuteplatzes (0 grau … 5 orange), nil wenn sie sich nicht lesen laesst.
+--  Aus dem Link (Forever: `|cnIQ3:`), dann aus GetLootSlotInfo (Mainline: Qualitaet an 5. Stelle,
+--  Classic an 4.), dann aus der Linkfarbe. `Erfassung.Zaehlenswert` allein genuegt nicht: Kennt der
+--  Client den Gegenstand noch nicht, zaehlt dort „lieber erfassen“ — und graues Zeug oeffnete den Dialog.
+local FARBE_QUALITAET = { ["9d9d9d"] = 0, ["ffffff"] = 1, ["1eff00"] = 2, ["0070dd"] = 3, ["a335ee"] = 4, ["ff8000"] = 5 }
+local function beuteQualitaet(platz, link)
+    local q = tonumber(tostring(link):match("|cnIQ(%d+):"))
+    if q then return q end
+    local f = rawget(_G, "GetLootSlotInfo")
+    if type(f) == "function" then
+        local r = { pcall(f, platz) }
+        local v = (type(r[6]) == "number" and r[6]) or (type(r[5]) == "number" and r[5]) or nil
+        if v and v >= 0 and v <= 8 then return v end
+    end
+    local hex = tostring(link):match("|c%x%x(%x%x%x%x%x%x)|Hitem:")
+    return hex and FARBE_QUALITAET[hex:lower()] or nil
+end
+
+--- Zaehlt dieser Beuteplatz (Qualitaet ab der eingestellten Schwelle, Ort wie bei der Aufzeichnung)?
+local function beuteZaehlt(e)
+    local q = beuteQualitaet(e.platz, e.link)
+    local mind = db().mindestQualitaet or 3
+    if q and q < mind then return false end
+    return (ns.Erfassung.Zaehlenswert(e.link)) and true or false
+end
 
 --- Die Beute im offenen Beutefenster (nur Gegenstaende mit Link).
 local function beuteListe()
@@ -679,7 +707,11 @@ end
 
 local function starterBeute()
     if not starter then return end
-    local liste = sammlung()
+    local liste = {}
+    for _, e in ipairs(sammlung()) do
+        -- Beute unter der Schwelle (grau/weiss) steht nicht zur Wahl; Rucksack filtert selbst.
+        if e.typ ~= "beute" or beuteZaehlt(e) then liste[#liste + 1] = e end
+    end
     for i = 1, ZEILEN do
         local z = starter.zeilen[i]
         local e = liste[i]
@@ -802,6 +834,15 @@ local function starterBauen()
 
     s:SetScript("OnShow", function() starterAuffrischen() end)
     s:Hide()
+end
+
+--- Ist der Startdialog offen? (Tests, Diagnose)
+function Wurf.StarterSichtbar()
+    return starter ~= nil and starter:IsShown() and true or false
+end
+
+function Wurf.StarterSchliessen()
+    if starter then starter:Hide() end
 end
 
 --- Den Startdialog oeffnen (ohne Gegenstand).
@@ -1509,6 +1550,22 @@ if hooksecurefunc then
     if CFU and CFU.InsertLink then pcall(hooksecurefunc, CFU, "InsertLink", linkEinfuegen) end
 end
 
+--- ⭐ Der Plündermeister öffnet ein Beutefenster: Ist etwas darin, das zählt
+--  (Qualität und Ort wie bei der Aufzeichnung), geht der Startdialog von selbst
+--  auf, damit er die Verteilung gleich anstoßen kann (Nutzerwunsch 15.10.2026).
+--  Nur im Dienst (Rolle.Aktiv), nur für den Plündermeister selbst, abschaltbar.
+local function beuteOeffnet()
+    if db().startAuto == false then return end
+    if not (ns.Rolle.Aktiv() and ns.Rolle.IchBinPluendermeister()) then return end
+    if starter and starter:IsShown() then return end
+    for _, e in ipairs(beuteListe()) do
+        if beuteZaehlt(e) then
+            Wurf.Dialog()
+            return
+        end
+    end
+end
+
 local ereignisse = CreateFrame("Frame")
 for _, e in ipairs({ "LOOT_OPENED", "LOOT_CLOSED", "LOOT_SLOT_CLEARED", "BAG_UPDATE_DELAYED",
                      "TRADE_SHOW", "TRADE_CLOSED", "TRADE_PLAYER_ITEM_CHANGED", "TRADE_ACCEPT_UPDATE" }) do
@@ -1521,6 +1578,8 @@ ereignisse:SetScript("OnEvent", function(_, ereignis)
         pcall(handelZu)
     elseif ereignis == "TRADE_PLAYER_ITEM_CHANGED" or ereignis == "TRADE_ACCEPT_UPDATE" then
         pcall(angebotLesen, handel, true)
+    elseif ereignis == "LOOT_OPENED" then
+        if starter and starter:IsShown() then pcall(starterBeute) else pcall(beuteOeffnet) end
     elseif starter and starter:IsShown() then
         pcall(starterBeute)
     end

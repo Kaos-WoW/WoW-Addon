@@ -1,4 +1,4 @@
-Fairshare 0.1.3 (Testfassung)  -  Faire Beuteverteilung fuer WoW Forever
+Fairshare 0.1.4 (Testfassung)  -  Faire Beuteverteilung fuer WoW Forever
 ===========================================================================
 
 INSTALLATION
@@ -11,7 +11,7 @@ INSTALLATION
 
       ...\AddOns\Fairshare\Fairshare.toc
 
-    (Der Ordner muss genau "Fairshare" heissen, nicht "Fairshare-0.1.3".)
+    (Der Ordner muss genau "Fairshare" heissen, nicht "Fairshare-0.1.4".)
     Wer schon eine aeltere Fassung hat: den alten Ordner "Fairshare" ersetzen. Die Daten
     (Historie, Einstellungen) bleiben erhalten, sie liegen in WTF.
  3. WoW starten. Neue Dateien: ein /reload reicht NICHT, WoW muss ganz
@@ -60,6 +60,11 @@ EIGENES WUERFELFENSTER (neu)
    Gildenmitglieder mit dem Addon uebernehmen es (zuruecknehmbar mit
    /fs konfig zurueck); wer spaeter kommt, bekommt es beim Anmelden.
    Neue Datei Konfig.lua: WoW ganz neu starten.
+ * Fairshare ist nur noch mit der Beutemethode "Plündermeister" im Dienst:
+   Sobald sie aktiv ist, fragt ein Fenster "Fairshare nutzen?". Bei "Ja"
+   laeuft alles ueber das Addon, bei "Nein" (und bei jeder anderen
+   Beutemethode) schlaeft es: keine Fenster, keine Aufzeichnung.
+   Spaeter aendern: /fs nutzung ja|nein. Neue Datei Nutzung.lua: WoW neu starten.
  * Wuerfelt niemand, kommt ein Fenster "Zum Entzaubern vergeben?": die
    Verzauberer stehen in den Einstellungen (Wuerfeln & Abgleich) oder per
    /fs verzauberer add Name. Der Pluendermeister bestaetigt mit "Vergeben";

@@ -504,8 +504,13 @@ end
 --  sonst niemand etwas sagt: bei Vergaben ueber das Wuerfelfenster und bei
 --  Zuteilung durch den Pluendermeister. Blizzards Gruppenwuerfe und Gargul
 --  melden selbst.
-local function gruppenChat(text)
+--  @param warnung  true: als Raidwarnung (/rw), wenn man im Raid Leiter oder Assistent ist
+local function gruppenChat(text, warnung)
     local kanal = (IsInRaid and IsInRaid()) and "RAID" or ((IsInGroup and IsInGroup()) and "PARTY" or nil)
+    if warnung and kanal == "RAID" and (
+        (UnitIsGroupLeader and UnitIsGroupLeader("player")) or (UnitIsGroupAssistant and UnitIsGroupAssistant("player"))) then
+        kanal = "RAID_WARNING"
+    end
     local senden = (C_ChatInfo and C_ChatInfo.SendChatMessage) or rawget(_G, "SendChatMessage")
     if not kanal or type(senden) ~= "function" then return end
     pcall(senden, text, kanal)
@@ -522,14 +527,26 @@ function Erfassung.Ansagen(name, link, art, herkunft)
     if not erlaubt then return end
 
     gruppenChat(string.format(art == "zweit" and L["%s wurde an %s vergeben! (OS)"] or L["%s wurde an %s vergeben!"],
-        link, Kern.Anzeigename(name)))
+        link, Kern.Anzeigename(name)), true)
+end
+
+--- ⭐ Ein Wurf beginnt (Wurf.lua): eine Zeile in den Gruppen- oder Raidchat, damit auch
+--  Spieler OHNE Fairshare sehen, dass verwürfelt wird, worauf und wie lange
+--  (Nutzerwunsch 15.10.2026). Nur der Starter ruft das auf.
+function Erfassung.WurfAnsage(link, sekunden)
+    if db().ansagen == false then return end
+    local B = Erfassung.Bereiche()
+    -- ⭐ Als Raidwarnung (Nutzerwunsch 15.10.2026): fällt auf, wie /rw. Das geht nur als
+    -- Leiter oder Assistent im Raid; sonst Raid- bzw. Gruppenchat.
+    gruppenChat(string.format(L["%s wird verwürfelt! Haupt: /roll %d-%d, OS: /roll %d-%d. Zeit: %d Sekunden"],
+        link, B.haupt[1], B.haupt[2], B.zweit[1], B.zweit[2], sekunden), true)
 end
 
 --- ⭐ Ein Gegenstand geht zum Entzaubern an einen Verzauberer (Wurf.lua). Das ist
 --  KEINE Vergabe im Sinn der Historie und zaehlt dem Verzauberer nicht.
 function Erfassung.EntzauberAnsagen(name, link)
     if db().ansagen == false then return end
-    gruppenChat(string.format(L["%s wurde zum Entzaubern an %s vergeben!"], link, Kern.Anzeigename(name)))
+    gruppenChat(string.format(L["%s wurde zum Entzaubern an %s vergeben!"], link, Kern.Anzeigename(name)), true)
 end
 
 -- Gegenstaende, die gerade zum Entzaubern uebergeben werden: Die Beutemeldung
@@ -891,6 +908,10 @@ rahmen:SetScript("OnEvent", function(_, ereignis, a1)
         pcall(Erfassung.BereicheAnwenden)
         return
     end
+
+    -- ⭐ Ohne Plündermeister als Beutemethode ruht das Addon: weder Aufzeichnung
+    -- noch Wurfanzeige noch aufspringendes Fenster (Entscheid 15.10.2026).
+    if not (ns.Rolle and ns.Rolle.Aktiv()) then return end
 
     -- ⚠️ Ein Fehler hier darf nicht den Chat mitreissen.
     local ok, fehler = pcall(function()

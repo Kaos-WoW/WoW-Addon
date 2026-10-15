@@ -29,12 +29,12 @@ def fest(bed, text):
         alle_ok = False
 
 
-def gruppe(n=3, suffix="-Realm", auto=False, locale="deDE"):
+def gruppe(n=3, suffix="-Realm", auto=False, locale="deDE", nutzung="ja"):
     namen = ["Leiter Kaos", "Timo", "Lina", "Moe", "Zora"][:n]
     ms = []
     for i, nm in enumerate(namen):
         ms.append({"name": nm, "leader": i == 0})
-    w = Welt(ms, sender_suffix=suffix, locale=locale)
+    w = Welt(ms, sender_suffix=suffix, locale=locale, nutzung=nutzung)
     for cl in w.clients:
         cl["ns"].Erfassung.Einstellungen()["autoAbgleich"] = bool(auto)
     return w
@@ -185,8 +185,9 @@ ns.Erfassung.MusterBauen()
 ns.Erfassung.Einstellungen()["schreiben"] = "auto"
 ns.Erfassung.Beutemeldung("You receive loot: " + link + ".")
 fest(sum(1 for _ in w.hist(0).keys()) == 0, "eine Beutemeldung aus dem Chat bleibt ohne Wirkung")
-# In einer Gruppe schreibt er wieder mit
+# In einer Gruppe schreibt er wieder mit (hier ist er selbst Pluendermeister: Einstecken zaehlt sonst nicht)
 g["__welt"]["inGruppe"] = True
+ns.Erfassung.Einstellungen()["pmEingesteckt"] = False
 ok, grund = tup(ns.Rolle.IchSchreibe())
 fest(ok is True, "in einer Gruppe schreibt er mit (%s)" % grund)
 ns.Erfassung.Beutemeldung("You receive loot: " + link + ".")
@@ -1018,6 +1019,7 @@ def runde(tasche=True, mit=("Timo", "Lina"), loot=False):
     if loot:
         lua.execute('__loot = { { link = "%s" } }' % LINK)
     ns.Wurf.Starten(LINK)
+    lua.execute("__chat = {}")   # die Startzeile im Chat prueft Szenario 35, nicht die Folgeszenarien
     w.weiter(3)
     for wer, wert, bereich in (("Timo", 77, 100), ("Lina", 91, 100), ("Moe", 12, 50)):
         for c in w.clients:
@@ -1608,6 +1610,7 @@ w.ereignis("PLAYER_ENTERING_WORLD")
 w.weiter(15)
 ns, g = w.clients[0]["ns"], w.clients[0]["g"]
 ns.Erfassung.Einstellungen()["ort"] = "ueberall"
+g["__welt"]["ml"] = None   # Gruppenbeute
 g["__ereignis"]("CHAT_MSG_LOOT", "Timo receives loot: " + LINK + ".")
 fest(len(list(g["__chat"].values())) == 0, "Beute aus Gruppenwuerfen ohne Plündermeister: keine eigene Ansage")
 w = Welt([{"name": "Leiter Kaos", "leader": True}, {"name": "Timo"}], "-Realm", ml=0)
@@ -1700,6 +1703,7 @@ def sichtbar29(g, name):
 w, cl, g, ns, lua = welt29()
 ok, grund = tup(ns.Wurf.Starten(LINK, 10))
 fest(ok is True, "Wurf mit 10 Sekunden gestartet (%s)" % grund)
+cl["lua"].execute("__chat = {}")   # Startzeile: Szenario 35
 w.weiter(8)
 fest(ns.Wurf.Aktiv() is True, "nach 8 s laeuft er noch")
 w.weiter(6)
@@ -2064,6 +2068,218 @@ dlg["dauerFeld"]._text = "1000"
 g["__beutezeile"]._scripts.OnClick(g["__beutezeile"])
 g["__startknopf"]._scripts.OnClick(g["__startknopf"])
 fest(not ns.Wurf.Aktiv() and "300" in str(dlg["fehler"]._text), "1000 Sekunden: rote Meldung mit der Grenze (%s)" % str(dlg["fehler"]._text)[:50])
+
+print("== 32. Ohne Pluendermeister als Beutemethode ruht das Addon ==")
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+cl = w.clients[0]
+ns, g, lua = cl["ns"], cl["g"], cl["lua"]
+L32 = "|cff0070dd|Hitem:9321::::::::60:::::|h[Ruhending]|h|r"
+fest(tup(ns.Rolle.Aktiv())[0] is True, "mit Pluendermeister: aktiv")
+for c in w.clients:
+    c["g"]["__welt"]["ml"] = None   # Beutemethode wechselt auf Gruppenbeute (für alle)
+ok, grund = tup(ns.Rolle.Aktiv())
+fest(ok is False, "Gruppenbeute: ruht (%s)" % grund)
+ns.Erfassung.Einstellungen()["schreiben"] = "immer"
+fest(tup(ns.Rolle.IchSchreibe())[0] is False, "auch bei „immer“ schreibt er nicht mit")
+ns.Erfassung.Einstellungen()["schreiben"] = "auto"
+ns.Erfassung.Einstellungen()["ort"] = "ueberall"
+g["__ereignis"]("START_LOOT_ROLL", 1)
+fest(ns.Fenster.Sichtbar() is False, "START_LOOT_ROLL oeffnet kein Fenster")
+g["__ereignis"]("CHAT_MSG_LOOT", "Timo receives loot: " + L32 + ".")
+fest(sum(1 for _ in w.hist(0).keys()) == 0, "Beutemeldung wird nicht aufgezeichnet")
+fest(ns.Erfassung.AktuelleWuerfe() is None, "keine Wurfrunde")
+fest(ns.Wurf.DarfStarten() is False, "kein Wurf startbar")
+vorher = len(w.protokoll)
+g["__ereignis"]("PARTY_LOOT_METHOD_CHANGED")
+ns.Abgleich.HalloSpaeter(1)
+w.weiter(20)
+fest(len(w.protokoll) == vorher, "kein Hallo, kein Abgleich auf dem Kanal (%d neu)" % (len(w.protokoll) - vorher))
+fest(not ns.Abgleich.Abweichend or len(list(ns.Abgleich.Abweichend.values())) == 0, "keine Abweichungsliste")
+# Wieder Pluendermeister: die Antwort war vergessen, es wird neu gefragt
+for c in w.clients:
+    c["g"]["__welt"]["ml"] = 1
+g["__ereignis"]("PARTY_LOOT_METHOD_CHANGED")
+fest(ns.Nutzung.Sichtbar() is True, "neuer Plündermeister: der Dialog fragt wieder")
+fest(tup(ns.Rolle.Aktiv())[0] is False, "bis zur Antwort schläft das Addon")
+g["__ereignis"]("START_LOOT_ROLL", 1)
+fest(ns.Fenster.Sichtbar() is False, "und öffnet auch jetzt kein Fenster")
+D = ns.Nutzung.Dialog()
+D["jaKnopf"]._scripts.OnClick(D["jaKnopf"])
+fest(tup(ns.Rolle.Aktiv())[0] is True and ns.Nutzung.Sichtbar() is False, "nach „Ja“ im Dienst, Dialog zu")
+g["__ereignis"]("START_LOOT_ROLL", 1)
+fest(ns.Fenster.Sichtbar() is True, "START_LOOT_ROLL oeffnet das Fenster wieder")
+
+print("== 33. Dialog „Fairshare nutzen?“: Ja, Nein, Kreuz, andere Beutemethoden ==")
+w = gruppe(3, nutzung=None)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+cl = w.clients[0]
+ns, g, lua = cl["ns"], cl["g"], cl["lua"]
+L33 = "|cff0070dd|Hitem:9331::::::::60:::::|h[Fragending]|h|r"
+fest(ns.Nutzung.Sichtbar() is True, "Plündermeister aktiv, noch keine Antwort: der Dialog fragt")
+fest(tup(ns.Rolle.Aktiv())[0] is False, "bis zur Antwort schläft das Addon")
+ns.Erfassung.Einstellungen()["ort"] = "ueberall"
+g["__ereignis"]("START_LOOT_ROLL", 1)
+g["__ereignis"]("CHAT_MSG_LOOT", "Timo receives loot: " + L33 + ".")
+fest(ns.Fenster.Sichtbar() is False and sum(1 for _ in w.hist(0).keys()) == 0, "ohne Antwort: kein Fenster, keine Aufzeichnung")
+# Nein
+D = ns.Nutzung.Dialog()
+D["neinKnopf"]._scripts.OnClick(D["neinKnopf"])
+fest(ns.Rolle.Nutzung() == "nein" and ns.Nutzung.Sichtbar() is False, "„Nein“ gemerkt, Dialog zu")
+g["__ereignis"]("START_LOOT_ROLL", 1)
+g["__ereignis"]("CHAT_MSG_LOOT", "Timo receives loot: " + L33 + ".")
+fest(ns.Fenster.Sichtbar() is False and sum(1 for _ in w.hist(0).keys()) == 0, "nach „Nein“: kein Fenster, keine Aufzeichnung")
+g["__ereignis"]("GROUP_ROSTER_UPDATE")
+fest(ns.Nutzung.Sichtbar() is False, "und es wird nicht erneut gefragt")
+fest(ns.Wurf.DarfStarten() is False, "kein Wurf startbar")
+# Befehl: umentscheiden
+g["SlashCmdList"]["FAIRSHARE"]("nutzung ja")
+fest(ns.Rolle.Nutzung() == "ja" and tup(ns.Rolle.Aktiv())[0] is True, "/fs nutzung ja schaltet ein")
+# Beutemethode wechselt: Antwort vergessen
+for c in w.clients:
+    c["g"]["__welt"]["ml"] = None
+g["__ereignis"]("PARTY_LOOT_METHOD_CHANGED")
+fest(ns.Rolle.Nutzung() is None and tup(ns.Rolle.Aktiv())[0] is False, "andere Beutemethode: Antwort vergessen, schlaeft")
+fest(ns.Nutzung.Sichtbar() is False, "und es wird nicht gefragt")
+# Kreuz: keine Antwort, kein erneutes Fragen
+for c in w.clients:
+    c["g"]["__welt"]["ml"] = 1
+g["__ereignis"]("PARTY_LOOT_METHOD_CHANGED")
+fest(ns.Nutzung.Sichtbar() is True, "wieder Plündermeister: Dialog")
+ns.Nutzung.Dialog().Hide(ns.Nutzung.Dialog())
+g["__ereignis"]("GROUP_ROSTER_UPDATE")
+fest(ns.Nutzung.Sichtbar() is False and ns.Rolle.Nutzung() is None, "Kreuz: keine Antwort, nicht erneut gefragt")
+fest(tup(ns.Rolle.Aktiv())[0] is False, "und das Addon schläft")
+# Gruppe verlassen: vergessen
+g["__welt"]["inGruppe"] = False
+g["__ereignis"]("GROUP_ROSTER_UPDATE")
+g["__welt"]["inGruppe"] = True
+g["__ereignis"]("GROUP_ROSTER_UPDATE")
+fest(ns.Nutzung.Sichtbar() is True, "nach Gruppenwechsel wird wieder gefragt")
+# Nur Plündermeister zählt: Gruppenbeute fragt nie
+w = gruppe(3, nutzung=None)
+for c in w.clients:
+    c["g"]["__welt"]["ml"] = None
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+fest(w.clients[0]["ns"].Nutzung.Sichtbar() is False, "Gruppenbeute: kein Dialog")
+
+print("== 34. Beutefenster als Pluendermeister: der Startdialog geht von selbst auf ==")
+w = gruppe(3)   # Plündermeister = Leiter Kaos (Client 0)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+L34 = "|cff0070dd|Hitem:9341::::::::60:::::|h[Lootding]|h|r"
+ns0, g0, lua0 = w.clients[0]["ns"], w.clients[0]["g"], w.clients[0]["lua"]
+ns1, g1, lua1 = w.clients[1]["ns"], w.clients[1]["g"], w.clients[1]["lua"]
+for n_, g_ in ((ns0, g0), (ns1, g1)):
+    n_.Erfassung.Einstellungen()["ort"] = "ueberall"
+lua0.execute('__loot = { { link = "%s" } }' % L34)
+lua1.execute('__loot = { { link = "%s" } }' % L34)
+g1["__ereignis"]("LOOT_OPENED")
+fest(not ns1.Wurf.StarterSichtbar(), "Mitglied: Beutefenster oeffnet keinen Startdialog")
+g0["__ereignis"]("LOOT_OPENED")
+fest(ns0.Wurf.StarterSichtbar(), "Plündermeister: Beutefenster oeffnet den Startdialog")
+ns0.Wurf.StarterSchliessen()
+# Graues und Weisses (Link-Farbe oder Forever-Format |cnIQ…) öffnet nichts und steht nicht in der Liste
+GRAU34 = "|cff9d9d9d|Hitem:9342::::::::60:::::|h[Fetzen]|h|r"
+WEISS34 = "|cnIQ1:|Hitem:9343::::::::60:::::|h[Stoffrest]|h|r"
+lua0.execute('__loot = { { link = "%s" }, { link = "%s" } }' % (GRAU34, WEISS34))
+g0["__ereignis"]("LOOT_OPENED")
+fest(not ns0.Wurf.StarterSichtbar(), "graue und weisse Beute: kein Dialog")
+lua0.execute('__loot = { { link = "%s" }, { link = "%s" }, { link = "%s" } }' % (GRAU34, WEISS34, L34))
+g0["__ereignis"]("LOOT_OPENED")
+fest(ns0.Wurf.StarterSichtbar(), "mit einem blauen Stueck dazwischen: Dialog")
+sichtbar_zeilen = [str(t) for t in g0["__text"]("").values()]
+fest(not any("Fetzen" in t or "Stoffrest" in t for t in sichtbar_zeilen) and any("Lootding" in t for t in sichtbar_zeilen),
+     "in der Liste nur das blaue Stueck")
+ns0.Wurf.StarterSchliessen()
+lua0.execute('__loot = { { link = "%s" } }' % L34)
+ns0.Erfassung.Einstellungen()["startAuto"] = False
+g0["__ereignis"]("LOOT_OPENED")
+fest(not ns0.Wurf.StarterSichtbar(), "Schalter aus: kein Dialog")
+ns0.Erfassung.Einstellungen()["startAuto"] = True
+lua0.execute('__loot = {}')
+g0["__ereignis"]("LOOT_OPENED")
+fest(not ns0.Wurf.StarterSichtbar(), "leeres Beutefenster: kein Dialog")
+lua0.execute('__loot = { { link = "%s" } }' % L34)
+ns0.Rolle.NutzungSetzen("nein")
+g0["__ereignis"]("LOOT_OPENED")
+fest(not ns0.Wurf.StarterSichtbar(), "nach „Nein“: kein Dialog")
+for c in w.clients:
+    c["g"]["__welt"]["ml"] = None
+g0["__ereignis"]("PARTY_LOOT_METHOD_CHANGED")
+g0["__ereignis"]("LOOT_OPENED")
+fest(not ns0.Wurf.StarterSichtbar(), "Gruppenbeute: kein Dialog")
+
+print("== 35. Wurfbeginn: eine Zeile im Gruppenchat fuer Spieler ohne Addon ==")
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+ns, g = w.clients[0]["ns"], w.clients[0]["g"]
+L35 = "|cff0070dd|Hitem:9351::::::::60:::::|h[Rollding]|h|r"
+ok = tup(ns.Wurf.Starten(L35, "45"))[0]
+chat = [str(c[1]) for c in g["__chat"].values()]
+fest(ok and len(chat) == 1 and "/roll 1-100" in chat[0] and "/roll 1-50" in chat[0] and "45" in chat[0] and "Rollding" in chat[0],
+     "Wurfstart: eine Zeile mit Gegenstand, beiden Bereichen und Zeit (%s)" % (chat[0][:90] if chat else "keine"))
+fest(str(list(g["__chat"].values())[0][2]) == "PARTY", "in einer 5er-Gruppe: Gruppenchat")
+ns.Wurf.Abbrechen()
+# Im Raid als Leiter: Raidwarnung (/rw)
+w = gruppe(3)
+for c in w.clients:
+    c["g"]["__welt"]["raid"] = True
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+ns, g = w.clients[0]["ns"], w.clients[0]["g"]
+ns.Wurf.Starten(L35, "45")
+kan = [str(c[2]) for c in g["__chat"].values()]
+fest(kan == ["RAID_WARNING"], "im Raid als Leiter: als Raidwarnung (%s)" % kan)
+ns.Wurf.Abbrechen()
+# Im Raid ohne Leiter/Assistent: normaler Raidchat
+w = gruppe(3)
+for c in w.clients:
+    c["g"]["__welt"]["raid"] = True
+    c["g"]["__welt"]["ml"] = 2     # Timo ist Plündermeister, aber weder Leiter noch Assistent
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+ns, g = w.clients[1]["ns"], w.clients[1]["g"]
+ns.Wurf.Starten(L35, "45")
+kan = [str(c[2]) for c in g["__chat"].values()]
+fest(kan == ["RAID"], "im Raid ohne Leiter/Assistent: Raidchat (%s)" % kan)
+ns.Wurf.Abbrechen()
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+ns, g = w.clients[0]["ns"], w.clients[0]["g"]
+ns.Erfassung.Einstellungen()["ansagen"] = False
+ns.Wurf.Starten(L35, "45")
+fest(len(list(g["__chat"].values())) == 0, "Schalter aus: keine Zeile")
+fest(len(list(w.clients[1]["g"]["__chat"].values())) == 0, "Mitspieler schreiben nichts")
+
+# Die Vergabe-Ansage geht im Raid ebenfalls als Raidwarnung (Leiter/Assistent), sonst Raidchat
+w = gruppe(3)
+for c in w.clients:
+    c["g"]["__welt"]["raid"] = True
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+ns, g, lua = w.clients[0]["ns"], w.clients[0]["g"], w.clients[0]["lua"]
+ns.Erfassung.Eintragen("Moe", L35, None, "haupt", None, lua.table_from({"herkunft": "wurf", "wurf": 12}))
+chat = [(str(c[1]), str(c[2])) for c in g["__chat"].values()]
+fest(len(chat) == 1 and chat[0][1] == "RAID_WARNING" and "wurde an Moe vergeben!" in chat[0][0],
+     "Vergabe im Raid als Leiter: Raidwarnung (%s)" % [k for _, k in chat])
+w = gruppe(3)
+for c in w.clients:
+    c["g"]["__welt"]["raid"] = True
+    c["g"]["__welt"]["ml"] = 2
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+ns, g, lua = w.clients[1]["ns"], w.clients[1]["g"], w.clients[1]["lua"]
+ns.Rolle.NutzungSetzen("ja")
+ns.Erfassung.Einstellungen()["schreiben"] = "immer"
+ns.Erfassung.Eintragen("Moe", L35, None, "haupt", None, lua.table_from({"herkunft": "wurf", "wurf": 12}))
+chat = [(str(c[1]), str(c[2])) for c in g["__chat"].values()]
+fest(len(chat) == 1 and chat[0][1] == "RAID", "Vergabe im Raid ohne Leiter/Assistent: Raidchat (%s)" % [k for _, k in chat])
 
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")

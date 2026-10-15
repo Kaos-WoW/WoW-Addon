@@ -36,6 +36,7 @@ local function hilfe()
     print(L["  |cffffff78/fs liste|r        – dieselbe Auswertung im Chat, |cffffff78liste 4|r für 4 Wochen"])
     print(L["  |cffffff78/fs <Name>|r       – Einzelvergaben eines Spielers im Chat"])
     print(L["  |cffffff78/fs abgleich|r     – Historien der Gruppe zusammenführen (|cffffff78abgleich status|r zeigt den Stand)"])
+    print(L["  |cffffff78/fs nutzung|r      – Fairshare für diese Gruppe nutzen? (|cffffff78nutzung ja|r, |cffffff78nutzung nein|r, |cffffff78nutzung fragen|r)"])
     print(L["  |cffffff78/fs rolle|r        – wer zeichnet gerade auf, und warum"])
     print(L["  |cffffff78/fs rueckgaengig|r – die letzte Vergabe zurücknehmen (mit Rückfrage; einzelne Vergaben im Verlauf)"])
     print(L["  |cffffff78/fs wurf|r         – eigenes Würfelfenster starten (|cffffff78wurf [Sekunden] <Link>|r, |cffffff78wurf ende|r, |cffffff78wurf abbrechen|r, |cffffff78wurf entzaubern|r, |cffffff78wurf ergebnis|r, |cffffff78wurf offen|r, |cffffff78wurf status|r)"])
@@ -277,6 +278,42 @@ befehle["rolle"] = function()
 end
 
 befehle["role"] = befehle["rolle"]
+
+--- ⭐ Fairshare nur mit Plündermeister und Zustimmung (Nutzung.lua).
+befehle["nutzung"] = function(arg)
+    local wort = (arg or ""):lower():match("^%s*(%S*)")
+    local methode = ns.Rolle.Methode()
+    local aufMaster = (IsInGroup and IsInGroup()) and methode == "master"
+
+    if wort == "ja" or wort == "yes" or wort == "nein" or wort == "no" then
+        if not aufMaster then
+            sag(GELB .. L["Die Beutemethode ist nicht Plündermeister."] .. "|r")
+            return
+        end
+        ns.Rolle.NutzungSetzen((wort == "ja" or wort == "yes") and "ja" or "nein")
+    elseif wort == "fragen" or wort == "ask" then
+        if not aufMaster then
+            sag(GELB .. L["Die Beutemethode ist nicht Plündermeister."] .. "|r")
+            return
+        end
+        ns.Rolle.NutzungSetzen(nil)
+        ns.Nutzung.Fragen()
+        return
+    end
+
+    local nutzung = ns.Rolle.Nutzung()
+    if not aufMaster then
+        sag(GELB .. L["Die Beutemethode ist nicht Plündermeister."] .. "|r")
+    elseif nutzung == "ja" then
+        sag(GRUEN .. L["Fairshare ist aktiv: Es verwaltet die Beuteverteilung."] .. "|r")
+    elseif nutzung == "nein" then
+        sag(GELB .. L["Fairshare schläft, weil du abgelehnt hast."] .. "|r")
+    else
+        sag(GELB .. L["Noch keine Antwort – der Dialog fragt, sobald Plündermeister aktiv ist."] .. "|r")
+        ns.Nutzung.Fragen()
+    end
+end
+befehle["use"] = befehle["nutzung"]
 
 --- Diagnose: was liefert die Gildenliste (Namen, Raenge)?
 befehle["gilde"] = function()

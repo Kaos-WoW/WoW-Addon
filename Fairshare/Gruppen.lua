@@ -347,6 +347,8 @@ end
 --- Beim Anmelden einmal still abgleichen, wenn die Gruppe es will und
 --  Raenge gewaehlt sind. Meldet nur, wenn sich etwas geaendert hat.
 function Gruppen.AutoSynchronisieren()
+    -- Ohne Plündermeister als Beutemethode ruht das Addon (Entscheid 15.10.2026).
+    if not ns.Rolle.Aktiv() then return end
     local name = Gruppen.AktivName()
     local G = Gruppen.Holen(name)
     if not G or G.auto == false then return end

@@ -801,6 +801,7 @@ function Fenster.GargulAnbinden()
     end
 
     GL.Events:register("FairshareWurfStart", "GL.ROLLOFF_STARTED", function()
+        if not ns.Rolle.Aktiv() then return end   -- ohne Plündermeister ruht das Addon
         if Fenster.AutoOeffnen() then
             Fenster.Zeigen(false)
         else

@@ -14,7 +14,7 @@ from lupa import lua51
 
 A = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Fairshare")
 DATEIEN = ["Kern.lua", "Locale.lua", "Quelle.lua", "Rolle.lua", "Gruppen.lua", "Erfassung.lua", "Abgleich.lua",
-          "Blizzbeute.lua", "Stil.lua", "Wurf.lua", "Konfig.lua", "Einstellungen.lua", "Fenster.lua", "Befehle.lua", "Tests.lua"]
+          "Blizzbeute.lua", "Stil.lua", "Wurf.lua", "Konfig.lua", "Nutzung.lua", "Einstellungen.lua", "Fenster.lua", "Befehle.lua", "Tests.lua"]
 
 STUBS = r'''
 local welt = __welt
@@ -157,6 +157,8 @@ InCombatLockdown = function() return false end
 
 local function einheit(unit)
     if unit == "player" then return welt.members[welt.me] end
+    local r = tonumber(unit:match("^raid(%d+)$"))
+    if r then return welt.members[r] end
     local n = tonumber(unit:match("^party(%d)$"))
     if n then
         local k = 0
@@ -179,7 +181,7 @@ UnitIsUnit = function(a, b) local x = einheit(a); return x ~= nil and x == einhe
 UnitIsGroupLeader = function(u) local m = einheit(u); return m and m.leader and true or false end
 UnitIsGroupAssistant = function(u) local m = einheit(u); return m and m.assist and true or false end
 UnitIsInMyGuild = function(u) local m = einheit(u); return m ~= nil and m.gilde ~= false end
-IsInRaid = function() return false end
+IsInRaid = function() return welt.raid == true end
 IsInGroup = function() return welt.inGruppe ~= false end
 GetNumGroupMembers = function() return #welt.members end
 GetLootMethod = function()
@@ -196,6 +198,11 @@ GetLootMethod = function()
     return "group"
 end
 IsMasterLooter = function() return welt.ml == welt.me end
+GetRaidRosterInfo = function(i)
+    local m = welt.members[i]
+    if not m then return nil end
+    return m.name, 0, 1, 60, "Krieger", "WARRIOR", "Zone", true, false, "NONE", welt.ml == i
+end
 IsInInstance = function() return true, "raid" end
 LOOT_ITEM = "%s receives loot: %s."
 LOOT_ITEM_SELF = "You receive loot: %s."
@@ -305,7 +312,8 @@ end
 
 
 class Welt:
-    def __init__(self, mitglieder, sender_suffix="", ml=None, locale="deDE"):
+    def __init__(self, mitglieder, sender_suffix="", ml=0, locale="deDE", nutzung="ja"):
+        # ml: Nummer des Pluendermeisters; None = Gruppenbeute (das Addon ruht)
         self.ml = ml
         self.locale = locale
         """mitglieder: Liste von dicts {name, leader, assist, gilde, addon}"""
@@ -318,6 +326,11 @@ class Welt:
         self.clients = []
         for i, m in enumerate(mitglieder):
             self.clients.append(self._baue(i))
+        # Fairshare ist nur nach ausdruecklichem „Ja" im Dienst (Nutzung.lua); die
+        # meisten Szenarien setzen das voraus. nutzung=None: noch nicht gefragt.
+        if nutzung:
+            for cl in self.clients:
+                cl["ns"].Erfassung.Einstellungen()["nutzung"] = nutzung
 
     def _baue(self, idx):
         m = self.mitglieder[idx]
