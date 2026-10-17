@@ -11,7 +11,7 @@ auf, gleicht ab, verwaltet Gruppen). Ordner `Fairshare/`, SavedVariables `Fairsh
 macht `deploy.ps1` einmalig und **nur bei beendetem WoW** (sonst bricht es ab, ohne etwas zu ändern); die alte
 Datei bleibt als Sicherung. Spätere Umbenennungen brauchen denselben Weg.
 
-Stand 15.10.2026, Version 0.1.4 (Testfassung für die Gildenleitung, nicht veröffentlicht). Nur für Forever.
+Stand 16.10.2026, Version 0.2.0 (Loot-Regelsystem Resurrected integriert; abends an das endgültige Regelwerk angeglichen und das Datenbuch verteilt, Protokollversion 3). Nur für Forever.
 
 ---
 
@@ -46,22 +46,23 @@ das nur liest, weder Haupt/Zweit noch Gruppen noch Abgleich leisten kann.
 
 | Datei | Zweck | WoW-API? |
 |---|---|---|
-| `Kern.lua` | Zählen, Sortieren, Zusammenführen, Prüfsummen, Kodierung, Schreiberwahl | **nein** |
+| `Kern.lua` | Zählen, Sortieren, Zusammenführen, Prüfsummen, Kodierung, Schreiberwahl, Rechenregeln (§ 1–5) | **nein** |
 | `Locale.lua` | Sprache: deutscher Client Deutsch, sonst Englisch (`L["deutscher Satz"]`) | ja |
 | `Quelle.lua` | Garguls Historie, Würfelbereiche, Gegenstandstexte, Beispieldaten | ja |
 | `Rolle.lua` | Gruppe lesen: wer ist Plündermeister/Leiter, zeichne ich auf | ja |
 | `Gruppen.lua` | Kader und Raidgruppen | ja |
+| `Anwesenheit.lua` | Bosskämpfe, Anwesenheitstracking (§ 2), Bank & Unentschuldigt (§ 6), Abendabschluss & Zuschläge, Spielerdetails | ja |
 | `Erfassung.lua` | Chat, Würfe, Einstellungen, Eintragen, Gargul-Vergaben | ja |
 | `Abgleich.lua` | Hallo, Live-Meldung, Abgleich, Hinweis-Fenster | ja |
 | `Blizzbeute.lua` | Blizzards `C_LootHistory` als zweite Quelle | ja |
-| `Wurf.lua` | eigenes Würfelfenster: Haupt (1-100) / OS (1-50) / Passen, Startdialog, `/fs beutetest` | ja |
-| `Nutzung.lua` | Dialog „Fairshare nutzen?": Antwort ja/nein je Gruppe mit Plündermeister, sonst schläft das Addon | ja |
-| `Konfig.lua` | Einstellungen teilen: einer stellt ein, alle bekommen es (Gilde, Rangprüfung, Nachfragen) | ja |
 | `Stil.lua` | Bausteine im KaosUI-Look (Farben, runde Ecken, Knopf, Schalter, Segmentwahl, Bildlauf) | ja |
+| `Wurf.lua` | eigenes Würfelfenster: Haupt (1-100) / OS (1-50) / Passen, Startdialog, Rangliste mit Anhebung | ja |
+| `Konfig.lua` | Einstellungen teilen: einer stellt ein, alle bekommen es (Gilde, Rangprüfung, Nachfragen) | ja |
+| `Nutzung.lua` | Dialog „Fairshare nutzen?": Antwort ja/nein je Gruppe mit Plündermeister, sonst schläft das Addon | ja |
 | `Einstellungen.lua` | das Einstellungsfenster (Karten und Zeilen, drei Seiten) | ja |
-| `Fenster.lua` | die Übersicht im KaosUI-Look: Liste, Verlauf, Spielerdetail, Wurf-Modus | ja |
+| `Fenster.lua` | die Übersicht im KaosUI-Look: Liste, Verlauf, Abwesenheit, Spielerdetail, Wurf-Modus | ja |
 | `Befehle.lua` | `/fs` | ja |
-| `Tests.lua` | Prüfstand für `Kern.lua` | **nein** |
+| `Tests.lua` | Prüfstand für `Kern.lua` und `Anwesenheit.lua` (447 Prüfungen); dazu `tests/szenarien.py` (47 Szenarien) | **nein** |
 
 Alles Rechnerische steht in `Kern.lua` und wird dort getestet. Jede
 Auswertung nimmt die Historie **als Parameter**, dadurch laufen Beispieldaten
@@ -76,6 +77,82 @@ zurueck (zurückgenommen)
 ```
 
 Dieselben Feldnamen wie bei Gargul, damit beide ohne Umrechnen lesbar sind.
+
+---
+
+## Das Loot-Regelwerk Resurrected (Version 0.2.0, 16.10.2026)
+
+Speziell für die Gilde **Resurrected** (Thunderstrike EU) entwickeltes Regelwerk gemäß Entwurf vom 16.10.2026. Es löst das alte Prio-System ab und kombiniert das bewährte Golf-Prinzip mit Anwesenheitstracking, gerechten Fehl-Zuschlägen und einem dynamischen Aufholmechanismus.
+
+### Die Regeln im Überblick
+
+* **§ 1 Grundprinzip & Wertung (Golf-Prinzip):**
+  - Formel: `Wertung = Main-Items + Zuschläge + dauerhafte Anhebungen`
+  - Spieler mit der **niedrigsten Wertung** haben absoluten Vorrang vor dem Würfelwurf.
+  - Nur bei gleicher Wertung entscheidet der höhere Wurf. Bei Würfelgleichstand: wer länger kein Main-Item hatte.
+* **§ 2 Anwesenheit, Fehl-Zuschläge & Abendschnitt:**
+  - Automatische Erfassung bei Bosskämpfen (`ENCOUNTER_END` / `BOSS_KILL`).
+  - ⭐ **Im Raid = am Abendende in der Gruppe** (Entscheid 17.10.2026, `Anwesenheit.RaidMenge`; vorher ≥ 50 % der Bosskämpfe). Wer im Lauf des Abends gegangen ist, gilt als abwesend und kann als unentschuldigt markiert werden — außer er hat vorher ein Main-Item bekommen (das Item steht im Schnitt, also zählt er mit). Im Prüfstand (Mock-DB) gilt die Liste des letzten gebuchten Bosses. Faktor 0, kein Fehl-Zuschlag für alle im Raid.
+  - Gleitendes 6-Abende-Fenster (die letzten 5 archivierten Abende + der aktuelle Abend).
+  - Fehlfaktoren:
+    - 1. Fehlen: Faktor **0,7**
+    - 2., 3., 4. Fehlen: Faktor **1,0**
+    - 5. Fehlen: Faktor **1,3**
+    - ab 6. Fehlen: Faktor **1,5**
+    - Anmeldung vergessen (`Anwesenheit.VergessenSetzen`, nur Gildenleitung, Knopf „Vergessen“ in der Abwesenheit-Ansicht, `/fs vergessen <Name>`): das 1. und 2. Mal in den letzten `Kern.VERGESSEN_FENSTER` (8) Abenden Status `vergessen` mit der normalen Staffel; ab dem 3. Mal (`> Kern.VERGESSEN_SCHWELLE`) Status `vergessenStrafe` mit Faktor 1,5, mindestens 2 Punkte (`Anwesenheit.VergessenHistorie` zählt die früheren Abende; bei `vergessenStrafe` steht in `fehlAnzahl` das wievielte Mal). Beide zählen als Fehlen im 6-Abende-Fenster.
+  - ⭐ **Fünf Zustände für alle, die nicht im Raid stehen** (Entscheid 17.10.2026): Bank (Faktor 0), **Abgemeldet** (ausdrücklich eingetragen, `Anwesenheit.AbmeldungSetzen`, Staffel), **Keine Meldung** (= `vergessen`, weder an- noch abgemeldet), Unentschuldigt, und **offen** (nichts eingetragen). Die Zustände schließen sich gegenseitig aus. **Offene verhindern den Abschluss** (`AbendAbschliessen`, nur der Prüfstand-Autor „System“ darf sie wie Abgemeldete behandeln, außer `streng`); Knopf „Alle Offenen: abgemeldet“ / `/fs abmeldung alle` (`Anwesenheit.AlleOffenenAbmelden`), Liste `/fs abmeldung`. Abend-Feld `abend.abgemeldet`.
+  - Unentschuldigt: sofort Faktor **1,5, mindestens 2 Wertungspunkte** (ab dem 1. Mal; Gildenleitung 17.10.2026: `Kern.ZuschlagUnentschuldigt`, `Kern.MIN_ZUSCHLAG_UNENTSCHULDIGT`). Rücknahme bei gutem Grund (Unfall): Markierung vor dem Abschluss entfernen, danach „Abend wiedereröffnen“
+    - Bank: Faktor **0** (zählt voll wie Raid-Anwesenheit)
+  - Abendschnitt: $\text{Schnitt} = \frac{\text{vergebene Main-Items an diesem Abend}}{\text{Spieler im Raid}}$.
+  - Zuschlag: $\text{Zuschlag} = \text{Faktor} \times \text{Schnitt}$.
+* **§ 3 Anhebung (17.10.2026, Gildenleitung: „auf den Niedrigsten im Kader + 2“):**
+  - Liegt ein Kaderspieler im Raid **mehr als 1 Punkt unter dem Niedrigsten der anderen Kaderspieler**, wird seine Wertung auf **deren Niedrigsten + `Kern.ANHEBUNG_ABSTAND` (2)** gesetzt — hinter sie, kein sicheres Item.
+  - **Einmal je Abend, zu Beginn:** `Anwesenheit.AnhebungenAuswerten` läuft beim ersten Bosskampf des Abends (`BossBuchen`, nur der Aufzeichner) für alle Kaderspieler im Raid gleichzeitig aus dem Stand vor jeder Anhebung; als Nachholer ruft `Anwesenheit.Rollen(…, true)` sie beim Starter des Wurfs. Jede Anhebung ist ein verteilter Satz `ha_<Spieler>_<Tag>`, der Vermerk `hm_<Tag>` (Wert 0) sagt „heute ausgewertet“. Danach gilt `keineAnhebung`: Wer nur noch kein Item hatte, rutscht im Lauf des Abends nicht nach hinten.
+  - Der Bezugspunkt ist der Niedrigste der **Kaderspieler** (nicht der Würfler); `Kern.WurfReihenfolge` zeigt eine noch nicht festgeschriebene Anhebung nur an (`referenz`).
+  - Liegt er bereits gleichauf oder höher, gibt es keine Anhebung. Neulinge am 2. Abend und Gäste: siehe § 4.
+* **§ 4 Neulinge & Gäste:**
+  - ⭐ **Gründer sind keine Neulinge** (Fund im Spiel 17.10.2026: Am ersten Abend mit der Regel galt der ganze Kader als Proberaid, die Würfe wurden ausgeblendet, „Niemand hat gewürfelt“): `Anwesenheit.Gruender()` = die Spieler im Abschluss des **ersten abgeschlossenen Abends** (der Kader zu dem Zeitpunkt, auch die Fehlenden). Solange noch kein Abend abgeschlossen ist, und für jeden Gründer, ist der Status `kader`. Proberaid und Neuling gibt es nur für Spieler, die später zum Kader kamen. Szenario 38 sichert das.
+  - **Neulinge (Proberaid):** Am 1. Raidabend im Kader kein Würfeln auf Main-Bedarf (`Anwesenheit.StatusVon` = `proberaid`, in `Kern.WurfReihenfolge` nie Würfler, nicht in der Ergebnisliste) und kein Fehl-Zuschlag.
+    **Am 2. Abend** (`neuling`: genau ein früherer Abend, noch kein Item) wird die Wertung **einmalig auf den Niedrigsten der Kaderspieler im Raid plus 2** gesetzt (Entscheid 17.10.2026, wie die Anhebung; am 16.10. war es noch „gleichauf“). Er bekommt nicht sofort das erste Item, aber im Lauf des Abends eines, sobald die anderen über ihm liegen. Das schreibt `Anwesenheit.Rollen(liste, true)` beim Starter des Wurfs als Anhebung mit fester Kennung `hn_<Spieler>` fest (nur einmal) und verteilt sie. Danach ist er ein normaler Kaderspieler.
+  - **Gäste** (nicht im Kader): Erhalten für den Abend dieselbe Wertung wie der Kaderspieler mit der niedrigsten Wertung (`gast` in `Anwesenheit.Rollen`, nie angehoben, nichts gespeichert). Die Items bleiben in der Historie. **Stammgäste** nimmt die Gildenleitung von Hand in den Kader auf (`Gruppen.KaderErgaenzen`, Liste `extra`): kein Proberaid, ihre Items zählen weiter, die Wertung bleibt beim Gildeneintritt erhalten (Schlüssel ist der Name).
+* **Rückgabe (§ 1, 16.10.2026):** „Rückgängig" setzt `rueckgabe` (Zeitstempel), der Punkt bleibt. Erst die **Neuvergabe** desselben Gegenstands löst es auf (`Erfassung.RueckgabeAufloesen`, ruft `zurueck = true` beim ersten Empfänger, `ersetztDurch` = neue Kennung). Als Neuvergabe zählt auch das **Entzaubern** (`Wurf.Entzaubern` ruft `RueckgabeAufloesen`, beim Handel erst nach dem Handel). Wird es nie neu vergeben (verlorenes Item), behält der erste Empfänger den Punkt; ist es außerhalb des Addons weitergegeben worden, schließt `/fs rueckgabe` (Liste) und `/fs rueckgabe <Nr>` es von Hand ab (`Erfassung.OffeneRueckgaben`, `RueckgabeAbschliessen`). Der Schnitt des Abends ändert sich dadurch nie.
+* **Kennzeichen (§ 5/§ 6):** Wer nicht die oberste Zeile im Ergebnisfenster zuteilt, kennzeichnet die Vergabe: Main `A` = „abweichend vom Ergebnis", OS `S` = „OS nach Absprache". Das Feld `kennzeichen` geht als 9. Feld in `Kern.Kodieren` mit (alte Zeilen mit 8 Feldern werden weiter gelesen), steht im Raidchat und in Verlauf/Spielerdetail (`Quelle.Kennzeichen`). Beim Zuteilen aus dem Beutefenster merkt `Erfassung.ZusatzMerken` Kennzeichen und Anhebung bis zur Beutemeldung.
+* **Rundung:** Zuschläge und Wertungen auf drei Stellen (`Kern.Runde3`), damit alle Clients dieselbe Zahl rechnen (Gleichstand wird exakt verglichen).
+* **§ 5 Zweitbedarf / Offspec (OS):**
+  - Hauptbedarf schlägt immer Zweitbedarf.
+  - Bei Zweitbedarf hat der Spieler mit weniger Vor-OS-Items Vorrang. Nur bei gleicher Stückzahl entscheidet der Wurf.
+* **§ 6 Rollen & Berechtigungen:**
+  - **Bank verwalten:** Raidleiter und Gildenleitung (`Konfig.Darf` / `Rolle.Berechtigt`).
+  - **Unentschuldigt verwalten:** nur Gildenleitung (`Konfig.Darf`).
+  - **Raidabend abschließen:** Raidleiter und Gildenleitung.
+  - **Raider:** Reine Ansicht.
+
+### Technischer Ablauf & UI-Architektur
+
+* **Reiter „Abwesenheit“:**
+  - Zeigt alle Nicht-Raid-Kandidaten (Kader & Gilde) mit Online-Status, Knöpfen für `[Bank]` und `[Unent.]` sowie Protokollzeile.
+  - Knopf **`[Abend abschließen]`** mit 8-sekündiger Sicherheitsbestätigung (`[Wirklich abschließen?]`) und Befehl `/fs abschluss [ja]`.
+  - Beim Abschluss: Automatische Festschreibung aller Zuschläge in `FairshareDB.zuschlaege`, Archivierung des Abends in `FairshareDB.abende`, und **vollständiger Reset aller Häkchen** im Abwesenheit-Reiter für den nächsten Raid.
+  - **`[Abend wiedereröffnen]`** (`/fs abschluss wiedereröffnen`): Macht den Abschluss rückgängig, entfernt die gebuchten Zuschläge und stellt die vorherigen Bank-/Unentschuldigt-Markierungen wieder her.
+* **Spielerdetail-Ansicht:**
+  - Klick auf einen Spieler in der Liste öffnet die chronologische Aufschlüsselung: Datum, Art (*Haupt*, *Zweit*, *Abgemeldet*, *Unentschuldigt*, *Bank*, *Anhebung*), Punkte ($+1,0$, $+0,7$, $+2,0$, $0,0$), Formel und Detail-Fußzeile.
+* **Wurf & Zuteilung (`Wurf.lua`):**
+  - Rangliste lädt live `Anwesenheit.ZuschlaegeDaten()`.
+  - Bei Zuteilung eines angehobenen Spielers wird die Anhebung in `FairshareDB.anhebungen` festgeschrieben.
+* **Test-Isolation (`Anwesenheit._SetDB`):**
+  - Unit-Tests in `Tests.lua` (365 Prüfungen) laufen in einer isolierten Mock-Datenbank. Dadurch lesen Tests weder die SavedVariables des Spielers noch hinterlassen sie Testdaten.
+
+---
+
+### Das Datenbuch: Zuschläge, Abschlüsse und Anhebungen erreichen alle (16.10.2026, Protokollversion 3)
+
+⭐ Die Wertung besteht aus Items **plus Zuschlägen plus Anhebungen**. Items gehen über den Abgleich der Historie; damit **jeder Client dieselbe Wertung rechnet** — auch wenn nächste Woche ein anderer den Raid leitet —, werden Abschlüsse und Anhebungen als eigene Sätze mitverteilt (`Kern.Buch*`, Speicher in `Anwesenheit.Daten()`):
+
+* **`a` Abschluss eines Abends:** Kopf (`a;Abend;rev;zu;Datum;Zeit;Autor;Schnitt;Items;Raid;Bosse;n`) plus `n` Zeilen `s;Abend;rev;Name;Status;Faktor;Zuschlag;Fehlen;Bosse`. **`rev` zählt bei jedem Abschließen und Wiedereröffnen hoch** (`abend.buchRev`), der höhere Stand gewinnt — monoton, darum konvergiert es. `zu=0` heißt wiedereröffnet (keine Spielerzeilen, Zuschläge verschwinden). Der Empfänger baut `abende[id].abschluss` und `zuschlaege` (`z_<Abend>_<Spieler>`) nach; fehlt ihm der Abend, legt er einen schlanken Archiv-Abend an (genügt für `Fehlhistorie`).
+* **`h` Anhebung:** einzelner, unveränderlicher Satz in `anhebungsliste` (Kennung `h_<Spieler>_<Zeit>_<Zahl>`; `hn_<Spieler>` = Neuling-Start, `ha_<Spieler>_<Tag>` = Anhebung des Abends, `hm_<Tag>` = Auswertung des Tages erledigt, Wert 0). Frühere Summen in `anhebungen[k]` zählen weiter mit, werden aber nicht verteilt.
+* **Weg:** live als `D;0;…` bei Abschluss, Wiedereröffnung und jeder neuen Anhebung (`Abgleich.BuchVerteilen`); beim Abgleich zusätzlich `Y` (Liste) → `M` (was fehlt) → `D` (Sätze). Das **Hallo** trägt Anzahl und Prüfsumme des Buchs, ein Unterschied löst wie bei den Einträgen den Abgleich aus. Alles Fremde läuft durch `Kern.BuchDekodieren` (Zahlen begrenzt, Status auf eine Liste, Kennungen nur `[%w_.-]`).
+* **Vertrauen:** Wie bei den Einträgen nimmt Daten nur an, wer in unserer Gruppe **und** Gilde ist; live nur von Berechtigten. Die Angaben `autor` sind Eigenangaben und nicht geprüft.
+* Tests: `Tests.lua` `testDatenbuch` (Kodieren, Reihenfolge, Revisionen, Ablehnung), Szenario 36 (live, Wiedereröffnen, Abgleich nach Totalverlust, Neuling/Gast/Proberaid, Kennzeichen, Stammgast).
 
 ---
 
@@ -120,7 +197,10 @@ Addon-Nachrichten, Präfix `FSHARE`, Takt 0,25 s (Blizzards Drosselung).
 
 | Typ | Inhalt | Wer darf senden |
 |---|---|---|
-| `H` | Hallo: Version, Anzahl, Prüfsumme | jeder in der Gruppe |
+| `H` | Hallo: Version, Anzahl, Prüfsumme der Einträge, **Anzahl und Prüfsumme des Datenbuchs** (`H;3;n;summe;bn;bsumme`) | jeder in der Gruppe |
+| `Y` | **Datenbuch:** Liste des Leiters (`a:Abend@rev`, `h:Kennung`), wie `Q` | Plündermeister, Leiter, Assistent |
+| `M` | **Datenbuch:** „das fehlt mir" (Liste), wie `N` | jeder in Gruppe und Gilde |
+| `D` | **Datenbuch:** Sätze (Zeilen `a`/`s`/`h`). Sitzung `0` = live (nur Berechtigte: Leiter/Assistent/Plündermeister oder `Konfig.Darf`) | jeder in Gruppe und Gilde |
 | `L` | eine neue Vergabe live | Plündermeister, Leiter, Assistent |
 | `Q` | Tagesstand des Leiters (Prüfsumme je Tag, UTC) | Plündermeister, Leiter, Assistent |
 | `N` | „diese Tage weichen bei mir ab" | jeder in der Gruppe |
@@ -197,6 +277,8 @@ Nachrichten über `Abgleich.Senden(text, vorn)`: `S;<id>;<Sekunden>;<Link>` und 
 Plündermeister der eigenen Gruppe und Gilde. Dauer: Einstellung `wurfDauer` (Standard 30 s). Die Übersicht öffnet sich
 nur beim Leiter (`Erfassung.WurfBeginnt(link, false)` bei den anderen). Der erste Wurf zählt (siehe unten); Haupt vor OS.
 Englisch heißt Zweitbedarf **„OS"** (Nutzerwunsch), nicht „Off".
+
+⭐ **Passen und frühes Ende (Wunsch 17.10.2026):** „Passen" geht als Nachricht `P;<Kennung>` an die Gruppe (jeder darf sie senden, gilt nur für den laufenden Wurf mit dieser Kennung); `Erfassung.WurfPasst` vermerkt es in der Runde (`Arten[k] = "pass"`, Wert 0, nie in der Rangliste, ein späterer Wurf ändert es nicht). Das Würfelfenster zeigt „Gewählt x von y · Passt z", die Übersicht „passt" in der Wurfspalte. **Der Wurf endet früh** (Ticker in `Wurf.lua`, nur beim Starter, frühestens 2 s nach dem Start), sobald jeder in der Gruppe gewürfelt oder gepasst hat; Spieler ohne Addon können nur würfeln, halten den Wurf sonst bis zum Zeitende offen. Szenario 47.
 
 **Offene Wünsche (Nutzer, 14.10.2026, „für die Zukunft"):**
 * **Würfelzeit frei wählbar**, länger oder kürzer. Heute: Einstellung `wurfDauer` mit 20/30/45/60 s (Einstellungen →
@@ -306,6 +388,8 @@ nicht — Löschen brächte der Abgleich zurück) und verteilt es live. Berechti
 darf man lokal. ⚠️ **Nicht wieder aufhebbar** (das Merkmal wechselt nur von nein auf ja, das macht das Zusammenführen
 eindeutig); ein Versehen korrigiert man mit einer neuen Vergabe. Der Gegenstand ist danach wieder frei (neuer Wurf).
 
+⚠️ **Seit dem Regelwerk 16.10.2026 ist „Rückgängig" eine Rückgabe** (Abschnitt „Rückgabe" bei den Regeln): Der Eintrag bekommt `rueckgabe`, und `zurueck` setzt erst die Neuvergabe. Die Beschreibung davor gilt für `zurueck` selbst weiter.
+
 ⭐ **Zwei Folgen im Abgleich** (beide fand erst Szenario 23): (1) **Die Prüfsumme zählt `zurueck` mit**
 (`Kern.Pruefsumme`/`Tagesstand`: Kennung + „!"). Vorher blieb sie bei einer Rücknahme gleich, wer bei der Rücknahme nicht
 dabei war, erfuhr sie nie. Darum **Protokollversion 2** (`Abgleich.VERSION`): Stände mit 1 werden nicht verglichen, sonst
@@ -331,7 +415,7 @@ verrollen; verteilt wird per **Handel**. Darum:
   * *Rucksack:* **Jede Zuteilung wird vorgemerkt** (`FairshareDB.offen`, überlebt Neuladen und Abmelden, verfällt nach
     3 h; `/fs wurf offen`, `… offen leeren`) und `InitiateTrade(unit)` versucht. Klappt der Handel nicht (Gewinner zu
     weit weg, offline, nicht mehr in der Gruppe), bleibt die Vormerkung: Bei **jedem späteren Handel mit genau diesem
-    Spieler** (`TRADE_SHOW`, Partner über `GetUnitName("NPC")`) legt das Addon den Gegenstand selbst ein (bis 6 Plätze).
+    Spieler** (`TRADE_SHOW`, Partner über `GetUnitName("NPC")`) legt das Addon den Gegenstand selbst ein (bis 6 Plätze). **Das Einlegen sucht jeden vorgemerkten Gegenstand ohne die Filter der Auswahlliste** (Qualität, Handelsfrist: `taschenPlaetze`), versucht es bis zu dreimal (das Fenster ist gleich nach `TRADE_SHOW` manchmal noch nicht bereit) und **meldet sichtbar, wenn nichts im Fenster liegt** (mit der Fehlermeldung von `PickupContainerItem`/`ClickTradeButton`; Forever-API ungemessen).
     **Bestätigen tut nie das Addon.**
   * *Handel von Hand* (Nutzerfund 14.10.2026, „trackt den manuellen Handel nicht"): Bei `TRADE_SHOW` merkt sich das Addon,
     wie viele Stücke je Nummer im Rucksack liegen und welche eine Handelsfrist tragen; `TRADE_PLAYER_ITEM_CHANGED`/

@@ -40,12 +40,12 @@ local HELL  = S.Code(C.white)
 local GRAU  = S.Code(C.mu)
 local GELB  = S.Code(C.warn)
 local ROT   = S.Code(C.bad)
+local GRUEN = S.Code(C.ok)
 local AKZENT = S.Code(C.ac)
 
 local rahmen, kopfZeile, tafel, fuss, unterzeile, kopfTag
 local zeilen = {}
-local ansichtSeg, zeitSeg, abgleichBtn, einstellBtn, gruppeBtn, zurueckBtn, beispielBtn, nurBtn, wurfBtn
-
+local ansichtSeg, zeitSeg, abgleichBtn, einstellBtn, gruppeBtn, zurueckBtn, beispielBtn, nurBtn, wurfBtn, abschlussBtn, offeneBtn
 local zustand = { wochen = 0, beispiel = false, spieler = nil, versatz = 0, maxVersatz = 0,
                   ansicht = "liste", gruppe = nil, alleSpieler = false }
 
@@ -59,12 +59,20 @@ local function layout(name, w)
         local dx = a + L6 + b + L6 + c + L6
         return { { 0, a, "LEFT" }, { a + L6, b, "LEFT" }, { a + L6 + b + L6, c, "LEFT" },
                  { dx, math.max(80, w - dx - 96), "LEFT" }, { 0, 1, "LEFT" } }
+    elseif name == "bank" then
+        local a, b, c, d = 140, 80, 84, 96
+        -- Rechts neben „Unentschuldigt" sitzen die Knöpfe „Keine Meldung" (112) und „Abgemeldet" (100), danach das Protokoll
+        local dx = a + L6 + b + L6 + c + L6 + d + L6 + 112 + L6 + 100 + L6
+        return { { 0, a, "LEFT" }, { a + L6, b, "LEFT" }, { a + L6 + b + L6, c, "CENTER" },
+                 { a + L6 + b + L6 + c + L6, d, "CENTER" }, { dx, math.max(100, w - dx - 10), "LEFT" } }
     elseif name == "spieler" then
-        return { { 0, 120, "LEFT" }, { 126, 80, "LEFT" }, { 0, 1, "LEFT" },
-                 { 214, math.max(80, w - 214 - 96), "LEFT" }, { 0, 1, "LEFT" } }
+        local a, b, c = 100, 105, 65
+        local dx = a + L6 + b + L6 + c + L6
+        return { { 0, a, "LEFT" }, { a + L6, b, "LEFT" }, { a + L6 + b + L6, c, "RIGHT" },
+                 { dx, math.max(80, w - dx - 96), "LEFT" }, { 0, 1, "LEFT" } }
     end
-    -- liste: Spieler | Haupt | Zweit | Zuletzt | Wurf
-    local ew, dw, cw, bw = 120, 160, 60, 60
+    -- liste: Spieler | Wertung | Zweit | Zuletzt | Wurf
+    local ew, dw, cw, bw = 120, 160, 60, 64
     local ex = w - ew
     local dx = ex - L6 - dw
     local cx = dx - L6 - cw
@@ -165,6 +173,7 @@ local function baueZeile(index)
     z:SetScript("OnEnter", function(s) if s.spielername then s.hover:SetShown(true) end end)
     z:SetScript("OnLeave", function(s) s.hover:SetShown(false) end)
     z:SetScript("OnClick", function(s)
+        if zustand.ansicht == "bank" then return end
         if zustand.spieler or not s.spielername then return end
         zustand.spieler = s.spielername
         zustand.versatz = 0
@@ -177,6 +186,27 @@ local function baueZeile(index)
     z.undo:SetFrameLevel(z:GetFrameLevel() + 3)
     z.undo:Hide()
     z.undo:SetScript("OnClick", function() Fenster.RueckgaengigKlick(z.eintragId) end)
+
+    -- Bank & Unentschuldigt (nur in Bank-Ansicht sichtbar)
+    z.bankBtn = S.Knopf(z, L["Bank"], "secondary", 20)
+    z.bankBtn:SetFest(76)
+    z.bankBtn:SetFrameLevel(z:GetFrameLevel() + 3)
+    z.bankBtn:Hide()
+
+    z.unentBtn = S.Knopf(z, L["Unent."], "secondary", 20)
+    z.unentBtn:SetFest(88)
+    z.unentBtn:SetFrameLevel(z:GetFrameLevel() + 3)
+    z.unentBtn:Hide()
+
+    z.vergessenBtn = S.Knopf(z, L["Keine Meldung"], "secondary", 20)
+    z.vergessenBtn:SetFest(112)
+    z.vergessenBtn:SetFrameLevel(z:GetFrameLevel() + 3)
+    z.vergessenBtn:Hide()
+
+    z.abmeldBtn = S.Knopf(z, L["Abgemeldet"], "secondary", 20)
+    z.abmeldBtn:SetFest(100)
+    z.abmeldBtn:SetFrameLevel(z:GetFrameLevel() + 3)
+    z.abmeldBtn:Hide()
     return z
 end
 
@@ -252,7 +282,11 @@ local function baueFenster()
         zustand.versatz = 0
         Fenster.Aktualisieren()
     end)
-    ansichtSeg:SetWerte({ { wert = "liste", label = L["Spieler"] }, { wert = "verlauf", label = L["Verlauf"] } })
+    ansichtSeg:SetWerte({
+        { wert = "liste", label = L["Spieler"] },
+        { wert = "verlauf", label = L["Verlauf"] },
+        { wert = "bank", label = L["Abwesenheit"] },
+    })
     ansichtSeg:SetPoint("TOPLEFT", rahmen, "TOPLEFT", 16, -(KOPF + 12))
 
     zeitSeg = S.Segment(rahmen, function(wert)
@@ -315,6 +349,26 @@ local function baueFenster()
         Fenster.Aktualisieren()
     end)
 
+    -- Abend abschließen (nur in Abwesenheit-Ansicht sichtbar)
+    abschlussBtn = S.Knopf(rahmen, L["Abend abschließen"], "secondary", 24)
+    abschlussBtn:SetPoint("RIGHT", gruppeBtn, "LEFT", -8, 0)
+    abschlussBtn:Hide()
+
+    -- Alle offenen Spieler auf einmal als abgemeldet setzen (Abwesenheit-Ansicht)
+    offeneBtn = S.Knopf(rahmen, L["Alle Offenen: abgemeldet"], "secondary", 24)
+    offeneBtn:SetPoint("RIGHT", abschlussBtn, "LEFT", -8, 0)
+    offeneBtn:Hide()
+    offeneBtn:SetScript("OnClick", function()
+        if zustand.beispiel or not (ns.Anwesenheit and ns.Anwesenheit.AlleOffenenAbmelden) then return end
+        local zahl, grund = ns.Anwesenheit.AlleOffenenAbmelden()
+        if zahl then
+            print("|cff1B6B57Fairshare|r: " .. string.format(L["%d offene Spieler als abgemeldet eingetragen."], zahl))
+        else
+            print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(grund) .. "|r")
+        end
+        Fenster.Aktualisieren()
+    end)
+
     -- Die Tafel: Kopfzeile und Zeilen auf einer Karte
     tafel = CreateFrame("Frame", nil, rahmen)
     tafel:SetPoint("TOPLEFT", rahmen, "TOPLEFT", TAFEL_X, -TAFEL_OBEN)
@@ -350,7 +404,11 @@ local function baueFenster()
     nurBtn = S.Knopf(f, L["Alle Spieler zeigen"], "link", 22)
     nurBtn:SetPoint("RIGHT", beispielBtn, "LEFT", -16, 0)
     nurBtn:SetScript("OnClick", function()
-        zustand.alleSpieler = not zustand.alleSpieler
+        if zustand.ansicht == "bank" then
+            zustand.bankMitRaid = not zustand.bankMitRaid     -- Abwesenheit: Spieler im Raid mitzeigen
+        else
+            zustand.alleSpieler = not zustand.alleSpieler
+        end
         zustand.versatz = 0
         Fenster.Aktualisieren()
     end)
@@ -360,6 +418,10 @@ local function baueFenster()
     fuss:SetPoint("RIGHT", nurBtn, "LEFT", -12, 0)
     beispielBtn:SetScript("OnClick", function()
         zustand.beispiel = not zustand.beispiel
+        zustand.beispielAbgeschlossen = false
+        if ns.Anwesenheit and ns.Anwesenheit.BeispielKandidatenWiederherstellen then
+            ns.Anwesenheit.BeispielKandidatenWiederherstellen()
+        end
         zustand.spieler = nil
         zustand.versatz = 0
         Fenster.Aktualisieren()
@@ -416,6 +478,10 @@ local function leereZeilen(ab)
         z.spielername = nil
         z.eintragId = nil
         z.undo:Hide()
+        if z.bankBtn then z.bankBtn:Hide() end
+        if z.unentBtn then z.unentBtn:Hide() end
+        if z.vergessenBtn then z.vergessenBtn:Hide() end
+        if z.abmeldBtn then z.abmeldBtn:Hide() end
         z.hover:SetShown(false)
         z.markiert:SetShown(false)
         z.a:SetText(""); z.b:SetText(""); z.c:SetText(""); z.d:SetText(""); z.e:SetText("")
@@ -464,6 +530,8 @@ local function wurfText(W, name)
         label = AKZENT .. L["Haupt"] .. "|r"
     elseif art == "zweit" then
         label = GRAU .. L["Zweit"] .. "|r"
+    elseif art == "pass" then
+        return GRAU .. L["passt"] .. "|r"
     end
     if zahl ~= "" and label ~= "" then return zahl .. "  " .. label end
     return zahl .. label
@@ -486,7 +554,10 @@ local function zeigeListe(H)
         end
     end
 
-    local liste, gesamt, aeltester = Kern.Bilanz(H, seit(), pflicht, nur)
+    local daten = (zustand.beispiel and Quelle.BeispielDaten and Quelle.BeispielDaten())
+                  or (ns.Anwesenheit and ns.Anwesenheit.ZuschlaegeDaten and ns.Anwesenheit.ZuschlaegeDaten())
+                  or nil
+    local liste, gesamt, aeltester = Kern.Bilanz(H, seit(), pflicht, nur, daten)
 
     local istWuerfler
     if W then
@@ -494,7 +565,13 @@ local function zeigeListe(H)
         istWuerfler = function(name)
             local k = wurfSchluessel(W, name)
             if not k then return false end
+            if W.Arten and W.Arten[k] == "pass" then return false end      -- wer passt, würfelt nicht
             return (W.Arten and W.Arten[k]) or true
+        end
+        -- Proberaid, Neulinge und Gaeste (Regelwerk § 4): nur Anzeige, festgeschrieben
+        -- wird beim Zuteilen (Wurf.lua).
+        if not zustand.beispiel and ns.Anwesenheit and ns.Anwesenheit.Rollen then
+            ns.Anwesenheit.Rollen(liste, false)
         end
         Kern.WurfReihenfolge(liste, istWuerfler, function(name)
             local k = wurfSchluessel(W, name)
@@ -521,11 +598,21 @@ local function zeigeListe(H)
         -- (Screenshot 14.10.2026: er lag ueber der Wurfspalte).
         z.eintragId = nil
         z.undo:Hide()
+        if z.bankBtn then z.bankBtn:Hide() end
+        if z.unentBtn then z.unentBtn:Hide() end
+        if z.vergessenBtn then z.vergessenBtn:Hide() end
+        if z.abmeldBtn then z.abmeldBtn:Hide() end
         z.hover:SetShown(false)
         z.markiert:SetShown(wuerfelt and true or false)
 
         z.a:SetText((wuerfelt and HELL or "") .. e.name .. (wuerfelt and "|r" or ""))
-        z.b:SetText(e.haupt > 0 and (GELB .. e.haupt .. "|r") or (GRAU .. "0|r"))
+        local w = (wuerfelt and e.effektiveWertung) or e.wertung or e.haupt or 0
+        local wStr = (w == math.floor(w)) and tostring(w) or string.format("%.1f", w)
+        if wuerfelt and e.dynamischeAnhebung and e.dynamischeAnhebung > 0 then
+            local aStr = (e.dynamischeAnhebung == math.floor(e.dynamischeAnhebung)) and tostring(e.dynamischeAnhebung) or string.format("%.1f", e.dynamischeAnhebung)
+            wStr = wStr .. " (+" .. aStr .. ")"
+        end
+        z.b:SetText(w > 0 and (GELB .. wStr .. "|r") or (GRAU .. "0|r"))
         z.c:SetText(e.zweit > 0 and (GRAU .. e.zweit .. "|r") or "")
         z.d:SetText(zuletztText(e.letzte))
 
@@ -544,12 +631,13 @@ local function zeigeListe(H)
 
     if W then
         local was = W.link or W.name
-        local haupt, zweit = 0, 0
+        local haupt, zweit, passt = 0, 0, 0
         for _, art in pairs(W.Arten or {}) do
-            if art == "haupt" then haupt = haupt + 1 elseif art == "zweit" then zweit = zweit + 1 end
+            if art == "haupt" then haupt = haupt + 1 elseif art == "zweit" then zweit = zweit + 1
+            elseif art == "pass" then passt = passt + 1 end
         end
         unterzeile:SetText(GELB .. L["Wurf läuft"] .. "|r  " .. (was and (was .. "  ") or "") ..
-            GRAU .. "—  " .. string.format(L["%d Haupt · %d Zweit · wenigste Stücke, dann höchster Wurf"], haupt, zweit) .. "|r")
+            GRAU .. "—  " .. string.format(L["%d Haupt · %d Zweit · %d passt · niedrigste Wertung, dann höchster Wurf"], haupt, zweit, passt) .. "|r")
     else
         unterzeile:SetText("")
     end
@@ -577,7 +665,7 @@ function Fenster.RueckgaengigKlick(id)
         zustand.rueckfrage = nil
         local ok, e = ns.Erfassung.Zuruecknehmen(id)
         if ok then
-            print("|cff1B6B57Fairshare|r: " .. string.format(L["Zurückgenommen: %s an %s."],
+            print("|cff1B6B57Fairshare|r: " .. string.format(L["Rückgabe vermerkt: %s von %s. Der Punkt wird abgezogen, sobald das Item neu vergeben ist."],
                 Quelle.Gegenstandstext(e), Kern.Anzeigename(e.awardedTo)))
         else
             print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(e) .. "|r")
@@ -589,9 +677,28 @@ function Fenster.RueckgaengigKlick(id)
 end
 
 local function zeigeSpieler(H)
-    setzeKopf(L["Datum"], L["Art"], nil, L["Gegenstand"], nil)
+    setzeKopf(L["Datum"], L["Art"], L["Punkte"], L["Gegenstand / Details"], nil)
 
-    local liste = Kern.Spieler(H, zustand.spieler, seit())
+    local liste, haupt, zweit, zuschlaege, anhebungen, wertung
+    if ns.Anwesenheit and ns.Anwesenheit.SpielerEreignisse then
+        liste, haupt, zweit, zuschlaege, anhebungen, wertung =
+            ns.Anwesenheit.SpielerEreignisse(zustand.spieler, nil, H, seit(), zustand.beispiel)
+    else
+        local items = Kern.Spieler(H, zustand.spieler, seit())
+        liste = {}
+        haupt, zweit = 0, 0
+        for _, it in ipairs(items) do
+            if it.zweit then zweit = zweit + 1 else haupt = haupt + 1 end
+            liste[#liste + 1] = {
+                id = it.id, zeit = it.zeit, art = it.zweit and "zweit" or "haupt",
+                punkte = it.zweit and 0 or 1.0,
+                text = Quelle.Gegenstandstext(it.eintrag), eintrag = it.eintrag, isItem = true
+            }
+        end
+        zuschlaege, anhebungen = 0, 0
+        wertung = haupt
+    end
+
     zustand.maxVersatz = math.max(0, #liste - zeilenSicht)
     if zustand.versatz > zustand.maxVersatz then zustand.versatz = zustand.maxVersatz end
 
@@ -605,20 +712,104 @@ local function zeigeSpieler(H)
         z.spielername = nil
         z.hover:SetShown(false)
         z.markiert:SetShown(false)
+        if z.bankBtn then z.bankBtn:Hide() end
+        if z.unentBtn then z.unentBtn:Hide() end
+        if z.vergessenBtn then z.vergessenBtn:Hide() end
+        if z.abmeldBtn then z.abmeldBtn:Hide() end
+
         z.a:SetText(date(L["%d.%m.%Y"], e.zeit))
-        z.b:SetText(e.zweit and (GRAU .. L["Zweit"] .. "|r") or L["Haupt"])
-        z.c:SetText("")
-        z.d:SetText(Quelle.Gegenstandstext(e.eintrag))
+
+        local artText
+        if e.art == "haupt" then
+            artText = HELL .. L["Haupt"] .. "|r"
+        elseif e.art == "zweit" then
+            artText = GRAU .. L["Zweit"] .. "|r"
+        elseif e.art == "abgemeldet" then
+            artText = GELB .. L["Abgemeldet"] .. "|r"
+        elseif e.art == "unentschuldigt" then
+            artText = ROT .. L["Unentschuldigt"] .. "|r"
+        elseif e.art == "vergessenStrafe" then
+            artText = ROT .. L["Anmeldung vergessen"] .. "|r"
+        elseif e.art == "vergessen" then
+            artText = GELB .. L["Anmeldung vergessen"] .. "|r"
+        elseif e.art == "bank" then
+            artText = GRUEN .. L["Bank"] .. "|r"
+        elseif e.art == "anhebung" then
+            artText = AKZENT .. L["Anhebung"] .. "|r"
+        else
+            artText = tostring(e.art)
+        end
+        z.b:SetText(artText)
+
+        local p = e.punkte or 0
+        if p > 0 then
+            local valStr = (p == math.floor(p)) and tostring(p) or string.format("%.1f", p)
+            z.c:SetText(GELB .. "+" .. valStr .. "|r")
+        else
+            z.c:SetText(GRAU .. "0,0|r")
+        end
+
+        z.d:SetText(e.text or "")
         z.e:SetText("")
-        undoZeile(z, e.id)
+
+        if e.isItem then
+            undoZeile(z, e.id)
+        else
+            z.undo:Hide()
+        end
     end
     leereZeilen(gezeigt + 1)
 
-    local haupt = 0
-    for _, e in ipairs(liste) do if not e.zweit then haupt = haupt + 1 end end
-    fuss:SetText(string.format(L["%s: %d Vergaben, davon %d Hauptbedarf"],
-        Kern.Anzeigename(zustand.spieler), #liste, haupt))
-    unterzeile:SetText(HELL .. Kern.Anzeigename(zustand.spieler) .. "|r")
+    local wStr = (wertung == math.floor(wertung)) and tostring(wertung) or string.format("%.1f", wertung)
+    local zStr = (zuschlaege == math.floor(zuschlaege)) and tostring(zuschlaege) or string.format("%.1f", zuschlaege)
+    local aStr = (anhebungen == math.floor(anhebungen)) and tostring(anhebungen) or string.format("%.1f", anhebungen)
+
+    local fussText = string.format(L["Wertung: %s · %d Main-Items (+%d)"], wStr, haupt, haupt)
+    if zuschlaege > 0 then
+        fussText = fussText .. " · " .. string.format(L["Zuschläge (+%s)"], zStr)
+    end
+    if anhebungen > 0 then
+        fussText = fussText .. " · " .. string.format(L["Anhebung (+%s)"], aStr)
+    end
+    fussText = fussText .. " · " .. string.format(L["%d Zweitbedarf (OS)"], zweit)
+    fuss:SetText(fussText)
+
+    local info
+    if zustand.beispiel and ns.Anwesenheit and ns.Anwesenheit.BeispielInfo then
+        info = ns.Anwesenheit.BeispielInfo(zustand.spieler)
+    elseif ns.Anwesenheit and ns.Anwesenheit.SpielerInfo then
+        info = ns.Anwesenheit.SpielerInfo(zustand.spieler)
+    end
+
+    local statusText = ""
+    local anwText = ""
+    if info then
+        if info.status == "kader" then
+            statusText = GRUEN .. L["Kader"] .. "|r"
+        elseif info.status == "proberaid" then
+            statusText = GELB .. L["Proberaid"] .. "|r"
+        elseif info.status == "neuling" then
+            statusText = GELB .. L["Neuling (2. Abend)"] .. "|r"
+        elseif info.status == "gast" then
+            statusText = GRAU .. L["Gast"] .. "|r"
+        end
+
+        if info.bank then
+            anwText = GRUEN .. L["Bank (Faktor 0)"] .. "|r"
+        elseif info.unentschuldigt then
+            anwText = ROT .. L["Unentschuldigt (Faktor 1,5, mindestens 2)"] .. "|r"
+        elseif info.gesamt > 0 then
+            local quoteText = info.imRaid and (GRUEN .. L["Im Raid (≥ 50 %)"] .. "|r") or (ROT .. L["Unter Quote (< 50 %)"] .. "|r")
+            anwText = string.format(L["Anwesenheit heute: %d/%d Bosse (%d %%) · %s"], info.bosse, info.gesamt, info.prozent, quoteText)
+        else
+            anwText = L["Heute noch keine Bosskämpfe erfasst"]
+        end
+    end
+
+    local zusatz = ""
+    if statusText ~= "" then zusatz = "  " .. statusText end
+    if anwText ~= "" then zusatz = zusatz .. "  " .. GRAU .. "—  " .. anwText .. "|r" end
+    unterzeile:SetText(HELL .. Kern.Anzeigename(zustand.spieler) .. "|r" .. zusatz)
 end
 
 local function zeigeVerlauf(H)
@@ -638,6 +829,10 @@ local function zeigeVerlauf(H)
         z.spielername = e.name
         z.hover:SetShown(false)
         z.markiert:SetShown(false)
+        if z.bankBtn then z.bankBtn:Hide() end
+        if z.unentBtn then z.unentBtn:Hide() end
+        if z.vergessenBtn then z.vergessenBtn:Hide() end
+        if z.abmeldBtn then z.abmeldBtn:Hide() end
         z.a:SetText(GRAU .. date(L["%d.%m. %H:%M"], e.zeit) .. "|r")
         z.b:SetText(e.name)
         z.c:SetText(e.zweit and (GRAU .. L["Zweit"] .. "|r") or L["Haupt"])
@@ -651,6 +846,145 @@ local function zeigeVerlauf(H)
     if #liste > zeilenSicht then text = text .. "   |   " .. L["Mausrad blättert"] end
     fuss:SetText(text)
     unterzeile:SetText("")
+end
+
+local function zeigeBank(H)
+    setzeKopf(L["Spieler"], L["Status"], L["Bank"], L["Unentschuldigt"], L["Protokoll"])
+
+    local istGeschlossen = false
+    if zustand.beispiel then
+        istGeschlossen = zustand.beispielAbgeschlossen and true or false
+    else
+        istGeschlossen = ns.Anwesenheit and ns.Anwesenheit.AbendIstAbgeschlossen and ns.Anwesenheit.AbendIstAbgeschlossen()
+    end
+
+    local abend = not istGeschlossen and ns.Anwesenheit and ns.Anwesenheit.AktiverAbend and ns.Anwesenheit.AktiverAbend(false) or nil
+    local liste
+    if zustand.beispiel and ns.Anwesenheit and ns.Anwesenheit.BeispielKandidaten then
+        liste = ns.Anwesenheit.BeispielKandidaten()
+    elseif ns.Anwesenheit and ns.Anwesenheit.KandidatenListe then
+        liste = ns.Anwesenheit.KandidatenListe(abend, zustand.bankMitRaid)
+    else
+        liste = {}
+    end
+
+    zustand.maxVersatz = math.max(0, #liste - zeilenSicht)
+    if zustand.versatz > zustand.maxVersatz then zustand.versatz = zustand.maxVersatz end
+
+    local darfBank = not istGeschlossen and (zustand.beispiel or (ns.Anwesenheit and ns.Anwesenheit.DarfBankVerwalten and ns.Anwesenheit.DarfBankVerwalten()))
+    local darfUnent = not istGeschlossen and (zustand.beispiel or (ns.Anwesenheit and ns.Anwesenheit.DarfUnentschuldigtVerwalten and ns.Anwesenheit.DarfUnentschuldigtVerwalten()))
+
+    local gezeigt = 0
+    for i = 1, zeilenSicht do
+        local z = zeilen[i]
+        local e = liste[i + zustand.versatz]
+        if not e then break end
+        gezeigt = i
+
+        z.spielername = e.name
+        z.hover:SetShown(false)
+        z.markiert:SetShown(false)
+        z.undo:Hide()
+
+        z.a:SetText(HELL .. Kern.Anzeigename(e.name) .. "|r")
+        if e.imRaid then
+            z.b:SetText(AKZENT .. L["Im Raid"] .. "|r")
+        else
+            z.b:SetText(e.online and (GRUEN .. L["Online"] .. "|r") or (GRAU .. L["Offline"] .. "|r"))
+        end
+
+        z.c:SetText("")
+        z.bankBtn:ClearAllPoints()
+        z.bankBtn:SetPoint("CENTER", z.c, "CENTER", 0, 0)
+        z.bankBtn:Show()
+        z.bankBtn:SetArt(e.bank and "primary" or "secondary")
+        z.bankBtn:SetLabel(e.bank and L["✓ Bank"] or L["Bank"])
+        z.bankBtn:SetAktiv(darfBank)
+        z.bankBtn:SetScript("OnClick", function()
+            if zustand.beispiel then
+                if ns.Anwesenheit and ns.Anwesenheit.BeispielBankToggle then
+                    ns.Anwesenheit.BeispielBankToggle(e.name)
+                end
+            elseif ns.Anwesenheit and ns.Anwesenheit.BankSetzen then
+                ns.Anwesenheit.BankSetzen(e.name, not (e.bank ~= nil))
+            end
+            Fenster.Aktualisieren()
+        end)
+
+        z.d:SetText("")
+        z.unentBtn:ClearAllPoints()
+        z.unentBtn:SetPoint("CENTER", z.d, "CENTER", 0, 0)
+        z.unentBtn:Show()
+        z.unentBtn:SetArt(e.unentschuldigt and "primary" or "secondary")
+        z.unentBtn:SetLabel(e.unentschuldigt and L["✓ Unent."] or L["Unent."])
+        z.unentBtn:SetAktiv(darfUnent)
+        z.unentBtn:SetScript("OnClick", function()
+            if zustand.beispiel then
+                if ns.Anwesenheit and ns.Anwesenheit.BeispielUnentToggle then
+                    ns.Anwesenheit.BeispielUnentToggle(e.name)
+                end
+            elseif ns.Anwesenheit and ns.Anwesenheit.UnentschuldigtSetzen then
+                ns.Anwesenheit.UnentschuldigtSetzen(e.name, not (e.unentschuldigt ~= nil))
+            end
+            Fenster.Aktualisieren()
+        end)
+
+        z.vergessenBtn:ClearAllPoints()
+        z.vergessenBtn:SetPoint("LEFT", z.d, "RIGHT", 6, 0)
+        z.vergessenBtn:Show()
+        z.vergessenBtn:SetArt(e.vergessen and "primary" or "secondary")
+        z.vergessenBtn:SetLabel(e.vergessen and L["✓ Keine Meldung"] or L["Keine Meldung"])
+        z.vergessenBtn:SetAktiv(darfUnent and not zustand.beispiel)
+        z.vergessenBtn:SetScript("OnClick", function()
+            if not zustand.beispiel and ns.Anwesenheit and ns.Anwesenheit.VergessenSetzen then
+                ns.Anwesenheit.VergessenSetzen(e.name, not (e.vergessen ~= nil))
+            end
+            Fenster.Aktualisieren()
+        end)
+
+        z.abmeldBtn:ClearAllPoints()
+        z.abmeldBtn:SetPoint("LEFT", z.vergessenBtn, "RIGHT", 6, 0)
+        z.abmeldBtn:Show()
+        z.abmeldBtn:SetArt(e.abgemeldet and "primary" or "secondary")
+        z.abmeldBtn:SetLabel(e.abgemeldet and L["✓ Abgemeldet"] or L["Abgemeldet"])
+        z.abmeldBtn:SetAktiv(darfBank and not zustand.beispiel)
+        z.abmeldBtn:SetScript("OnClick", function()
+            if not zustand.beispiel and ns.Anwesenheit and ns.Anwesenheit.AbmeldungSetzen then
+                ns.Anwesenheit.AbmeldungSetzen(e.name, not (e.abgemeldet ~= nil))
+            end
+            Fenster.Aktualisieren()
+        end)
+
+        if e.offen then
+            z.e:SetText(GELB .. L["Offen: noch nicht zugeordnet"] .. "|r")
+        else
+            z.e:SetText(GRAU .. (e.protokoll ~= "" and e.protokoll or "—") .. "|r")
+        end
+    end
+    leereZeilen(gezeigt + 1)
+
+    local anzahlBank, anzahlUnent, anzahlVerg, anzahlOnline, anzahlOffen, anzahlAbgem = 0, 0, 0, 0, 0, 0
+    for _, e in ipairs(liste) do
+        if e.offen then anzahlOffen = anzahlOffen + 1 end
+        if e.abgemeldet then anzahlAbgem = anzahlAbgem + 1 end
+        if e.bank then anzahlBank = anzahlBank + 1 end
+        if e.unentschuldigt then anzahlUnent = anzahlUnent + 1 end
+        if e.vergessen then anzahlVerg = anzahlVerg + 1 end
+        if e.online then anzahlOnline = anzahlOnline + 1 end
+    end
+
+    if istGeschlossen then
+        fuss:SetText(L["Raidabend abgeschlossen · Bereit für nächsten Raid"])
+        unterzeile:SetText(GRUEN .. L["Raidabend abgeschlossen — Liste für den nächsten Raid zurückgesetzt."] .. "|r")
+    else
+        fuss:SetText(string.format(L["%d offen, %d abgemeldet, %d Bank, %d unentschuldigt, %d keine Meldung · %d online"],
+            anzahlOffen, anzahlAbgem, anzahlBank, anzahlUnent, anzahlVerg, anzahlOnline))
+        if zustand.bankMitRaid then
+            unterzeile:SetText(GRAU .. L["Wer am Abendende im Raid steht, gilt als anwesend. Eine Markierung zählt nur für Spieler, die dann nicht mehr im Raid sind."] .. "|r")
+        else
+            unterzeile:SetText(GRAU .. L["Offene verhindern den Abschluss · Bank: Faktor 0 · Abgemeldet: Staffel · Keine Meldung: ab dem 3. Mal in 8 Abenden wie unentschuldigt · Unentschuldigt: Faktor 1,5, mindestens 2"] .. "|r")
+        end
+    end
 end
 
 function Fenster.Aktualisieren()
@@ -669,6 +1003,7 @@ function Fenster.Aktualisieren()
     -- Werkzeugleiste
     ansichtSeg:SetWahl(zustand.spieler and "liste" or zustand.ansicht)
     zeitSeg:SetWahl(zustand.wochen)
+    zeitSeg:SetShown(zustand.ansicht ~= "bank")
     beispielBtn:SetLabel(zustand.beispiel and L["Beispiel aus"] or L["Beispiel"])
 
     local Namen = ns.Gruppen and ns.Gruppen.Namen() or {}
@@ -693,8 +1028,13 @@ function Fenster.Aktualisieren()
     zustand.darfUndo = not zustand.beispiel and ns.Erfassung.DarfZuruecknehmen()
     local imGruppe = IsInGroup and IsInGroup() and true or false
     wurfBtn:SetShown(not zustand.beispiel and ns.Wurf ~= nil and ns.Wurf.DarfStarten())
-    nurBtn:SetShown(imGruppe and not zustand.beispiel and zustand.ansicht == "liste" and zustand.spieler == nil)
-    nurBtn:SetLabel(zustand.alleSpieler and L["Nur Gruppe zeigen"] or L["Alle Spieler zeigen"])
+    nurBtn:SetShown((imGruppe and not zustand.beispiel and zustand.ansicht == "liste" and zustand.spieler == nil)
+                    or (not zustand.beispiel and zustand.ansicht == "bank" and zustand.spieler == nil))
+    if zustand.ansicht == "bank" then
+        nurBtn:SetLabel(zustand.bankMitRaid and L["Raid ausblenden"] or L["Raid mitzeigen"])
+    else
+        nurBtn:SetLabel(zustand.alleSpieler and L["Nur Gruppe zeigen"] or L["Alle Spieler zeigen"])
+    end
 
     zurueckBtn:SetShown(zustand.spieler ~= nil)
     unterzeile:ClearAllPoints()
@@ -703,7 +1043,79 @@ function Fenster.Aktualisieren()
     else
         unterzeile:SetPoint("LEFT", rahmen, "TOPLEFT", 16, -(KOPF + 61))
     end
-    unterzeile:SetPoint("RIGHT", gruppeBtn, "LEFT", -10, 0)
+
+    if zustand.ansicht == "bank" and not zustand.spieler then
+        abschlussBtn:Show()
+        local istGeschlossen = false
+        if zustand.beispiel then
+            istGeschlossen = zustand.beispielAbgeschlossen and true or false
+        else
+            istGeschlossen = ns.Anwesenheit and ns.Anwesenheit.AbendIstAbgeschlossen and ns.Anwesenheit.AbendIstAbgeschlossen()
+        end
+        local darfSchliessen = zustand.beispiel or (ns.Anwesenheit and ns.Anwesenheit.DarfBankVerwalten and ns.Anwesenheit.DarfBankVerwalten())
+        abschlussBtn:SetAktiv(darfSchliessen)
+
+        if zustand.abschlussBestaetigung and (time() - zustand.abschlussBestaetigung <= 8) then
+            abschlussBtn:SetLabel(GELB .. (istGeschlossen and L["Wirklich wiedereröffnen?"] or L["Wirklich abschließen?"]) .. "|r")
+        elseif istGeschlossen then
+            abschlussBtn:SetLabel(L["Abend wiedereröffnen"])
+        else
+            abschlussBtn:SetLabel(L["Abend abschließen"])
+        end
+
+        abschlussBtn:SetScript("OnClick", function()
+            if not darfSchliessen then return end
+            local t = time()
+            if zustand.abschlussBestaetigung and (t - zustand.abschlussBestaetigung <= 8) then
+                zustand.abschlussBestaetigung = nil
+                if istGeschlossen then
+                    if zustand.beispiel then
+                        zustand.beispielAbgeschlossen = false
+                        if ns.Anwesenheit and ns.Anwesenheit.BeispielKandidatenWiederherstellen then
+                            ns.Anwesenheit.BeispielKandidatenWiederherstellen()
+                        end
+                        print("|cff1B6B57Fairshare|r: " .. string.format(L["Raidabend %s wiedereröffnet, Zuschläge zurückgenommen."], date("%d.%m.%Y", t)))
+                    else
+                        local ok, ab = ns.Anwesenheit.AbendWiedereroeffnen()
+                        if ok then
+                            print("|cff1B6B57Fairshare|r: " .. string.format(L["Raidabend %s wiedereröffnet, Zuschläge zurückgenommen."], tostring(ab.datum or ab.id)))
+                        else
+                            print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(ab) .. "|r")
+                        end
+                    end
+                else
+                    if zustand.beispiel then
+                        zustand.beispielAbgeschlossen = true
+                        if ns.Anwesenheit and ns.Anwesenheit.BeispielKandidatenReset then
+                            ns.Anwesenheit.BeispielKandidatenReset()
+                        end
+                        print("|cff1B6B57Fairshare|r: " .. string.format(L["Raidabend %s erfolgreich abgeschlossen!"], date("%d.%m.%Y", t)))
+                        print(string.format(L["  Schnitt: %.2f (%d Main-Items / %d Spieler). %d Zuschläge festgeschrieben."], 1.0, 10, 10, 2))
+                    else
+                        local ok, v, zZaehler = ns.Anwesenheit.AbendAbschliessen()
+                        if ok then
+                            print("|cff1B6B57Fairshare|r: " .. string.format(L["Raidabend %s erfolgreich abgeschlossen!"], tostring(v.datum)))
+                            print(string.format(L["  Schnitt: %.2f (%d Main-Items / %d Spieler). %d Zuschläge festgeschrieben."], v.schnitt, v.mainItems, v.raidSpieler, zZaehler or 0))
+                        else
+                            print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(v) .. "|r")
+                        end
+                    end
+                end
+                Fenster.Aktualisieren()
+            else
+                zustand.abschlussBestaetigung = t
+                Fenster.Aktualisieren()
+            end
+        end)
+        offeneBtn:Show()
+        offeneBtn:SetAktiv(not zustand.beispiel and not istGeschlossen and darfSchliessen and true or false)
+        unterzeile:SetPoint("RIGHT", offeneBtn, "LEFT", -10, 0)
+    else
+        zustand.abschlussBestaetigung = nil
+        abschlussBtn:Hide()
+        offeneBtn:Hide()
+        unterzeile:SetPoint("RIGHT", gruppeBtn, "LEFT", -10, 0)
+    end
 
     -- Wie viele Zeilen passen in das Fenster? Aus der Fensterhoehe gerechnet,
     -- nicht aus der Tafel: deren Ausmasse stehen erst nach dem Zeichnen fest.
@@ -731,6 +1143,9 @@ function Fenster.Aktualisieren()
     elseif zustand.ansicht == "verlauf" then
         ordneSpalten("verlauf")
         zeigeVerlauf(H)
+    elseif zustand.ansicht == "bank" then
+        ordneSpalten("bank")
+        zeigeBank(H)
     else
         ordneSpalten("liste")
         zeigeListe(H)
@@ -759,10 +1174,10 @@ function Fenster.Zeigen(beispiel)
     Fenster.Aktualisieren()
 end
 
---- Fenster in einer bestimmten Ansicht oeffnen ("liste" oder "verlauf").
+--- Fenster in einer bestimmten Ansicht oeffnen ("liste", "verlauf" oder "bank").
 function Fenster.ZeigenAnsicht(ansicht)
     Fenster.Zeigen(false)
-    zustand.ansicht = (ansicht == "verlauf") and "verlauf" or "liste"
+    zustand.ansicht = (ansicht == "verlauf" or ansicht == "bank") and ansicht or "liste"
     Fenster.Aktualisieren()
 end
 

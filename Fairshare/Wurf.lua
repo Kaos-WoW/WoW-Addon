@@ -176,10 +176,19 @@ end
 
 local popupAktualisieren
 
+--- ⭐ „Passen" der Gruppe melden (Nachricht `P;<Kennung>`) und selbst vermerken. Dadurch sieht der Leiter, wer
+--  nicht mitwürfelt, und der Wurf endet früh, sobald jeder gewählt hat.
+local function passMelden()
+    if not aktiv then return end
+    ns.Erfassung.WurfPasst(ichName(), aktiv.link)
+    if ns.Abgleich and ns.Abgleich.Senden then ns.Abgleich.Senden("P;" .. aktiv.rid, true) end
+end
+
 --- Ein Spieler waehlt. „pass" wuerfelt nicht.
 local function waehlen(art)
     if not aktiv or aktiv.meine then return end
     aktiv.meine = art
+    if art == "pass" then passMelden() end
 
     if art ~= "pass" then
         -- Der Bereich dieses Wurfs (vom Leiter mitgeschickt), sonst der eigene.
@@ -211,7 +220,10 @@ local function popupBauen()
 
     local _, zu = kopfLeiste(p, "Fairshare  " .. GRAU .. L["Wurf"] .. "|r", "wurf", function()
         -- Das Kreuz heisst: nicht mitwuerfeln.
-        if aktiv and not aktiv.meine then aktiv.meine = "pass" end
+        if aktiv and not aktiv.meine then
+            aktiv.meine = "pass"
+            passMelden()
+        end
         p:Hide()
     end)
 
@@ -257,6 +269,10 @@ local function popupBauen()
     p.rest = S.Text(p, 12, C.mu, "RIGHT")
     p.rest:SetPoint("TOPRIGHT", p, "TOPRIGHT", -16, -90)
     p.rest:SetWidth(48)
+    -- „Gewählt 7 von 10 · Passt 2"
+    p.stand = S.Text(p, 11, C.dim, "LEFT")
+    p.stand:SetPoint("TOPLEFT", p, "TOPLEFT", 16, -106)
+    p.stand:SetWidth(BAHN)
 
     -- Die drei Knoepfe
     p.haupt = S.Knopf(p, string.format(L["Haupt (%d-%d)"], Kern.BEREICHE.haupt[1], Kern.BEREICHE.haupt[2]), "primary", 30)
@@ -288,9 +304,30 @@ local function popupBauen()
     p:Hide()
 end
 
+--- ⭐ Wer hat in diesem Wurf schon gewählt? Gezählt werden alle in der Gruppe: Wer gewürfelt oder gepasst hat,
+--  hat gewählt. Spieler ohne Addon können nur würfeln (kein „Passen"), sie halten den Wurf bis zum Zeitende offen.
+--  @return gewählt, gesamt, gepasst
+local function wurfStand()
+    if not aktiv then return 0, 0, 0 end
+    local namen = (ns.Anwesenheit and ns.Anwesenheit.AnwesendeNamen and ns.Anwesenheit.AnwesendeNamen()) or {}
+    local gewaehlt, gepasst = 0, 0
+    for _, n in ipairs(namen) do
+        local wert, art = ns.Erfassung.WurfVon(n, aktiv.link)
+        if art == "pass" then
+            gewaehlt = gewaehlt + 1
+            gepasst = gepasst + 1
+        elseif wert and wert > 0 then
+            gewaehlt = gewaehlt + 1
+        end
+    end
+    return gewaehlt, #namen, gepasst
+end
+
 popupAktualisieren = function()
     if not popup or not aktiv then return end
     popup.itemText:SetText(aktiv.link)
+    local gw, gs, gp = wurfStand()
+    popup.stand:SetText(string.format(L["Gewählt %d von %d · Passt %d"], gw, gs, gp))
 
     local rest = math.max(0, aktiv.ende - time())
     popup.rest:SetText(math.ceil(rest) .. " s")
@@ -502,6 +539,16 @@ function Wurf.Empfangen(typ, rest, sender, unit)
     if UnitIsUnit and UnitIsUnit(unit, "player") then return end    -- das waren wir selbst
 
     local name = (GetUnitName and GetUnitName(unit, true)) or sender
+
+    -- ⭐ „Passen": darf jeder in der Gruppe melden (nur für den laufenden Wurf mit dieser Kennung)
+    if typ == "P" then
+        if aktiv and type(rest) == "string" and rest:match("^[^;]*") == aktiv.rid then
+            ns.Erfassung.WurfPasst(name, aktiv.link)
+            merke(string.format(L["%s passt"], tostring(name)))
+        end
+        return
+    end
+
     if type(rest) ~= "string" or not ns.Rolle.Berechtigt(name) then
         merke(string.format(L["%s von %s: Absender ist weder Plündermeister noch Leiter noch Assistent"], typ, tostring(name)))
         return
@@ -695,12 +742,48 @@ local function sammlung()
     return liste
 end
 
+--- Alle Rucksackplaetze mit diesem Gegenstand, ohne Qualitaets- und Handelsfrist-Filter.
+--  @return Liste aus { link, id, bag, slot, typ = "tasche" }
+local function taschenPlaetze(id)
+    local liste = {}
+    local CC = rawget(_G, "C_Container")
+    local zahl = (CC and CC.GetContainerNumSlots) or rawget(_G, "GetContainerNumSlots")
+    local info = (CC and CC.GetContainerItemInfo) or rawget(_G, "GetContainerItemInfo")
+    if not id or type(zahl) ~= "function" or type(info) ~= "function" then return liste end
+    for bag = 0, 5 do
+        local ok, n = pcall(zahl, bag)
+        if ok and type(n) == "number" then
+            for slot = 1, n do
+                local l = platzInfo(info, bag, slot)
+                if l and idVon(l) == id then
+                    liste[#liste + 1] = { link = l, id = id, bag = bag, slot = slot, typ = "tasche" }
+                end
+            end
+        end
+    end
+    return liste
+end
+
+--- Der Gegenstand irgendwo im Rucksack (erster Platz), ohne Filter.
+local function taschenSuche(id)
+    return taschenPlaetze(id)[1]
+end
+
 --- Wo liegt dieser Gegenstand gerade?
-local function findeGegenstand(link)
+--  @param weit  true: auch Stuecke unter der Qualitaetsschwelle und ohne Handelsfrist finden
+--               (Entzaubern: ein gruener Gegenstand steht nicht in der Auswahlliste, soll sich aber
+--               trotzdem uebergeben lassen — Nutzerfund 17.10.2026)
+local function findeGegenstand(link, weit)
     local id = idVon(link)
     if not id then return nil end
     for _, e in ipairs(sammlung()) do
         if e.id == id then return e end
+    end
+    if weit then
+        for _, e in ipairs(beuteListe()) do
+            if e.id == id then return e end
+        end
+        return taschenSuche(id)
     end
     return nil
 end
@@ -733,6 +816,37 @@ local function starterAuffrischen()
     starter.dauer:SetText(L["Dauer (s)"])
     if not starter.dauerFeld:HasFocus() then starter.dauerFeld:SetText(tostring(Wurf.Dauer())) end
     starterBeute()
+end
+
+--- Zeigt unter dem Feld, was gewaehlt ist (als farbiger Name). Das Feld selbst zeichnet einen
+--  eingefuegten Link im Spiel nicht immer, bevor man den Text markiert (Nutzerfund 17.10.2026) —
+--  diese Zeile ist darum die verlaessliche Anzeige.
+local function starterAnzeigen()
+    if not (starter and starter.hinweis) then return end
+    if starter.gewaehlt then
+        starter.hinweis:SetText(GRAU .. L["Gewählt:"] .. "|r " .. starter.gewaehlt)
+    else
+        starter.hinweis:SetText(L["Shift-Klick auf einen Gegenstand fügt den Link ein."])
+    end
+end
+
+--- Setzt einen Link ins Feld, merkt ihn und zwingt das Feld zum Neuzeichnen
+--  (Cursor an den Anfang, nach einem Augenblick noch einmal).
+local function starterLinkSetzen(link)
+    local eb = starter.eingabe
+    eb:SetText(link)
+    eb:SetCursorPosition(0)
+    starter.gewaehlt = link
+    starterAnzeigen()
+    if C_Timer then
+        C_Timer.After(0.05, function()
+            if starter and eb:GetText() == link then
+                eb:SetText(link)
+                eb:SetCursorPosition(0)
+                eb:HighlightText(0, 0)
+            end
+        end)
+    end
 end
 
 local function starterStarten()
@@ -787,12 +901,16 @@ local function starterBauen()
     s.eingabe:SetMaxLetters(300)
     s.eingabe:SetScript("OnEnterPressed", function(e) e:ClearFocus(); starterStarten() end)
     s.eingabe:SetScript("OnTextChanged", function(e)
-        if (e:GetText() or "") == "" then s.gewaehlt = nil end
+        if (e:GetText() or "") == "" then
+            s.gewaehlt = nil
+            starterAnzeigen()
+        end
     end)
 
-    local hinweis = S.Text(s, 11, C.dim, "LEFT")
-    hinweis:SetPoint("TOPLEFT", s, "TOPLEFT", 16, -96)
-    hinweis:SetText(L["Shift-Klick auf einen Gegenstand fügt den Link ein."])
+    s.hinweis = S.Text(s, 11, C.dim, "LEFT")
+    s.hinweis:SetPoint("TOPLEFT", s, "TOPLEFT", 16, -96)
+    s.hinweis:SetWidth(328)
+    s.hinweis:SetText(L["Shift-Klick auf einen Gegenstand fügt den Link ein."])
 
     local t2 = S.Text(s, 12, C.mu, "LEFT")
     t2:SetPoint("TOPLEFT", s, "TOPLEFT", 16, -122)
@@ -811,10 +929,7 @@ local function starterBauen()
         z:SetScript("OnEnter", function(x) x.hover:SetShown(true) end)
         z:SetScript("OnLeave", function(x) x.hover:SetShown(false) end)
         z:SetScript("OnClick", function(x)
-            if x.link then
-                s.eingabe:SetText(x.link)
-                s.gewaehlt = x.link
-            end
+            if x.link then starterLinkSetzen(x.link) end
         end)
         z:Hide()
         s.zeilen[i] = z
@@ -879,8 +994,11 @@ end
 --- Die Reihenfolge wie in der Uebersicht: Haupt vor OS, wenigste Stuecke,
 --  dann der hoechste Wurf. Nur wer gewuerfelt hat.
 local function rangliste(link)
-    local R = ns.Erfassung.AktuelleWuerfe()
-    if not R or R.link ~= link then return {} end
+    local R = ns.Erfassung.AktuelleWuerfe(nil, link)
+    if not R then return {}, 0, "no round" end
+    -- Gleicher Gegenstand heisst gleiche Nummer, nicht gleicher Text (der Link kann anders geschrieben sein)
+    local function nummer(l) return type(l) == "string" and (l:match("item:(%d+)") or l) or "" end
+    if nummer(R.link) ~= nummer(link) then return {}, 0, "other round: " .. tostring(R.link) end
 
     local function schluessel(name)
         for _, n in ipairs(R.namen) do
@@ -888,10 +1006,15 @@ local function rangliste(link)
         end
     end
 
-    local liste = Kern.Bilanz(ns.Erfassung.Historie(), 0, R.namen, R.namen)
+    local zuschlaegeDaten = ns.Anwesenheit and ns.Anwesenheit.ZuschlaegeDaten and ns.Anwesenheit.ZuschlaegeDaten()
+    local liste = Kern.Bilanz(ns.Erfassung.Historie(), 0, R.namen, R.namen, zuschlaegeDaten)
+    -- ⭐ Proberaid, Neuling am 2. Abend, Gast (Regelwerk § 4). Der Starter schreibt den
+    -- Start des Neulings als Anhebung fest und verteilt sie.
+    if ns.Anwesenheit and ns.Anwesenheit.Rollen then ns.Anwesenheit.Rollen(liste, true) end
     Kern.WurfReihenfolge(liste,
         function(name)
             local k = schluessel(name)
+            if k and R.Arten[k] == "pass" then return false end
             return (k and (R.Arten[k] or true)) or false
         end,
         function(name)
@@ -899,21 +1022,38 @@ local function rangliste(link)
             return k and R.Wuerfe[k] or 0
         end)
 
-    local zeilen = {}
+    local zeilen, probe = {}, 0
     for _, e in ipairs(liste) do
         local k, voll = schluessel(e.name)
-        if k and (R.Wuerfe[k] or 0) > 0 then
-            zeilen[#zeilen + 1] = { name = voll, wert = R.Wuerfe[k], art = R.Arten[k], haupt = e.haupt, zweit = e.zweit }
+        -- Am Proberaid-Abend gibt es keine Lootberechtigung: Der Spieler steht nicht in der Rangliste.
+        if k and (R.Wuerfe[k] or 0) > 0 and e.proberaid then probe = probe + 1 end
+        if k and (R.Wuerfe[k] or 0) > 0 and not e.proberaid then
+            zeilen[#zeilen + 1] = {
+                name = voll,
+                wert = R.Wuerfe[k],
+                art = R.Arten[k],
+                haupt = e.haupt,
+                zweit = e.zweit,
+                wertung = e.effektiveWertung or e.wertung or e.haupt or 0,
+                -- nur zur Anzeige „(+x)": die Anhebung ist schon festgeschrieben (hebung) oder wird es beim Starter
+                anhebung = (e.dynamischeAnhebung or 0) + (e.hebung or 0),
+            }
         end
     end
-    return zeilen
+    local erfasst = 0
+    for _ in pairs(R.Wuerfe) do erfasst = erfasst + 1 end
+    return zeilen, probe, (#zeilen == 0 and erfasst > 0) and string.format("%d rolls recorded, none ranked", erfasst) or nil
 end
 
 --- Eine Vergabe in die Historie schreiben (nur der Aufzeichner darf).
 local function eintragen(name, link, z)
     local _, unit = ns.Rolle.Absender(name)
     local voll = (unit and GetUnitName and GetUnitName(unit, true)) or name
-    local ok, grund = ns.Erfassung.Eintragen(voll, link, nil, z.art, nil, { wurf = z.wert, herkunft = "wurf" })
+    -- Das Kennzeichen geht mit. Die Anhebung ist schon vor dem Wurf-Ergebnis festgeschrieben
+    -- (Anwesenheit.Rollen, einmal je Abend), hier wird sie nicht noch einmal gebucht.
+    local ok, grund = ns.Erfassung.Eintragen(voll, link, nil, z.art, nil, {
+        wurf = z.wert, herkunft = "wurf", kennzeichen = z.kennzeichen,
+    })
     if ok then
         sag(GRUEN .. string.format(L["Eingetragen: %s für %s"], link, voll) .. "|r")
     else
@@ -973,7 +1113,8 @@ local function vormerken(name, link, id, z)
         if e.id == id and Kern.GleicherSpieler(e.name, name) then return e end
     end
     local e = { name = name, link = link, id = id, art = z.art, wert = z.wert, zeit = time(),
-                entzaubern = z.entzaubern }
+                entzaubern = z.entzaubern,
+                kennzeichen = z.kennzeichen }
     liste[#liste + 1] = e
     return e
 end
@@ -1045,35 +1186,58 @@ local function handelOffen()
     local rid = ergebnisDaten and idVon(ergebnisDaten.link)
     if rid and handel.vorher[rid] == nil then handel.vorher[rid] = anzahlImRucksack(rid) end
 
-    local CC = rawget(_G, "C_Container")
-    local nimm = (CC and CC.PickupContainerItem) or rawget(_G, "PickupContainerItem")
-    local lege = rawget(_G, "ClickTradeButton")
-    if type(nimm) ~= "function" or type(lege) ~= "function" then return end
+    -- ⭐ Das Einlegen sucht jeden vorgemerkten Gegenstand selbst im Rucksack — ohne die Filter der
+    -- Auswahlliste (Qualitaet, Handelsfrist). Sonst blieb ein gruenes Stueck liegen (Nutzerfund 17.10.2026).
+    -- Gleich nach TRADE_SHOW ist das Fenster manchmal noch nicht bereit: ohne Erfolg ein zweiter und
+    -- dritter Versuch.
+    local function einlegen(versuch)
+        if not handel or handel.partner ~= partner then return end
+        local CC = rawget(_G, "C_Container")
+        local nimm = (CC and CC.PickupContainerItem) or rawget(_G, "PickupContainerItem")
+        local lege = rawget(_G, "ClickTradeButton")
+        if type(nimm) ~= "function" or type(lege) ~= "function" then return end
 
-    local k, benutzt = 0, {}
-    for _, v in ipairs(offenListe()) do
-        if k >= 6 then break end
-        if Kern.GleicherSpieler(v.name, partner) then
-            for _, e in ipairs(liste) do
-                local platz = e.bag .. ":" .. e.slot
-                if e.id == v.id and not benutzt[platz] then
-                    benutzt[platz] = true
-                    k = k + 1
-                    if handel.vorher[v.id] == nil then handel.vorher[v.id] = anzahlImRucksack(v.id) end
-                    pcall(nimm, e.bag, e.slot)
-                    pcall(lege, k)
-                    break
+        local k, benutzt, wollte, fehler = 0, {}, 0, nil
+        for _, v in ipairs(offenListe()) do
+            if Kern.GleicherSpieler(v.name, partner) then
+                wollte = wollte + 1
+                if k < 6 then
+                    for _, e in ipairs(taschenPlaetze(v.id)) do
+                        local platz = e.bag .. ":" .. e.slot
+                        if not benutzt[platz] then
+                            benutzt[platz] = true
+                            k = k + 1
+                            if handel.vorher[v.id] == nil then handel.vorher[v.id] = anzahlImRucksack(v.id) end
+                            local ok1, f1 = pcall(nimm, e.bag, e.slot)
+                            local ok2, f2 = pcall(lege, k)
+                            if not ok1 then fehler = f1 elseif not ok2 then fehler = f2 end
+                            break
+                        end
+                    end
                 end
             end
         end
-    end
-    local leeren = rawget(_G, "ClearCursor")
-    if type(leeren) == "function" then pcall(leeren) end
+        local leeren = rawget(_G, "ClearCursor")
+        if type(leeren) == "function" then pcall(leeren) end
 
-    if k > 0 then
-        angebotLesen(handel, true)
-        sag(string.format(L["Für %s liegen %d vorgemerkte Gegenstände im Handelsfenster – bitte prüfen und bestätigen."], partner, k))
+        if k > 0 then
+            local function melden()
+                if not handel or handel.partner ~= partner then return end
+                angebotLesen(handel, true)
+                if #handel.angeboten > 0 then
+                    sag(string.format(L["Für %s liegen %d vorgemerkte Gegenstände im Handelsfenster – bitte prüfen und bestätigen."], partner, #handel.angeboten))
+                else
+                    -- ⭐ Nicht still scheitern: Warum lag nichts im Fenster? (Forever-API ungemessen)
+                    sag(ROT .. string.format(L["Das Einlegen ins Handelsfenster hat nicht geklappt (%s). Bitte von Hand einlegen."],
+                        tostring(fehler or L["kein Fehler gemeldet"])) .. "|r")
+                end
+            end
+            if C_Timer then C_Timer.After(0.4, melden) else angebotLesen(handel, true); melden() end
+        elseif wollte > 0 and versuch < 3 and C_Timer then
+            C_Timer.After(0.5, function() einlegen(versuch + 1) end)
+        end
     end
+    einlegen(1)
 end
 
 --- Ein Gegenstand ging an den Handelspartner: eintragen, wenn es eine Vergabe war.
@@ -1086,6 +1250,8 @@ local function handelVerbuchen(H, id, link)
     -- Zum Entzaubern uebergeben: angesagt, aber nicht eingetragen.
     if V and V.entzaubern then
         ns.Erfassung.EntzauberAnsagen(H.partner, link)
+        -- Der Handel ist durch: Das Item ist weitergegeben, ein offener Rueckgeber verliert seinen Punkt.
+        ns.Erfassung.RueckgabeAufloesen(id, nil)
         vormerkungLoeschen(V)
         return
     end
@@ -1149,11 +1315,23 @@ function Wurf.Zuteilen(z)
     local D = ergebnisDaten
     if not D or not z then return end
     local link, name = D.link, z.name
-    local ort = findeGegenstand(link)
+    -- ⭐ Weit suchen: Auch ein gruenes Stueck (unter der Schwelle) oder eines ohne Handelsfrist soll sich
+    -- uebergeben lassen — sonst wurde es nur eingetragen und das Handelsfenster ging nicht auf (Nutzerfund 17.10.2026).
+    local ort = findeGegenstand(link, true)
+
+    -- ⭐ Weicht die Vergabe vom Ergebnis ab (nicht die oberste Zeile), wird das gekennzeichnet:
+    -- bei Main „abweichend vom Ergebnis", bei OS neutral „OS nach Absprache" (Regelwerk § 5/§ 6).
+    if z.abweichend then
+        z.kennzeichen = (z.art == "zweit") and "S" or "A"
+    else
+        z.kennzeichen = nil
+    end
 
     if not ort or Kern.GleicherSpieler(name, ichName()) then
         eintragen(name, link, z)
     elseif ort.typ == "beute" then
+        -- Eingetragen wird ueber die Beutemeldung; Kennzeichen und Anhebung merkt sich Erfassung bis dahin.
+        ns.Erfassung.ZusatzMerken(name, link, { kennzeichen = z.kennzeichen })
         local ok, grund = ausBeutefenster(name, ort, link)
         if not ok then sag(ROT .. tostring(grund) .. "|r") return end
     else
@@ -1175,7 +1353,7 @@ local function ergebnisAktualisieren()
     if not e or not D then return end
     e.item:SetText(D.link)
 
-    local ort = findeGegenstand(D.link)
+    local ort = findeGegenstand(D.link, true)
     if not ort then
         e.ort:SetText(GELB .. L["Gegenstand nicht gefunden – es kann nur eingetragen werden."] .. "|r")
     elseif ort.typ == "beute" then
@@ -1187,10 +1365,16 @@ local function ergebnisAktualisieren()
     for i = 1, ERG_ZEILEN do
         local zeile, z = e.zeilen[i], D.zeilen[i]
         if z then
+            z.abweichend = (i ~= 1)
             zeile.daten = z
             zeile.name:SetText(z.name)
+            local zusatz = ""
+            if z.anhebung and z.anhebung > 0 then
+                local aStr = (z.anhebung == math.floor(z.anhebung)) and tostring(z.anhebung) or string.format("%.1f", z.anhebung)
+                zusatz = " " .. GELB .. "(+" .. aStr .. ")|r"
+            end
             zeile.wert:SetText(HELL .. z.wert .. "|r  " ..
-                (z.art == "haupt" and (AKZENT .. L["Haupt"] .. "|r") or (GRAU .. L["Zweit"] .. "|r")))
+                (z.art == "haupt" and (AKZENT .. L["Haupt"] .. "|r") or (GRAU .. L["Zweit"] .. "|r")) .. zusatz)
             zeile.knopf:SetLabel(ort and L["Zuteilen"] or L["Nur eintragen"])
             zeile.knopf:SetFest(96)
             zeile.bg:SetShown(i == 1)
@@ -1246,7 +1430,7 @@ local function ergebnisBauen()
         z.name:SetWidth(140)
         z.wert = S.Text(z, 13, C.tx, "LEFT")
         z.wert:SetPoint("LEFT", z, "LEFT", 152, 0)
-        z.wert:SetWidth(80)
+        z.wert:SetWidth(92)
         z.knopf = S.Knopf(z, L["Zuteilen"], i == 1 and "primary" or "secondary", 24)
         z.knopf:SetPoint("RIGHT", z, "RIGHT", -4, 0)
         z.knopf:SetScript("OnClick", function() Wurf.Zuteilen(z.daten) end)
@@ -1270,9 +1454,15 @@ local function ergebnisBauen()
 end
 
 ergebnisZeigen = function(link)
-    local zeilen = rangliste(link)
+    local zeilen, probe, warum = rangliste(link)
     if #zeilen == 0 then
-        sag(GRAU .. L["Niemand hat gewürfelt."] .. "|r")
+        if (probe or 0) > 0 then
+            -- Es wurde gewuerfelt, aber nur von Spielern im Proberaid (§ 4): nicht verschweigen
+            sag(GELB .. string.format(L["Es haben nur Spieler im Proberaid gewürfelt (%d). Sie sind noch nicht lootberechtigt."], probe) .. "|r")
+        else
+            sag(GRAU .. L["Niemand hat gewürfelt."] .. "|r")
+            if warum then print(GRAU .. "  (" .. warum .. ")|r") end     -- Entwicklerdiagnose, nur wenn doch Würfe da waren
+        end
         entzauberZeigen(link, true)          -- ⭐ Vorschlag: zum Entzaubern vergeben
         return
     end
@@ -1379,14 +1569,18 @@ end
 --  einen vorgemerkten Handel; beim Plündermeister selbst gibt es nichts zu tun.
 function Wurf.Entzaubern(name, link)
     if not name or not link then return false end
-    local ort = findeGegenstand(link)
-    if not ort then
+    local selbst = Kern.GleicherSpieler(name, ichName())
+    -- Gibt man es sich selbst, gibt es nichts zu uebergeben: dann muss das Addon den Gegenstand
+    -- nicht einmal finden. Sonst auch Stuecke unter der Schwelle und ohne Handelsfrist suchen.
+    local ort = findeGegenstand(link, true)
+    if not ort and not selbst then
         sag(ROT .. L["Gegenstand nicht gefunden – bitte von Hand übergeben."] .. "|r")
         return false
     end
 
-    if Kern.GleicherSpieler(name, ichName()) then
+    if selbst then
         ns.Erfassung.EntzauberAnsagen(name, link)
+        ns.Erfassung.RueckgabeAufloesen(idVon(link), nil)   -- weitergegeben: der Punkt eines Rueckgebers faellt weg
     elseif ort.typ == "beute" then
         ns.Erfassung.EntzauberMerken(name, link)
         local ok, grund = ausBeutefenster(name, ort, link)
@@ -1396,6 +1590,7 @@ function Wurf.Entzaubern(name, link)
             return false
         end
         ns.Erfassung.EntzauberAnsagen(name, link)
+        ns.Erfassung.RueckgabeAufloesen(idVon(link), nil)
     else
         -- Rucksack: vorgemerkt wie jede Zuteilung; angesagt wird nach dem Handel.
         vormerken(name, link, ort.id, { entzaubern = true })
@@ -1537,8 +1732,7 @@ local function linkEinfuegen(text)
     if starter and starter:IsShown() and starter.eingabe:HasFocus() and type(text) == "string" then
         local link = linkAus(text)
         if link then
-            starter.eingabe:SetText(link)
-            starter.gewaehlt = link
+            starterLinkSetzen(link)
         else
             starter.eingabe:Insert(text)
         end
@@ -1637,6 +1831,16 @@ ticker:SetScript("OnUpdate", function(s, dt)
     if s.t < 0.5 then return end
     s.t = 0
     if aktiv and time() >= aktiv.ende then pcall(Wurf.Ende) end
+
+    -- ⭐ Hat jeder in der Gruppe gewählt (Haupt, Zweit oder Passen), endet der Wurf früh — nur beim Starter,
+    -- der es allen meldet. Mindestens 2 s nach dem Start, damit nichts unterwegs verloren geht.
+    if aktiv and aktiv.selbst and (time() - (aktiv.ende - aktiv.dauer)) >= 2 then
+        local ok, gw, gs = pcall(wurfStand)
+        if ok and gs > 0 and gw >= gs then
+            sag(L["Alle haben gewählt – Wurf beendet."])
+            pcall(Wurf.BeendenAlle)
+        end
+    end
 end)
 
 return ns

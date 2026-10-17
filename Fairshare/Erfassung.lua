@@ -272,6 +272,9 @@ function Erfassung.WurfMerken(name, wert, min, max, art, link)
     local r = runde(link, true)
     local S = r.Spieler[k]
 
+    -- Wer gepasst hat, hat sich entschieden: ein späterer Wurf ändert das nicht.
+    if S and S.art == "pass" and art ~= "pass" then return false, "passt" end
+
     -- ⭐ Der ERSTE Wurf gilt. Wer fuenfmal wuerfelt, bekommt den ersten Wurf
     -- gewertet — sonst wuerfe man so lange, bis es passt (Nutzerhinweis
     -- 14.10.2026). Ein Spieler, der nur gewaehlt hat, darf noch wuerfeln.
@@ -324,6 +327,21 @@ function Erfassung.WurfVon(name, link)
     return nil
 end
 
+--- ⭐ Ein Spieler hat im Würfelfenster „Passen" gewählt (Meldung `P` der Gruppe). Er zählt als entschieden,
+--  steht aber nie in der Rangliste. Wer schon gewürfelt hat, bleibt dabei.
+--  @return true, wenn eingetragen
+function Erfassung.WurfPasst(name, link)
+    local k = Kern.Schluessel(name)
+    local r = k and runde(link, false)
+    if not r then return false end
+    local S = r.Spieler[k]
+    if S and (S.wert or 0) > 0 then return false end
+    r.Spieler[k] = { name = name, art = "pass", wert = 0, zeit = time() }
+    r.zeit = time()
+    fensterAnstossen(false)
+    return true
+end
+
 --- Ein Spieler verzichtet („passt") auf den Gegenstand.
 function Erfassung.WurfZurueckziehen(name, link)
     local k = Kern.Schluessel(name)
@@ -367,7 +385,10 @@ end
 --  @param fenster  Sekunden; was aelter ist, gilt als vorbei
 --  @return { Wuerfe = { Schluessel -> Wert }, Arten = { Schluessel -> "haupt"|"zweit" },
 --            namen = { ... }, link = Gegenstand oder nil } oder nil
-function Erfassung.AktuelleWuerfe(fenster)
+--  @param link  optional: die Runde GENAU dieses Gegenstands (Vergleich ueber die Nummer, nicht den Text);
+--                ohne Angabe die mit der juengsten Bewegung. Wichtig fuers Ergebnisfenster: Eine andere,
+--                juengere Runde darf die Wuerfe des gerade verrollten Stuecks nicht verdraengen.
+function Erfassung.AktuelleWuerfe(fenster, link)
     fenster = fenster or 120
     local jetzt = time()
 
@@ -379,6 +400,8 @@ function Erfassung.AktuelleWuerfe(fenster)
             beste = r
         end
     end
+    local gewollt = link and gegenstandsKey(link) ~= "" and Runden[gegenstandsKey(link)]
+    if gewollt then beste = gewollt end
     if not beste then return nil end
 
     local Werte, Arten, namen = {}, {}, {}
@@ -516,7 +539,7 @@ local function gruppenChat(text, warnung)
     pcall(senden, text, kanal)
 end
 
-function Erfassung.Ansagen(name, link, art, herkunft)
+function Erfassung.Ansagen(name, link, art, herkunft, kennzeichen)
     if db().ansagen == false then return end
 
     local erlaubt = (herkunft == "wurf")
@@ -526,8 +549,77 @@ function Erfassung.Ansagen(name, link, art, herkunft)
     end
     if not erlaubt then return end
 
-    gruppenChat(string.format(art == "zweit" and L["%s wurde an %s vergeben! (OS)"] or L["%s wurde an %s vergeben!"],
-        link, Kern.Anzeigename(name)), true)
+    -- ⭐ Eine Vergabe, die vom Ergebnis abweicht, wird im Chat gekennzeichnet
+    -- (Regelwerk § 6): bei Main „abweichend vom Ergebnis", bei OS neutral „nach Absprache".
+    local vorlage
+    if kennzeichen == "A" then
+        vorlage = L["%s wurde an %s vergeben! (abweichend vom Ergebnis)"]
+    elseif kennzeichen == "S" then
+        vorlage = L["%s wurde an %s vergeben! (OS nach Absprache)"]
+    elseif art == "zweit" then
+        vorlage = L["%s wurde an %s vergeben! (OS)"]
+    else
+        vorlage = L["%s wurde an %s vergeben!"]
+    end
+    gruppenChat(string.format(vorlage, link, Kern.Anzeigename(name)), true)
+end
+
+--- Die offenen Rueckgaben (Item zurueckgegeben, noch nicht neu vergeben), aelteste zuerst.
+--  @return Liste aus { id, e }
+function Erfassung.OffeneRueckgaben()
+    local liste = {}
+    for id, e in pairs(Erfassung.Historie()) do
+        if e.rueckgabe and not e.zurueck then liste[#liste + 1] = { id = id, e = e } end
+    end
+    table.sort(liste, function(a, b) return (a.e.rueckgabe or 0) < (b.e.rueckgabe or 0) end)
+    return liste
+end
+
+--- Von Hand abschliessen: Das Item wurde anderweitig weitergegeben (zum Beispiel ausserhalb des
+--  Addons), der Punkt des ersten Empfaengers wird abgezogen. Nur wer zuruecknehmen darf.
+--  @return true, Eintrag; oder false und ein Grund
+function Erfassung.RueckgabeAbschliessen(id)
+    local e = Erfassung.Historie()[id]
+    if not e then return false, L["Eintrag nicht gefunden."] end
+    if not e.rueckgabe then return false, L["Dieses Item ist nicht als zurückgegeben vermerkt."] end
+    if e.zurueck then return false, L["Schon zurückgenommen."] end
+    if not Erfassung.DarfZuruecknehmen() then
+        return false, L["Nur Leiter, Assistenten und der Plündermeister dürfen eine Vergabe zurücknehmen."]
+    end
+    e.zurueck = true
+    e.ersetztDurch = "von Hand"
+    if ns.Abgleich then
+        ns.Abgleich.Verteilen(id)
+        ns.Abgleich.HalloSpaeter(2)
+    end
+    return true, e
+end
+
+--- ⭐ Rückgabe (Regelwerk § 1): Ein zurückgegebenes Item zählt weiter, bis es neu
+--  vergeben ist. Dann wird der Punkt des ersten Empfängers abgezogen (`zurueck`),
+--  und der neue Empfänger bekommt ihn. Wird es nie neu vergeben (verloren), behält
+--  der erste Empfänger den Punkt.
+--  @param itemID        Gegenstandsnummer der neuen Vergabe
+--  @param neueKennung   Kennung der neuen Vergabe (wird nicht selbst aufgelöst)
+--  @return Kennung des aufgelösten Eintrags, oder nil
+function Erfassung.RueckgabeAufloesen(itemID, neueKennung)
+    if not itemID then return nil end
+    local V = Erfassung.Historie()
+    local beste, besteZeit
+    for id, e in pairs(V) do
+        if id ~= neueKennung and e.rueckgabe and not e.zurueck and e.itemID == itemID then
+            -- Die aelteste Rueckgabe zuerst (zuerst zurueckgegeben, zuerst ersetzt)
+            if not besteZeit or e.rueckgabe < besteZeit then beste, besteZeit = id, e.rueckgabe end
+        end
+    end
+    if not beste then return nil end
+    V[beste].zurueck = true
+    V[beste].ersetztDurch = neueKennung or "entzaubert"
+    if ns.Abgleich then
+        ns.Abgleich.Verteilen(beste)
+        ns.Abgleich.HalloSpaeter(2)
+    end
+    return beste
 end
 
 --- ⭐ Ein Wurf beginnt (Wurf.lua): eine Zeile in den Gruppen- oder Raidchat, damit auch
@@ -574,6 +666,34 @@ function Erfassung.EntzauberungPruefen(name, link)
     return false
 end
 
+-- Kennzeichen und Anhebung einer Zuteilung aus dem Beutefenster: Dort traegt erst die
+-- Beutemeldung „X erhaelt …" ein, nicht Wurf.lua. Bis dahin merken wir uns, was zur Zuteilung gehoert.
+local Zusaetze = {}   -- { { id, name, zeit, kennzeichen, anhebung, wertung } }
+
+function Erfassung.ZusatzMerken(name, link, zusatz)
+    local id = tonumber(tostring(link):match("item:(%d+)"))
+    if not id or type(zusatz) ~= "table" then return end
+    Zusaetze[#Zusaetze + 1] = {
+        id = id, name = name, zeit = time(),
+        kennzeichen = zusatz.kennzeichen, anhebung = zusatz.anhebung, wertung = zusatz.wertung,
+    }
+end
+
+--- Das gemerkte Zusatzwissen zu dieser Vergabe (wird dabei verbraucht).
+function Erfassung.ZusatzHolen(name, id)
+    local jetzt = time()
+    for i = #Zusaetze, 1, -1 do
+        local z = Zusaetze[i]
+        if (jetzt - z.zeit) > 600 then
+            table.remove(Zusaetze, i)
+        elseif id and z.id == id and Kern.GleicherSpieler(z.name, name) then
+            table.remove(Zusaetze, i)
+            return z
+        end
+    end
+    return nil
+end
+
 --- Traegt eine Vergabe ein.
 --  @param art      "haupt" | "zweit" | nil (dann aus dem gemerkten Wurf)
 --  @param kennung  eigener Schluessel; sonst aus Spieler, Stueck und Zeit
@@ -600,6 +720,12 @@ function Erfassung.Eintragen(name, link, zeit, art, kennung, extra)
 
     art = art or Erfassung.BedarfVon(name)
 
+    -- Kennzeichen und Anhebung aus Wurf.lua (direkt) oder von der Zuteilung im Beutefenster (gemerkt)
+    local zusatz = extra or {}
+    if not (zusatz.kennzeichen or zusatz.anhebung) then
+        zusatz = Erfassung.ZusatzHolen(name, id) or zusatz
+    end
+
     V[kennung] = {
         awardedTo = name,
         itemID    = id,
@@ -613,15 +739,27 @@ function Erfassung.Eintragen(name, link, zeit, art, kennung, extra)
                     or (kennung:find("^blizz:") and "blizzard" or "chat"),
         gruppe    = ns.Gruppen and ns.Gruppen.AktivName() or nil,
         wurf      = extra and extra.wurf or nil,
+        -- „A" = abweichend vom Ergebnis, „S" = OS nach Absprache (Regelwerk § 5/§ 6)
+        kennzeichen = (zusatz.kennzeichen == "A" or zusatz.kennzeichen == "S") and zusatz.kennzeichen or nil,
     }
 
+    -- ⭐ Wurde der Gewinner fuer diesen Wurf angehoben (§ 3), wird die Anhebung jetzt als
+    -- einzelner Satz festgeschrieben und an die Gruppe verteilt (Datenbuch).
+    if zusatz.anhebung and zusatz.anhebung > 0 and ns.Anwesenheit and ns.Anwesenheit.AnhebungBuchen then
+        ns.Anwesenheit.AnhebungBuchen(name, zusatz.anhebung,
+            string.format(L["Anhebung um +%.1f auf %.1f (§ 3)"], zusatz.anhebung, zusatz.wertung or 0))
+    end
+
     if ns.Abgleich then ns.Abgleich.Verteilen(kennung) end
+
+    -- ⭐ War dieses Item zurueckgegeben, wandert der Punkt jetzt zum neuen Empfaenger.
+    Erfassung.RueckgabeAufloesen(id, kennung)
 
     -- Vergeben: die Wurfanzeige dieses Gegenstands endet, auch ohne Beutemeldung
     -- (ein Handel liefert keine).
     Erfassung.RundeBeenden(link)
     if ns.Wurf and ns.Wurf.Vergeben then ns.Wurf.Vergeben(link) end
-    Erfassung.Ansagen(name, link, art, V[kennung].herkunft)
+    Erfassung.Ansagen(name, link, art, V[kennung].herkunft, V[kennung].kennzeichen)
     return true, art, kennung
 end
 
@@ -794,14 +932,13 @@ function Erfassung.Zuruecknehmen(id)
     local e = Erfassung.Historie()[id]
     if not e then return false, L["Eintrag nicht gefunden."] end
     if e.zurueck then return false, L["Schon zurückgenommen."] end
+    if e.rueckgabe then return false, L["Schon zurückgegeben – der Punkt wird abgezogen, sobald das Item neu vergeben ist."] end
     if not Erfassung.DarfZuruecknehmen() then
         return false, L["Nur Leiter, Assistenten und der Plündermeister dürfen eine Vergabe zurücknehmen."]
     end
-    e.zurueck = true
-    if ns.Abgleich then
-        ns.Abgleich.Verteilen(id)
-        ns.Abgleich.HalloSpaeter(2)
-    end
+    -- ⭐ Rückgabe (Regelwerk § 1): Der Punkt bleibt, bis das Item neu vergeben ist
+    -- (`Erfassung.RueckgabeAufloesen`). Ist es verloren, behält der Empfänger ihn.
+    e.rueckgabe = (GetServerTime and GetServerTime()) or time()
     return true, e
 end
 

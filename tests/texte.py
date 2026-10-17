@@ -30,11 +30,11 @@ AUSNAHMEN = {"Tests.lua", "Locale.lua", "Kern.lua"}
 # Zeichenketten, die bewusst nicht uebersetzt werden: Befehlsworte,
 # interne Gruende, Beispieldaten, Entwicklerdiagnose.
 ERLAUBT = {
-    "überall", "löschen", "zurück", " · Forever",
+    "überall", "löschen", "zurück", "wiedereröffnen", " · Forever",
     "kein Bedarfswurf", "kein Schlachtzug", "keine Instanz", "Qualität zu niedrig",
     "unvollständig", "ohne Gegenstand", "schon gewürfelt", "übernehmen",
     "Järgerlie", "Zorn des Verräters", "Fairshare äöü",
-    "keine Seite",
+    "keine Seite", "alle",
     "  %s  |cff8E9A94(%s, %s)|r",
 }
 ERLAUBT_TEIL = ("GetUnitName(player", "Karte %d:", "Zeile %d:")

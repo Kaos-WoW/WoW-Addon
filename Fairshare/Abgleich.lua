@@ -44,7 +44,9 @@ local Kern = ns.Kern
 local PRAEFIX    = "FSHARE"
 -- 2: die Pruefsumme zaehlt „zurueckgenommen" mit (14.10.2026). Staende mit 1
 -- werden nicht verglichen, sonst wuerden sie ewig als „abweichend" gelten.
-local VERSION    = 2
+-- 3: das Datenbuch (Abschluesse, Zuschlaege, Anhebungen) wird mitverteilt (16.10.2026);
+-- Hallo traegt dessen Stand, Eintraege ein Kennzeichen. Staende mit 2 werden nicht verglichen.
+local VERSION    = 3
 local PAKETLAENGE = 215      -- Nutzlast je Nachricht; der Kopf kommt dazu
 local TAKT       = 0.25      -- Sekunden zwischen zwei Nachrichten
 local MAXEINTRAEGE = 600     -- je Abgleich und Spieler
@@ -84,6 +86,17 @@ end
 
 function Abgleich.Stand()
     return Kern.Pruefsumme(hist(), alias())
+end
+
+--- Das Datenbuch (Abende, Zuschlaege, Anhebungen) — siehe Kern.Buch*.
+local function buchDaten()
+    return ns.Anwesenheit and ns.Anwesenheit.Daten and ns.Anwesenheit.Daten() or nil
+end
+
+function Abgleich.BuchStand()
+    local d = buchDaten()
+    if not d then return 0, 0 end
+    return Kern.BuchStand(d)
 end
 
 -- =====================================================================
@@ -271,6 +284,7 @@ function Abgleich.Pruefen()
         return
     end
     local n, summe = Abgleich.Stand()
+    local bn, bsumme = Abgleich.BuchStand()
     local liste = {}
 
     for schluessel, P in pairs(Bekannt) do
@@ -278,7 +292,8 @@ function Abgleich.Pruefen()
         local gilde, unit = ns.Rolle.Absender(P.name)
         if not unit then
             Bekannt[schluessel] = nil
-        elseif P.version == VERSION and gilde and (P.n ~= n or P.summe ~= summe) then
+        elseif P.version == VERSION and gilde
+               and (P.n ~= n or P.summe ~= summe or P.bn ~= bn or P.bsumme ~= bsumme) then
             liste[#liste + 1] = P.name
         end
     end
@@ -328,19 +343,22 @@ end
 --  Hallo
 -- =====================================================================
 
-local hallo = { token = 0, zuletzt = 0, n = nil, summe = nil }
+local hallo = { token = 0, zuletzt = 0, n = nil, summe = nil, bn = nil, bsumme = nil }
 
 local function halloSenden()
     if not kanal() or not ns.Rolle.Aktiv() then return end
     local n, summe = Abgleich.Stand()
+    local bn, bsumme = Abgleich.BuchStand()
 
     -- ⚠️ Nicht unnoetig oft: nur bei Aenderung oder nach einer Weile.
-    if hallo.n == n and hallo.summe == summe and (time() - hallo.zuletzt) < 60 then
+    if hallo.n == n and hallo.summe == summe and hallo.bn == bn and hallo.bsumme == bsumme
+       and (time() - hallo.zuletzt) < 60 then
         return
     end
-    hallo.n, hallo.summe, hallo.zuletzt = n, summe, time()
+    hallo.n, hallo.summe, hallo.bn, hallo.bsumme, hallo.zuletzt = n, summe, bn, bsumme, time()
 
-    einreihen(string.format("H;%d;%d;%.0f", VERSION, n, summe))   -- %.0f: siehe Kern.TageKodieren
+    -- %.0f: siehe Kern.TageKodieren. Nach den Eintraegen folgt der Stand des Datenbuchs.
+    einreihen(string.format("H;%d;%d;%.0f;%d;%.0f", VERSION, n, summe, bn, bsumme))
 end
 
 --- Hallo in ein paar Sekunden — mehrere Ausloeser ergeben eines.
@@ -368,6 +386,19 @@ function Abgleich.Verteilen(id)
         einreihen("L;0;" .. Kern.Kodieren(id, e))
         Abgleich.HalloSpaeter(8)
     end)
+end
+
+--- ⭐ Datenbuch live: geaenderte Saetze (Abschluss eines Abends, Anhebung) sofort an die
+--  Gruppe. Wer nicht dabei war, bekommt sie beim naechsten Abgleich.
+--  @param items  z. B. { "a:2026-10-16@2", "h:h_kaos_123" }
+function Abgleich.BuchVerteilen(items)
+    if not kanal() or not ns.Rolle.Aktiv() or type(items) ~= "table" then return end
+    local d = buchDaten()
+    if not d then return end
+    for _, paket in ipairs(Kern.Pakete(Kern.BuchZeilen(d, items), PAKETLAENGE)) do
+        einreihen("D;0;" .. paket)
+    end
+    if C_Timer then Abgleich.HalloSpaeter(8) end
 end
 
 -- =====================================================================
@@ -429,6 +460,17 @@ function Abgleich.Starten()
         einreihen(string.format("Q;%s;%d;%d;%s", sid, i, #stuecke, st))
     end
 
+    -- Das Datenbuch (Abschluesse, Anhebungen) gleicht in derselben Sitzung ab:
+    -- Y = meine Liste, M = „das fehlt mir", D = die Saetze selbst.
+    local d = buchDaten()
+    if d then
+        local buchStuecke = teilen(table.concat(Kern.BuchListe(d), ","), 190)
+        if #buchStuecke == 0 then buchStuecke = { "" } end
+        for i, st in ipairs(buchStuecke) do
+            einreihen(string.format("Y;%s;%d;%d;%s", sid, i, #buchStuecke, st))
+        end
+    end
+
     print(MELDUNG .. L["Abgleich gestartet – ich warte auf die Antworten der Gruppe."])
     Abgleich.AbschlussMelden()
     return true
@@ -444,12 +486,15 @@ function Abgleich.AbschlussMelden()
     C_Timer.After(25, function()
         if mein ~= abschluss.token then return end
         local z = Zaehler
-        if z.neu + z.doppelt + z.vorhanden + z.abgelehnt == 0 then
+        if z.neu + z.doppelt + z.vorhanden + z.abgelehnt + (z.buch or 0) == 0 then
             print(MELDUNG .. L["Abgleich beendet – es kam nichts Neues an."])
         else
             print(string.format(MELDUNG .. L["Abgleich beendet: |cff55ff55%d neu|r übernommen, %d schon vorhanden, %d als Doppelgänger erkannt%s."],
                 z.neu, z.vorhanden, z.doppelt,
                 z.abgelehnt > 0 and string.format(L[", |cffff5555%d abgelehnt|r"], z.abgelehnt) or ""))
+            if (z.buch or 0) > 0 then
+                print(MELDUNG .. string.format(L["Datenbuch: %d Abschlüsse und Anhebungen übernommen."], z.buch))
+            end
         end
         fensterAktualisieren()
         Abgleich.HalloSpaeter(2)
@@ -536,6 +581,111 @@ local function aufNReagieren(sid, S, text)
     end)
 end
 
+-- ---------------------------------------------------------------------
+--  Datenbuch empfangen und senden
+-- ---------------------------------------------------------------------
+
+local Ausstehend = {}   -- unvollstaendige Abschluesse: Abend@rev -> { kopf, spieler }
+
+--- Zeilen des Datenbuchs pruefen, sammeln und einfuehren.
+--  @return Zahl neu eingefuehrter Saetze
+local function buchEinfuehren(zeilen, S)
+    local d = buchDaten()
+    if not d then return 0 end
+    local neu = 0
+    for _, z in ipairs(zeilen) do
+        local satz = Kern.BuchDekodieren(z, jetzt())
+        if satz then
+            for _, fertig in ipairs(Kern.BuchSammeln(Ausstehend, satz, time())) do
+                if Kern.BuchEinfuehren(d, fertig) == "neu" then neu = neu + 1 end
+                if S then
+                    S.buchGesehen = S.buchGesehen or {}
+                    local t = (fertig.typ == "a") and ("a:" .. fertig.id .. "@" .. fertig.rev) or ("h:" .. fertig.id)
+                    S.buchGesehen[t] = true
+                end
+            end
+        else
+            Zaehler.abgelehnt = Zaehler.abgelehnt + 1
+        end
+    end
+    Zaehler.buch = (Zaehler.buch or 0) + neu
+    return neu
+end
+
+--- Sendet die genannten Saetze (ausser denen, die in dieser Sitzung schon jemand schickte).
+local function buchSenden(sid, items)
+    local d = buchDaten()
+    local S = Sitzungen[sid]
+    if not d or not items then return end
+    local noetig = {}
+    for _, t in ipairs(items) do
+        if not (S and S.buchGesehen and S.buchGesehen[t]) then noetig[#noetig + 1] = t end
+    end
+    for _, paket in ipairs(Kern.Pakete(Kern.BuchZeilen(d, noetig), PAKETLAENGE)) do
+        einreihen("D;" .. sid .. ";" .. paket)
+    end
+end
+
+--- Die Liste des Leiters ist vollstaendig da: vergleichen, anfragen, was fehlt, schicken, was ich habe.
+local function aufYReagieren(sid, S)
+    local d = buchDaten()
+    if not d or not C_Timer then return end
+    local fremd = {}
+    for t in table.concat(S.buchTeile, ","):gmatch("[^,]+") do fremd[#fremd + 1] = t end
+    local fehlt, habe = Kern.BuchVergleichen(Kern.BuchListe(d), fremd)
+    if #fehlt + #habe == 0 then return end
+
+    S.buchGemeldet = S.buchGemeldet or {}
+    S.buchGesehen = S.buchGesehen or {}
+
+    C_Timer.After(0.5 + math.random() * 2.5, function()
+        local noetig = {}
+        for _, t in ipairs(fehlt) do
+            if not S.buchGemeldet[t] then noetig[#noetig + 1] = t end
+        end
+        if #noetig == 0 then return end
+        for _, t in ipairs(noetig) do S.buchGemeldet[t] = true end
+        for _, stueck in ipairs(teilen(table.concat(noetig, ","), 200)) do
+            einreihen("M;" .. sid .. ";" .. stueck)
+        end
+    end)
+
+    C_Timer.After(1.5 + math.random() * 4, function()
+        buchSenden(sid, habe)
+    end)
+end
+
+--- Jemand hat Saetze angefragt: nur der, der den Abgleich begonnen hat, schickt nach.
+local function aufMReagieren(sid, S, text)
+    S.buchGemeldet = S.buchGemeldet or {}
+    S.buchAngefragt = S.buchAngefragt or {}
+    for t in text:gmatch("[^,]+") do
+        S.buchGemeldet[t] = true
+        S.buchAngefragt[#S.buchAngefragt + 1] = t
+    end
+    if not S.eigene or not C_Timer then return end
+
+    S.buchNachToken = (S.buchNachToken or 0) + 1
+    local mein = S.buchNachToken
+    C_Timer.After(3, function()
+        if mein ~= S.buchNachToken then return end
+        local liste = S.buchAngefragt
+        S.buchAngefragt = {}
+        buchSenden(sid, liste)
+    end)
+end
+
+--- Eine Sitzung des Leiters anlegen, falls sie noch nicht da ist (Q und Y koennen in beliebiger Reihenfolge kommen).
+local function sitzungAnlegen(sid, name)
+    local S = Sitzungen[sid]
+    if not S then
+        S = { von = name, zeit = time(), teile = {}, gemeldet = {}, gesehen = {}, erhalten = 0 }
+        Sitzungen[sid] = S
+        Zaehler = { neu = 0, doppelt = 0, vorhanden = 0, abgelehnt = 0 }
+    end
+    return S
+end
+
 --- Eine Addon-Nachricht ist eingetroffen.
 function Abgleich.Empfangen(text, sender, kanalName)
     if type(text) ~= "string" then return end
@@ -558,7 +708,7 @@ function Abgleich.Empfangen(text, sender, kanalName)
     -- koennen; geprueft wird, dass der Absender Pluendermeister, Leiter oder
     -- Assistent der Gruppe ist. Wurf.lua fuehrt Buch, warum etwas abgelehnt wurde
     -- (/fs wurf status).
-    if typ == "S" or typ == "X" then
+    if typ == "S" or typ == "X" or typ == "P" then
         if ns.Wurf then ns.Wurf.Empfangen(typ, rest, sender, unit) end
         return
     end
@@ -569,11 +719,12 @@ function Abgleich.Empfangen(text, sender, kanalName)
     local name = (GetUnitName and GetUnitName(unit, true)) or sender
 
     if typ == "H" then
-        local v, n, summe = rest:match("^(%d+);(%d+);(%d+)")
+        local v, n, summe, bn, bsumme = rest:match("^(%d+);(%d+);(%d+);?(%d*);?(%d*)")
         if not v then return end
         Bekannt[Kern.Schluessel(name)] = {
             name = name, version = tonumber(v), n = tonumber(n),
-            summe = tonumber(summe), zeit = time(), gilde = gilde,
+            summe = tonumber(summe), bn = tonumber(bn) or 0, bsumme = tonumber(bsumme) or 0,
+            zeit = time(), gilde = gilde,
         }
         Abgleich.Pruefen()
         return
@@ -620,6 +771,56 @@ function Abgleich.Empfangen(text, sender, kanalName)
         local S = sid and sitzungHolen(sid)
         if S and tage then aufNReagieren(sid, S, tage) end
 
+    elseif typ == "Y" then
+        -- Die Liste des Datenbuchs vom Leiter (wie Q)
+        if not ns.Rolle.Berechtigt(name) then return end
+        local sid, k, gesamt, stueck = rest:match("^([^;]*);(%d+);(%d+);(.*)$")
+        k, gesamt = tonumber(k), tonumber(gesamt)
+        if not sid or not k or not gesamt or gesamt < 1 or gesamt > 60 or k > gesamt then return end
+
+        local S = sitzungAnlegen(sid, name)
+        S.buchTeile = S.buchTeile or {}
+        S.buchErhalten = S.buchErhalten or 0
+        if not S.buchTeile[k] then
+            S.buchTeile[k] = stueck
+            S.buchErhalten = S.buchErhalten + 1
+            if S.buchErhalten == gesamt then
+                local geordnet = {}
+                for i = 1, gesamt do geordnet[i] = S.buchTeile[i] or "" end
+                S.buchTeile = geordnet
+                aufYReagieren(sid, S)
+                Abgleich.AbschlussMelden()
+            end
+        end
+
+    elseif typ == "M" then
+        local sid, ids = rest:match("^([^;]*);(.*)$")
+        local S = sid and sitzungHolen(sid)
+        if S and ids then aufMReagieren(sid, S, ids) end
+
+    elseif typ == "D" then
+        -- Saetze des Datenbuchs. Sitzung "0" = live vom Leiter/Plündermeister/Gildenleitung,
+        -- sonst Teil eines Abgleichs.
+        local sid, paket = rest:match("^([^;]*);(.*)$")
+        if not sid or not paket then return end
+        local S
+        if sid == "0" then
+            local darf = ns.Rolle.Berechtigt(name)
+                      or (ns.Konfig and ns.Konfig.Darf and ns.Konfig.Darf(name))
+            if not darf then return end
+        else
+            S = sitzungHolen(sid)
+            if not S then return end
+        end
+
+        local zeilen = Kern.Entpacken(paket)
+        if #zeilen > 60 then return end
+        if buchEinfuehren(zeilen, S) > 0 then
+            fensterAktualisieren()
+            Abgleich.HalloSpaeter(8)
+        end
+        if S then Abgleich.AbschlussMelden() end
+
     elseif typ == "E" then
         local sid, paket = rest:match("^([^;]*);(.*)$")
         local S = sid and sitzungHolen(sid)
@@ -643,6 +844,8 @@ function Abgleich.Diagnose()
     local zeilen = {}
     zeilen[#zeilen + 1] = string.format(L["Eigener Stand: %d Einträge, Prüfsumme %s, %d Doppelgänger vermerkt"],
         n, string.format("%.0f", summe), (function() local c = 0 for _ in pairs(alias()) do c = c + 1 end return c end)())
+    local bn, bsumme = Abgleich.BuchStand()
+    zeilen[#zeilen + 1] = string.format(L["Datenbuch: %d Sätze, Prüfsumme %s"], bn, string.format("%.0f", bsumme))
     zeilen[#zeilen + 1] = string.format(L["Kanal: %s"], tostring(kanal() or L["keiner (nicht in einer Gruppe)"]))
 
     local anz = 0
@@ -650,7 +853,7 @@ function Abgleich.Diagnose()
         anz = anz + 1
         zeilen[#zeilen + 1] = string.format(L["  %s: %d Einträge, Prüfsumme %s%s%s"],
             P.name, P.n, string.format("%.0f", P.summe),
-            (P.n == n and P.summe == summe) and (" " .. L["|cff55ff55gleich|r"]) or (" " .. L["|cffffff78weicht ab|r"]),
+            (P.n == n and P.summe == summe and P.bn == bn and P.bsumme == bsumme) and (" " .. L["|cff55ff55gleich|r"]) or (" " .. L["|cffffff78weicht ab|r"]),
             P.gilde and "" or (" " .. L["(nicht in der Gilde)"]))
     end
     zeilen[#zeilen + 1] = string.format(L["Mitspieler mit Addon: %d"], anz)

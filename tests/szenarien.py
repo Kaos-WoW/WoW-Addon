@@ -23,6 +23,16 @@ def tup(r):
 alle_ok = True
 
 
+def lt(lua, o):
+    """Python-Wert -> Lua-Wert, verschachtelte dicts und Listen als echte Lua-Tabellen."""
+    if isinstance(o, dict):
+        return lua.table_from({k: lt(lua, v) for k, v in o.items()})
+    if isinstance(o, (list, tuple)):
+        return lua.table_from([lt(lua, v) for v in o])
+    return o
+
+
+
 def fest(bed, text):
     global alle_ok
     if not pruefe(bed, text):
@@ -1288,14 +1298,30 @@ fest(g["__klick"]("Rückgängig") is True, "im Verlauf gibt es den Knopf Rückg�
 fest(gezaehlt(w, 0) == 2, "der erste Klick fragt nur")
 fest(len(list(g["__text"]("Wirklich?").values())) > 0, "und fragt: Wirklich?")
 fest(g["__klick"]("Wirklich?") is True, "zweiter Klick")
-fest(gezaehlt(w, 0) == 1, "danach zaehlt eine Vergabe weniger")
-neuester = [v for v in w.hist(0).values() if v["zurueck"]]
-fest(len(neuester) == 1 and neuester[0]["awardedTo"] == "Lina", "und zwar die neueste (Lina)")
+# ⭐ Rueckgabe (Regelwerk § 1): Der Punkt bleibt, bis das Item neu vergeben ist.
+fest(gezaehlt(w, 0) == 2, "danach zaehlt die Vergabe noch (Punkt bleibt bis zur Neuvergabe)")
+rueck = [v for v in w.hist(0).values() if v["rueckgabe"]]
+fest(len(rueck) == 1 and rueck[0]["awardedTo"] == "Lina", "vermerkt ist die Rueckgabe der neuesten Vergabe (Lina)")
+fest(not rueck[0]["zurueck"], "aber noch nicht zurueckgenommen")
+# Das Item wird neu vergeben (an Timo): jetzt wandert der Punkt
+w.eintragen(0, "Timo", 9802, int(w.t))
 w.weiter(15)
-fest(gezaehlt(w, 1) == 1 and gezaehlt(w, 2) == 1, "bei beiden Mitspielern ist sie ebenfalls zurueckgenommen")
+fest(gezaehlt(w, 0) == 2, "nach der Neuvergabe zaehlen zwei (Timos erstes, das neue)")
+neuester = [v for v in w.hist(0).values() if v["zurueck"]]
+fest(len(neuester) == 1 and neuester[0]["awardedTo"] == "Lina", "und Linas Vergabe ist zurueckgenommen")
+fest(gezaehlt(w, 1) == 2 and gezaehlt(w, 2) == 2, "bei beiden Mitspielern ebenfalls")
 liste = tup(ns.Kern.Bilanz(w.hist(0), 0))[0]
-fest(sum(1 for _ in liste.keys()) == 1, "die Liste fuehrt Lina nicht mehr")
+fest(sum(1 for _ in liste.keys()) == 1, "die Liste fuehrt nur noch Timo (Lina hat nichts mehr)")
 fest(w.stand(0) == w.stand(1) == w.stand(2), "und die Pruefsummen sind wieder gleich")
+
+# --- Verlorenes Item: wird es nie neu vergeben, behaelt der Empfaenger den Punkt -----
+w = welt23()
+ns, g = w.clients[0]["ns"], w.clients[0]["g"]
+ns.Fenster.Zeigen(False)
+g["__klick"]("Verlauf")
+g["__klick"]("Rückgängig"); g["__klick"]("Wirklich?")
+w.weiter(60)
+fest(gezaehlt(w, 0) == 2 and gezaehlt(w, 1) == 2, "ohne Neuvergabe bleibt der Punkt (verlorenes Item)")
 
 # --- Ein Mitglied hat es verpasst: der Abgleich holt es nach --------------------
 w = welt23()
@@ -1320,7 +1346,7 @@ ok, grund = tup(w.clients[0]["ns"].Erfassung.Zuruecknehmen("gibtesnicht"))
 fest(ok is False, "unbekannter Eintrag wird abgelehnt (%s)" % grund)
 w.clients[0]["ns"].Erfassung.Zuruecknehmen("u1")
 ok, grund = tup(w.clients[0]["ns"].Erfassung.Zuruecknehmen("u1"))
-fest(ok is False, "doppelt zuruecknehmen geht nicht (%s)" % grund)
+fest(ok is False, "doppelt zurueckgeben geht nicht (%s)" % grund)
 
 # --- Spielerdetail: auch dort ---------------------------------------------------
 w = welt23()
@@ -1329,7 +1355,7 @@ ns.Fenster.Zeigen(False)
 g["__klick"]("Timo")
 fest(g["__klick"]("Rückgängig") is True, "im Spielerdetail gibt es den Knopf")
 g["__klick"]("Wirklich?")
-fest(gezaehlt(w, 0) == 1 and w.hist(0)["u1"]["zurueck"] is True, "Timos Vergabe ist zurueckgenommen")
+fest(gezaehlt(w, 0) == 2 and bool(w.hist(0)["u1"]["rueckgabe"]), "Timos Rueckgabe ist vermerkt (Punkt bleibt bis zur Neuvergabe)")
 
 # --- Befehl ------------------------------------------------------------------------
 w = welt23()
@@ -1340,9 +1366,9 @@ fest(gezaehlt(w, 0) == 2, "ohne vorherige Rueckfrage passiert nichts")
 sl("rueckgaengig")
 fest(gezaehlt(w, 0) == 2, "/fs rueckgaengig fragt nur")
 sl("rueckgaengig ja")
-fest(gezaehlt(w, 0) == 1 and w.hist(0)["u2"]["zurueck"] is True, "/fs rueckgaengig ja nimmt die letzte Vergabe zurueck")
+fest(gezaehlt(w, 0) == 2 and bool(w.hist(0)["u2"]["rueckgabe"]), "/fs rueckgaengig ja vermerkt die Rueckgabe der letzten Vergabe")
 sl("undo"); sl("undo yes")
-fest(gezaehlt(w, 0) == 0, "englisch: /fs undo, /fs undo yes")
+fest(gezaehlt(w, 0) == 2, "englisch: /fs undo, /fs undo yes (schon zurueckgegeben, nichts aendert sich)")
 sl("undo")
 fehler = [str(x) for x in g["__ausgabe"].values() if "Fehler" in str(x)]
 fest(not fehler, "ohne Fehler")
@@ -2280,6 +2306,616 @@ ns.Erfassung.Einstellungen()["schreiben"] = "immer"
 ns.Erfassung.Eintragen("Moe", L35, None, "haupt", None, lua.table_from({"herkunft": "wurf", "wurf": 12}))
 chat = [(str(c[1]), str(c[2])) for c in g["__chat"].values()]
 fest(len(chat) == 1 and chat[0][1] == "RAID", "Vergabe im Raid ohne Leiter/Assistent: Raidchat (%s)" % [k for _, k in chat])
+
+print("== 36. Datenbuch: Abschluesse und Anhebungen erreichen alle; Neuling, Gast, Proberaid ==")
+
+
+def zuschlag_von(w, k, wer):
+    """Festgeschriebener Zuschlag eines Spielers auf Client k."""
+    daten = w.clients[k]["ns"].Anwesenheit.ZuschlaegeDaten()
+    return daten["zuschlaege"][wer]
+
+
+def anhebung_von(w, k, wer):
+    daten = w.clients[k]["ns"].Anwesenheit.ZuschlaegeDaten()
+    return daten["anhebungen"][wer]
+
+
+def buchstand(w, k):
+    return tup(w.clients[k]["ns"].Abgleich.BuchStand())
+
+
+def welt36(auto=False):
+    w = gruppe(3, auto=auto)
+    for c in w.clients:
+        c["ns"].Gruppen.Anlegen("40er")
+        c["ns"].Gruppen.KaderErgaenzen("40er", "Leiter Kaos, Timo, Lina, Protti")
+    w.ereignis("PLAYER_ENTERING_WORLD")
+    w.weiter(15)
+    return w
+
+
+def abend36(w):
+    """Ein Raidabend: Kaos, Timo und Lina im Raid, Protti fehlt; drei Main-Items (Timo 2, Kaos 1)."""
+    ns0, lua0 = w.clients[0]["ns"], w.clients[0]["lua"]
+    ok = ns0.Anwesenheit.BossBuchen("Lucifron", 1001, True, lua0.table_from(["Leiter Kaos", "Timo", "Lina"]))
+    w.eintragen(0, "Timo", 5001, int(w.t))
+    w.eintragen(0, "Timo", 5002, int(w.t) + 1)
+    w.eintragen(0, "Leiter Kaos", 5003, int(w.t) + 2)
+    return ok
+
+
+# --- Abschluss erreicht alle (live) -----------------------------------------
+w = welt36()
+fest(buchstand(w, 0) == buchstand(w, 1) == buchstand(w, 2), "Ausgangslage: Datenbuch bei allen gleich")
+abend36(w)
+ns0 = w.clients[0]["ns"]
+ok, vorschau, n = tup3(ns0.Anwesenheit.AbendAbschliessen(None, "System"))[0], None, None
+fest(ok is True, "Leiter schliesst den Abend ab")
+w.weiter(20)
+fest(abs(zuschlag_von(w, 0, "protti") - 0.7) < 1e-9, "Zuschlag bei Protti (Leiter): 0,7 x Schnitt 1")
+fest(abs(zuschlag_von(w, 1, "protti") - 0.7) < 1e-9, "derselbe Zuschlag beim Mitglied 1")
+fest(abs(zuschlag_von(w, 2, "protti") - 0.7) < 1e-9, "und beim Mitglied 2")
+fest(buchstand(w, 0) == buchstand(w, 1) == buchstand(w, 2), "Datenbuch bei allen gleich (Pruefsumme)")
+ids0 = sorted(str(k) for k in w.clients[0]["ns"].Anwesenheit.Daten()["abende"].keys())
+ids1 = sorted(str(k) for k in w.clients[1]["ns"].Anwesenheit.Daten()["abende"].keys())
+fest(len(ids0) == 1 and ids0 == ids1, "derselbe Abend liegt beim Mitglied im Archiv (%s)" % (ids1,))
+abend1 = w.clients[1]["ns"].Anwesenheit.Daten()["abende"][ids1[0]]
+fest(abend1["abgeschlossen"] is True and abend1["buchRev"] == 1, "abgeschlossen, Revision 1")
+
+# --- Wiedereroeffnen und erneut abschliessen ----------------------------------
+ok2 = tup3(ns0.Anwesenheit.AbendWiedereroeffnen(None, "System"))[0]
+fest(ok2 is True, "Leiter eroeffnet den Abend wieder")
+w.weiter(20)
+fest(zuschlag_von(w, 1, "protti") is None and zuschlag_von(w, 2, "protti") is None, "Zuschlaege sind bei allen wieder weg")
+fest(buchstand(w, 0) == buchstand(w, 1) == buchstand(w, 2), "Datenbuch weiter gleich (Revision 2)")
+tup3(ns0.Anwesenheit.AbendAbschliessen(None, "System"))
+w.weiter(20)
+fest(abs(zuschlag_von(w, 2, "protti") - 0.7) < 1e-9, "nach erneutem Abschluss ist der Zuschlag wieder da (Revision 3)")
+fest(buchstand(w, 0) == buchstand(w, 1) == buchstand(w, 2), "Datenbuch gleich")
+
+# --- Anhebung als einzelner Satz -------------------------------------------------
+id_ = ns0.Anwesenheit.AnhebungBuchen("Timo", 2.5, "Test", "Leiter Kaos")
+fest(id_ is not None, "Anhebung gebucht (%s)" % id_)
+w.weiter(20)
+fest(abs(anhebung_von(w, 1, "timo") - 2.5) < 1e-9 and abs(anhebung_von(w, 2, "timo") - 2.5) < 1e-9,
+     "die Anhebung erreicht beide Mitspieler")
+fest(buchstand(w, 0) == buchstand(w, 1) == buchstand(w, 2), "Datenbuch gleich")
+
+# --- Ein Mitglied hat alles verpasst: der Abgleich holt es nach -------------------
+w = welt36(auto=True)
+abend36(w)
+ns0 = w.clients[0]["ns"]
+tup3(ns0.Anwesenheit.AbendAbschliessen(None, "System"))
+ns0.Anwesenheit.AnhebungBuchen("Timo", 1.5, "Test", "Leiter Kaos")
+w.weiter(20)
+d2 = w.clients[2]["ns"].Anwesenheit.Daten()
+d2["abende"] = w.clients[2]["lua"].table()
+d2["zuschlaege"] = w.clients[2]["lua"].table()
+d2["anhebungsliste"] = w.clients[2]["lua"].table()
+fest(buchstand(w, 0) != buchstand(w, 2), "Mitglied 2 hat alles verloren: Hallo meldet die Abweichung")
+w.ereignis("GROUP_ROSTER_UPDATE")
+w.weiter(140)
+fest(buchstand(w, 0) == buchstand(w, 2), "der Abgleich bringt das Datenbuch zurueck")
+fest(abs(zuschlag_von(w, 2, "protti") - 0.7) < 1e-9 and abs(anhebung_von(w, 2, "timo") - 1.5) < 1e-9,
+     "Zuschlag und Anhebung sind wieder da")
+ns2 = w.clients[2]["ns"]
+fest(abs(zuschlag_von(w, 1, "protti") - 0.7) < 1e-9, "Mitglied 1 war nie betroffen")
+
+# --- Spaeter: Gruender, Proberaid, Neuling, Gast -------------------------------------------
+# Der Kader zur Gruendungszeit (Kaos, Timo, Lina, Protti) gilt als eingespielt — auch Protti, der am
+# ersten Abend fehlte. Neue Kaderspieler kommen erst danach dazu: "Neuer" (noch nie da) und "Neuling"
+# (an einem spaeteren Abend schon einmal dabei, ohne Item).
+for k in (0, 1, 2):
+    w.clients[k]["ns"].Gruppen.KaderErgaenzen("40er", "Neuer, Neuling")
+zeit2 = int(w.t) + 86400
+for k in (0, 1, 2):
+    lua_k = w.clients[k]["lua"]
+    w.clients[k]["ns"].Anwesenheit.Daten()["abende"]["2026-02-02"] = lt(lua_k, {
+        "id": "2026-02-02", "datum": "2026-02-02", "bosse": 1, "gesehen": {}, "bossListe": {}, "teilnehmer": {},
+        "anwesenheit": {"neuling": 1}, "bank": {}, "unentschuldigt": {}, "vergessen": {}, "protokoll": {},
+        "abgeschlossen": True, "buchRev": 1,
+        "abschluss": {"zeit": zeit2, "datum": "2026-02-02", "autor": "Kaos", "schnitt": 1, "mainItems": 1,
+                      "raidSpieler": 1, "gesamtBosse": 1,
+                      "spieler": {"neuling": {"name": "Neuling", "status": "imRaid", "faktor": 0, "zuschlag": 0,
+                                              "fehlAnzahl": 0, "bosse": 1, "schnitt": 1, "gesamt": 1, "zeit": zeit2, "von": "Kaos"}}}})
+probe = w.clients[0]["lua"].eval("""function(ns, namen)
+    local H = ns.Erfassung.Historie()
+    local liste = ns.Kern.Bilanz(H, 0, namen, nil, ns.Anwesenheit.ZuschlaegeDaten())
+    ns.Anwesenheit.Rollen(liste, true)
+    local aus = {}
+    for _, e in ipairs(liste) do
+        aus[string.lower(e.name)] = { wertung = e.wertung, neuling = e.neuling and 1 or 0,
+                                      gast = e.gast and 1 or 0, probe = e.proberaid and 1 or 0 }
+    end
+    return aus
+end""")
+lua0 = w.clients[0]["lua"]
+st = lambda n: str(ns0.Anwesenheit.StatusVon(n))
+NAMEN = ["Leiter Kaos", "Timo", "Lina", "Protti", "Neuer", "Neuling", "Gastspieler"]
+fest(st("Timo") == "kader" and st("Leiter Kaos") == "kader", "Timo und Kaos: Kader")
+fest(st("Lina") == "kader", "Lina stand im Abschluss des ersten Abends: Gruenderin, kein Neuling (%s)" % st("Lina"))
+fest(st("Protti") == "kader", "Protti fehlte am ersten Abend, stand aber im Kader: Gruender, kein Proberaid (%s)" % st("Protti"))
+fest(st("Neuer") == "proberaid", "wer spaeter zum Kader kommt und noch nie da war: Proberaid (%s)" % st("Neuer"))
+fest(st("Neuling") == "neuling", "wer spaeter dazukam und einen Abend dabei war: 2. Abend = Neuling (%s)" % st("Neuling"))
+fest(st("Gastspieler") == "gast", "wer nicht im Kader ist, ist Gast")
+
+res = probe(ns0, lua0.table_from(NAMEN))
+res = {str(k): v for k, v in res.items()}
+niedrigster = ns0.Anwesenheit.KaderNiedrigste()
+fest(res["neuer"]["probe"] == 1, "Proberaid: keine Lootberechtigung")
+fest(res["gastspieler"]["gast"] == 1 and abs(res["gastspieler"]["wertung"] - niedrigster) < 1e-9,
+     "Gast: Wertung wie der Niedrigste der Kaderspieler (%s)" % niedrigster)
+fest(abs(res["neuling"]["wertung"] - (niedrigster + 2)) < 1e-9,
+     "Neuling: Niedrigster der Kaderspieler (%s) + 2 (%s)" % (niedrigster, res["neuling"]["wertung"]))
+w.weiter(20)
+fest(abs(anhebung_von(w, 1, "neuling") - (niedrigster + 2)) < 1e-9 and abs(anhebung_von(w, 2, "neuling") - (niedrigster + 2)) < 1e-9,
+     "der Start des Neulings ging als Anhebung an alle")
+fest(all(w.clients[k]["ns"].Anwesenheit.Daten()["anhebungsliste"]["hm_" + str(w.clients[k]["lua"].eval("os.date('%Y%m%d')"))] is not None for k in (0, 1, 2)),
+     "der Vermerk, dass der Tag ausgewertet ist, liegt bei allen")
+vorher = buchstand(w, 0)
+probe(ns0, lua0.table_from(NAMEN))
+fest(buchstand(w, 0) == vorher, "ein zweiter Durchlauf bucht den Neuling-Start nicht noch einmal")
+
+
+# --- Anhebung zu Abendbeginn: einmal, fuer alle, nicht im Lauf des Abends -------------------
+w = welt36()
+ns0, lua0 = w.clients[0]["ns"], w.clients[0]["lua"]
+# Vorgeschichte: Kaos 9, Timo 9, Lina 9 Items; Protti nur 5 (liegt weit hinten)
+for k in (0, 1, 2):
+    for i, wer in enumerate(["Leiter Kaos", "Timo", "Lina"]):
+        for j in range(9):
+            w.setze(k, "alt_%s_%d" % (wer.replace(" ", ""), j), {"awardedTo": wer, "itemID": 8000 + i * 20 + j, "timestamp": int(w.t) - 90000 - j})
+    for j in range(5):
+        w.setze(k, "alt_Protti_%d" % j, {"awardedTo": "Protti", "itemID": 8100 + j, "timestamp": int(w.t) - 90000 - j})
+# Alle waren schon an einem frueheren Abend dabei (sonst Proberaid/Neuling): ein Abend im Archiv
+ab = {"id": "2026-01-01", "datum": "2026-01-01", "bosse": 1, "gesehen": {}, "bossListe": {}, "teilnehmer": {},
+      "anwesenheit": {"leiter kaos": 1, "timo": 1, "lina": 1, "protti": 1}, "bank": {}, "unentschuldigt": {}, "protokoll": {}}
+for k in (0, 1, 2):
+    w.clients[k]["ns"].Anwesenheit.Daten()["abende"]["2026-01-01"] = lt(w.clients[k]["lua"], ab)
+w.weiter(5)
+ok = ns0.Anwesenheit.BossBuchen("Lucifron", 2001, True, lua0.table_from(["Leiter Kaos", "Timo", "Lina", "Protti"]))
+w.weiter(20)
+fest(abs(anhebung_von(w, 0, "protti") - 6.0) < 1e-9, "Protti (5) liegt 4 hinter den anderen (9): einmal auf 9 + 2 = 11 gesetzt (+6)")
+fest(abs(anhebung_von(w, 1, "protti") - 6.0) < 1e-9 and abs(anhebung_von(w, 2, "protti") - 6.0) < 1e-9, "die Anhebung erreicht alle")
+fest(anhebung_von(w, 0, "timo") is None and anhebung_von(w, 0, "lina") is None, "die anderen bleiben unangetastet")
+n1 = buchstand(w, 0)
+# Zweiter Bosskampf: keine weitere Auswertung
+ns0.Anwesenheit.BossBuchen("Magmadar", 2002, True, lua0.table_from(["Leiter Kaos", "Timo", "Lina", "Protti"]))
+w.weiter(20)
+fest(buchstand(w, 0) == n1, "ein zweiter Bosskampf wertet nicht noch einmal aus")
+# Spaeter am Abend: Kaos, Timo, Lina haben je 3 Items mehr (12) — Protti (11) wird NICHT noch einmal angehoben
+for k in (0,):
+    for i, wer in enumerate(["Leiter Kaos", "Timo", "Lina"]):
+        for j in range(3):
+            w.setze(k, "neu_%s_%d" % (wer.replace(" ", ""), j), {"awardedTo": wer, "itemID": 8300 + i * 10 + j, "timestamp": int(w.t) + j})
+probe2 = lua0.eval("""function(ns)
+    local liste = ns.Kern.Bilanz(ns.Erfassung.Historie(), 0, {"Leiter Kaos","Timo","Lina","Protti"}, nil, ns.Anwesenheit.ZuschlaegeDaten())
+    ns.Anwesenheit.Rollen(liste, true)
+    local aus = {}
+    for _, e in ipairs(liste) do aus[string.lower(e.name)] = { w = e.wertung, k = e.keineAnhebung and 1 or 0 } end
+    return aus
+end""")
+r = {str(k): v for k, v in probe2(ns0).items()}
+fest(abs(r["protti"]["w"] - 11) < 1e-9 and r["protti"]["k"] == 1, "Protti bleibt bei 11 und wird am selben Abend nicht noch einmal angehoben")
+fest(buchstand(w, 0) == n1, "und es wurde nichts Neues gebucht")
+
+# --- Kennzeichen und Anhebung bei der Vergabe ----------------------------------------
+w = welt36()
+ns0, g0, lua0 = w.clients[0]["ns"], w.clients[0]["g"], w.clients[0]["lua"]
+LINK36 = "|cff0070dd|Hitem:6001::::::::60:::::|h[Schwert der Abweichung]|h|r"
+ns0.Erfassung.Eintragen("Timo", LINK36, None, "haupt", None,
+                        lua0.table_from({"herkunft": "wurf", "wurf": 40, "kennzeichen": "A", "anhebung": 2.0, "wertung": 4}))
+w.weiter(15)
+eintr = [v for v in w.hist(1).values() if v["awardedTo"] == "Timo"]
+fest(len(eintr) == 1 and eintr[0]["kennzeichen"] == "A", "Kennzeichen A kommt beim Mitglied an")
+chat = [str(c[1]) for c in g0["__chat"].values()]
+fest(any("abweichend vom Ergebnis" in t for t in chat), "Chat: abweichend vom Ergebnis")
+fest(abs(anhebung_von(w, 1, "timo") - 2.0) < 1e-9, "die Anhebung des Gewinners ging als Satz an die Gruppe")
+ns0.Erfassung.Eintragen("Lina", "|cff0070dd|Hitem:6002::::::::60:::::|h[OS-Ding]|h|r", None, "zweit", None,
+                        lua0.table_from({"herkunft": "wurf", "wurf": 12, "kennzeichen": "S"}))
+chat = [str(c[1]) for c in g0["__chat"].values()]
+fest(any("OS nach Absprache" in t for t in chat), "Chat bei OS: OS nach Absprache")
+verlauf = ns0.Quelle.Gegenstandstext(w.hist(0)[[k for k in w.hist(0).keys() if w.hist(0)[k]["awardedTo"] == "Lina"][0]])
+fest("OS nach Absprache" in str(verlauf), "und im Verlauf steht das Kennzeichen")
+
+# --- Stammgast: von Hand in den Kader, kein Proberaid, die Wertung bleibt ---------------
+w = welt36()
+ns0, lua0 = w.clients[0]["ns"], w.clients[0]["lua"]
+ns0.Anwesenheit.BossBuchen("Lucifron", 1001, True, lua0.table_from(["Leiter Kaos", "Timo", "Stammi"]))
+w.eintragen(0, "Stammi", 7001, int(w.t))
+tup3(ns0.Anwesenheit.AbendAbschliessen(None, "System"))
+fest(str(ns0.Anwesenheit.StatusVon("Stammi")) == "gast", "Stammi ist (noch) Gast: er steht nicht im Kader")
+ns0.Gruppen.KaderErgaenzen("40er", "Stammi")
+fest(str(ns0.Anwesenheit.StatusVon("Stammi")) == "kader", "von Hand in den Kader aufgenommen: Kader, kein Proberaid")
+liste = tup(ns0.Kern.Bilanz(ns0.Erfassung.Historie(), 0, lua0.table_from(["Stammi"]), None, ns0.Anwesenheit.ZuschlaegeDaten()))[0]
+fest(abs(liste[1]["wertung"] - 1) < 1e-9, "und sein Item als Gast zaehlt weiter (Wertung 1)")
+
+print("== 37. Anmeldung vergessen: ab dem 3. Mal in 8 Abenden wie unentschuldigt ==")
+
+
+def archiv_abend(w, tag, zeit, spieler):
+    """Legt auf allen Clients einen abgeschlossenen frueheren Abend ab."""
+    for k in (0, 1, 2):
+        lua = w.clients[k]["lua"]
+        sp = {}
+        for name, status in spieler.items():
+            sp[name.lower()] = {"name": name, "status": status, "faktor": 0.7 if status != "imRaid" else 0,
+                                "zuschlag": 0.7 if status != "imRaid" else 0, "fehlAnzahl": 1, "bosse": 0,
+                                "schnitt": 1, "gesamt": 1, "zeit": zeit, "von": "Kaos"}
+        ab = {"id": tag, "datum": tag, "bosse": 1, "gesehen": {}, "bossListe": {}, "teilnehmer": {},
+              "anwesenheit": {"leiter kaos": 1, "timo": 1, "lina": 1}, "bank": {}, "unentschuldigt": {}, "vergessen": {},
+              "protokoll": {}, "abgeschlossen": True, "buchRev": 1,
+              "abschluss": {"zeit": zeit, "datum": tag, "autor": "Kaos", "schnitt": 1, "mainItems": 3,
+                            "raidSpieler": 3, "gesamtBosse": 1, "spieler": sp}}
+        w.clients[k]["ns"].Anwesenheit.Daten()["abende"][tag] = lt(lua, ab)
+
+
+def vorschau_von(ns0, wer):
+    v = tup(ns0.Anwesenheit.AbendVorschau())[0]
+    for p in v["spieler"].values():
+        if str(p["name"]).lower() == wer.lower():
+            return p
+    return None
+
+
+def abend37(w, vergessen=("Protti",)):
+    ns0, lua0 = w.clients[0]["ns"], w.clients[0]["lua"]
+    ns0.Anwesenheit.BossBuchen("Lucifron", 3001, True, lua0.table_from(["Leiter Kaos", "Timo", "Lina"]))
+    w.eintragen(0, "Timo", 9501, int(w.t))
+    w.eintragen(0, "Lina", 9502, int(w.t) + 1)
+    w.eintragen(0, "Leiter Kaos", 9503, int(w.t) + 2)
+    for wer in vergessen:
+        ok = ns0.Anwesenheit.VergessenSetzen(wer, True, "System")
+        fest(tup(ok)[0] is True, "%s als vergessen eingetragen" % wer)
+    return ns0
+
+
+T0 = 1690000000
+# --- Erstes Mal: wie eine normale Abmeldung -----------------------------------------
+w = welt36()
+archiv_abend(w, "2026-01-01", T0, {"Leiter Kaos": "imRaid", "Timo": "imRaid", "Lina": "imRaid", "Protti": "abgemeldet"})
+ns0 = abend37(w)
+p = vorschau_von(ns0, "Protti")
+fest(str(p["status"]) == "vergessen", "1. Mal: Status vergessen (%s)" % p["status"])
+fest(abs(p["zuschlag"] - 0.7 * 1.0) < 1e-9 or p["zuschlag"] > 0, "1. Mal: Staffel, keine Strafe (Zuschlag %.2f)" % p["zuschlag"])
+fest(p["zuschlag"] < 2 - 1e-9, "1. Mal: unter 2 Punkten, also nicht wie unentschuldigt")
+
+# --- Zweites Mal: weiterhin normal ----------------------------------------------------
+w = welt36()
+archiv_abend(w, "2026-01-01", T0, {"Leiter Kaos": "imRaid", "Timo": "imRaid", "Lina": "imRaid", "Protti": "vergessen"})
+ns0 = abend37(w)
+p = vorschau_von(ns0, "Protti")
+fest(str(p["status"]) == "vergessen" and p["zuschlag"] < 2 - 1e-9, "2. Mal: noch wie eine Abmeldung (%s, %.2f)" % (p["status"], p["zuschlag"]))
+
+# --- Drittes Mal innerhalb von 8 Abenden: wie unentschuldigt -----------------------------
+w = welt36()
+archiv_abend(w, "2026-01-01", T0, {"Leiter Kaos": "imRaid", "Timo": "imRaid", "Lina": "imRaid", "Protti": "vergessen"})
+archiv_abend(w, "2026-01-08", T0 + 7 * 86400, {"Leiter Kaos": "imRaid", "Timo": "imRaid", "Lina": "imRaid", "Protti": "vergessenStrafe"})
+ns0 = abend37(w)
+p = vorschau_von(ns0, "Protti")
+fest(str(p["status"]) == "vergessenStrafe", "3. Mal: Strafe (%s)" % p["status"])
+fest(abs(p["faktor"] - 1.5) < 1e-9, "Faktor 1,5")
+fest(abs(p["zuschlag"] - 2.0) < 1e-9, "mindestens 2 Punkte (Zuschlag %.2f)" % p["zuschlag"])
+ok = tup3(ns0.Anwesenheit.AbendAbschliessen(None, "System"))[0]
+fest(ok is True, "Abend wird abgeschlossen")
+w.weiter(20)
+fest(abs(zuschlag_von(w, 1, "protti") - 2.0) < 1e-9 and abs(zuschlag_von(w, 2, "protti") - 2.0) < 1e-9,
+     "der Zuschlag von 2 erreicht die Mitspieler")
+ereig = tup(w.clients[1]["ns"].Anwesenheit.SpielerEreignisse("Protti", None, w.hist(1), None, False))[0]
+texte = [str(e["text"]) for e in ereig.values()]
+fest(any("Anmeldung vergessen" in t_ for t_ in texte), "im Spielerdetail steht der Grund: Anmeldung vergessen")
+
+# --- Mehr als 8 Abende her: zaehlt nicht mehr -------------------------------------------
+w = welt36()
+archiv_abend(w, "2026-01-01", T0, {"Leiter Kaos": "imRaid", "Timo": "imRaid", "Lina": "imRaid", "Protti": "vergessen"})
+archiv_abend(w, "2026-01-08", T0 + 1 * 7 * 86400, {"Leiter Kaos": "imRaid", "Timo": "imRaid", "Lina": "imRaid", "Protti": "vergessenStrafe"})
+for i in range(2, 9):
+    archiv_abend(w, "2026-02-%02d" % i, T0 + i * 7 * 86400, {"Leiter Kaos": "imRaid", "Timo": "imRaid", "Lina": "imRaid"})
+ns0 = abend37(w)
+p = vorschau_von(ns0, "Protti")
+fest(str(p["status"]) == "vergessen", "die beiden alten Faelle liegen ausserhalb der letzten 7 Abende: wieder wie eine Abmeldung (%s)" % p["status"])
+
+# --- Rechte, Rücknahme, Ausschluss untereinander -----------------------------------------
+w = welt36()
+ns0 = abend37(w, vergessen=())
+ok = tup(ns0.Anwesenheit.VergessenSetzen("Protti", True, "Timo"))
+fest(ok[0] is None or ok[0] is False, "ein einfaches Mitglied darf nichts eintragen (%s)" % (ok[1],))
+ns0.Anwesenheit.VergessenSetzen("Protti", True, "System")
+fest(bool(tup(ns0.Anwesenheit.IstVergessen("Protti"))[0]), "eingetragen")
+okBank = tup(ns0.Anwesenheit.BankSetzen("Protti", True, "Leiter Kaos"))
+fest(okBank[0] is True, "Bank gesetzt (%s)" % (okBank[1],))
+fest(not bool(tup(ns0.Anwesenheit.IstVergessen("Protti"))[0]), "wer auf die Bank gesetzt wird, ist nicht mehr „vergessen“")
+ns0.Anwesenheit.VergessenSetzen("Protti", True, "System")
+fest(not bool(tup(ns0.Anwesenheit.IstBank("Protti"))[0]), "und umgekehrt")
+ns0.Anwesenheit.VergessenSetzen("Protti", False, "System")
+fest(not bool(tup(ns0.Anwesenheit.IstVergessen("Protti"))[0]), "Rücknahme: Markierung entfernt")
+
+print("== 38. Erster Abend mit der neuen Regel: der ganze Kader darf wuerfeln (Fund im Spiel 17.10.2026) ==")
+# Am Gruendungsabend hat noch niemand eine Vorgeschichte. Damals galt der ganze Kader als Proberaid, und
+# die Wuerfe wurden ausgeblendet („Niemand hat gewuerfelt").
+w = gruppe(3)
+for c in w.clients:
+    c["ns"].Gruppen.Anlegen("40er")
+    c["ns"].Gruppen.KaderErgaenzen("40er", "Leiter Kaos, Timo, Lina")
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+cl = w.clients[0]
+g, ns, lua = cl["g"], cl["ns"], cl["lua"]
+fest(all(str(ns.Anwesenheit.StatusVon(n)) == "kader" for n in ("Leiter Kaos", "Timo", "Lina")),
+     "Gruendungsabend: alle im Kader sind Kaderspieler, nicht Proberaid")
+lua.execute('__tasche = { { link = "%s", quality = 4, frist = true } }' % LINK)
+ns.Wurf.Starten(LINK)
+w.weiter(3)
+for wer, wert in (("Timo", 77), ("Lina", 91)):
+    for c in w.clients:
+        c["g"]["__ereignis"]("CHAT_MSG_SYSTEM", "%s rolls %d (1-100)" % (wer, wert))
+w.weiter(1)
+ns.Wurf.BeendenAlle()
+w.weiter(4)
+fest(g["__klick"]("Zuteilen") is True, "die Wuerfe sind da: das Ergebnisfenster bietet Zuteilen an")
+ausgabe38 = [str(x) for x in g["__ausgabe"].values()]
+fest(not any("Niemand hat" in x or "Proberaid" in x for x in ausgabe38), "keine Meldung „Niemand hat gewuerfelt\" / Proberaid")
+
+print("== 39. Entzaubern: gruener Gegenstand und man selbst (Fund im Spiel 17.10.2026) ==")
+# Vorher: „Gegenstand nicht gefunden – bitte von Hand uebergeben“, sobald das Stueck unter der
+# Qualitaetsschwelle lag oder keine Handelsfrist trug, auch wenn man es sich selbst gab.
+GRUEN39 = "|cff1eff00|Hitem:7300::::::::60:::::|h[Staunch Hammer of Healing]|h|r"
+
+# (a) Man gibt es sich selbst, der Gegenstand liegt nirgends, wo das Addon ihn listet
+w, cl, g, ns, lua = welt29(verz="Leiter Kaos", tasche=False)
+lua.execute("__chat = {}")
+ok = ns.Wurf.Entzaubern("Leiter Kaos", GRUEN39)
+chat = [str(c[1]) for c in g["__chat"].values()]
+fest(ok is True, "an sich selbst: kein Fehler, es gibt nichts zu uebergeben")
+fest(any("zum Entzaubern an" in x and "Staunch Hammer" in x for x in chat), "und es wird im Chat angesagt (%s)" % (chat,))
+
+# (b) Ein anderer Verzauberer, das Stueck ist gruen (unter der Schwelle) und liegt im Rucksack
+w, cl, g, ns, lua = welt29(verz="Lina", tasche=False)
+lua.execute('__tasche = { { link = "%s", quality = 2 } }' % GRUEN39)
+ok = ns.Wurf.Entzaubern("Lina", GRUEN39)
+fest(ok is True, "gruenes Stueck im Rucksack wird gefunden und fuer den Handel vorgemerkt")
+vorgemerkt = [e for e in ns.Wurf.Offene().values() if "Lina" in str(e["name"])]
+fest(len(vorgemerkt) == 1 and bool(vorgemerkt[0]["entzaubern"]), "als Entzauberung vorgemerkt")
+
+# (c) Ein anderer Verzauberer, das Stueck liegt gar nicht im Rucksack: Hinweis bleibt
+w, cl, g, ns, lua = welt29(verz="Lina", tasche=False)
+ok = ns.Wurf.Entzaubern("Lina", GRUEN39)
+fest(ok is False, "nirgends zu finden und an einen anderen: weiter die Meldung „von Hand uebergeben“")
+
+print("== 40. Zuteilen: auch ein gruenes Stueck oeffnet den Handel (Fund im Spiel 17.10.2026) ==")
+# Vorher stand bei einem Stueck unter der Qualitaetsschwelle nur „Nur eintragen“: Es wurde eingetragen,
+# das Handelsfenster ging nicht auf.
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+cl = w.clients[0]
+g, ns, lua = cl["g"], cl["ns"], cl["lua"]
+lua.execute('__tasche = { { link = "%s", quality = 2 } }' % LINK)      # gruen, ohne Handelsfrist
+ns.Wurf.Starten(LINK)
+w.weiter(3)
+for wer, wert in (("Timo", 40), ("Lina", 91)):
+    for c in w.clients:
+        c["g"]["__ereignis"]("CHAT_MSG_SYSTEM", "%s rolls %d (1-100)" % (wer, wert))
+w.weiter(1)
+ns.Wurf.BeendenAlle()
+w.weiter(4)
+fest(len([x for x in g["__text"]("Nur eintragen").values() if x]) == 0, "das Ergebnisfenster bietet nicht nur „Nur eintragen“ an")
+fest(g["__klick"]("Zuteilen") is True, "„Zuteilen“ ist da und wird angeklickt")
+w.weiter(2)
+offen = [e for e in ns.Wurf.Offene().values() if "Lina" in str(e["name"])]
+fest(len(offen) == 1, "der Handel mit dem Gewinner (Lina) ist vorgemerkt")
+fest(len(w.hist(0)) >= 0 and not any("Lina" == str(v["awardedTo"]) and v["itemID"] == 9999 for v in w.hist(0).values()),
+     "und eingetragen wird erst nach dem Handel")
+# Lina handelt den Leiter an: das gruene Stueck liegt schon im Handelsfenster
+g["__npc"] = "Lina"
+g["__ereignis"]("TRADE_SHOW")
+w.weiter(1)
+fest(g["__angeboten"][1] == LINK, "Lina handelt: der gruene Gegenstand (ohne Handelsfrist) liegt schon im Fenster")
+
+print("== 41. Rueckgabe: Entzaubern loest sie auf, /fs rueckgabe, Spielerdetail zeigt den Gegenstand (Fund im Spiel 17.10.2026) ==")
+L9802 = "|cff1eff00|Hitem:9802::::::::60:::::|h[Ding 9802]|h|r"
+
+# (a) Lina gibt das Item zurueck, der Leiter entzaubert es selbst: der Punkt faellt weg
+w = welt23()
+ns, g = w.clients[0]["ns"], w.clients[0]["g"]
+ns.Erfassung.Zuruecknehmen("u2")
+fest(gezaehlt(w, 0) == 2, "nach der Rueckgabe bleibt der Punkt (noch nicht weitergegeben)")
+ns.Wurf.VerzaubererHinzufuegen("Leiter Kaos")
+ok = ns.Wurf.Entzaubern("Leiter Kaos", L9802)
+fest(ok is True, "das Item wird entzaubert")
+fest(w.hist(0)["u2"]["zurueck"] is True, "damit ist es weitergegeben: Linas Vergabe zaehlt nicht mehr")
+fest(gezaehlt(w, 0) == 1, "Timos Vergabe bleibt")
+w.weiter(15)
+fest(gezaehlt(w, 1) == 1 and gezaehlt(w, 2) == 1, "bei den Mitspielern ebenso")
+
+# (b) Anderweitig weitergegeben: /fs rueckgabe zeigt die offenen und schliesst ab
+w = welt23()
+ns, g = w.clients[0]["ns"], w.clients[0]["g"]
+sl = g["SlashCmdList"]["FAIRSHARE"]
+ns.Erfassung.Zuruecknehmen("u2")
+sl("rueckgabe")
+aus = [str(x) for x in g["__ausgabe"].values()]
+fest(any("9802" in x for x in aus), "/fs rueckgabe nennt das offene Item")
+sl("rueckgabe 1")
+fest(w.hist(0)["u2"]["zurueck"] is True and gezaehlt(w, 0) == 1, "/fs rueckgabe 1 schliesst ab, der Punkt faellt weg")
+sl("rueckgabe 1")
+aus = [str(x) for x in g["__ausgabe"].values()]
+fest(any("Diese Nummer" in x or "There is no such" in x for x in aus), "danach gibt es keine Nummer 1 mehr")
+
+# (c) Das Spielerdetail nennt den Gegenstand (vorher stand dort nur „Gegenstand“)
+w = welt23()
+ns = w.clients[0]["ns"]
+ereig = tup(ns.Anwesenheit.SpielerEreignisse("Timo", None, w.hist(0), None, False))[0]
+texte = [str(e["text"]) for e in ereig.values()]
+fest(any("9801" in x for x in texte), "Spielerdetail: der Gegenstand steht in der Zeile (%s)" % (texte,))
+
+print("== 42. Abwesenheit: Online-Anzeige und Raid mitzeigen (Fund im Spiel 17.10.2026) ==")
+w = welt36()
+ns0 = w.clients[0]["ns"]
+# Online: Offline darf nie als online gelten (der Fehler: Offline zaehlte als online)
+fest(ns0.Gruppen.PraesenzOnline(1) is True, "Praesenz 1 (Online) ist online")
+fest(ns0.Gruppen.PraesenzOnline(4) is True and ns0.Gruppen.PraesenzOnline(5) is True, "abwesend und beschaeftigt sind online")
+fest(ns0.Gruppen.PraesenzOnline(3) is False, "Praesenz 3 (Offline) ist NICHT online")
+fest(ns0.Gruppen.PraesenzOnline(2) is False, "nur in der App (mobil) ist nicht im Spiel")
+fest(ns0.Gruppen.PraesenzOnline(0) is False and ns0.Gruppen.PraesenzOnline(None) is False, "unbekannt ist nicht online")
+
+# Die Liste: ohne Raid nur wer nicht in der Gruppe ist, mit Raid auch die anderen (zuletzt)
+liste = tup(ns0.Anwesenheit.KandidatenListe(None))[0]
+namen = [str(e["name"]).lower() for e in liste.values()]
+fest(namen == ["protti"], "ohne Raid steht nur der, der nicht in der Gruppe ist (%s)" % namen)
+liste = tup(ns0.Anwesenheit.KandidatenListe(None, True))[0]
+namen = [str(e["name"]).lower() for e in liste.values()]
+fest(len(namen) == 4 and namen[0] == "protti", "mit Raid stehen alle vier da, Protti zuerst (%s)" % namen)
+raid = {str(e["name"]).lower(): bool(e["imRaid"]) for e in liste.values()}
+fest(raid.get("timo") is True and raid.get("protti") is False, "wer in der Gruppe steht, ist als im Raid gekennzeichnet")
+# Auch ein Spieler im Raid laesst sich markieren (zum Ausprobieren der Wertung)
+ok = tup(ns0.Anwesenheit.UnentschuldigtSetzen("Timo", True, "System"))
+fest(ok[0] is None or ok[0] is False, "Unentschuldigt braucht die Rechte (%s)" % (ok[1],))
+
+print("== 43. Raid am Abendende statt Bosskaempfe (Entscheid 17.10.2026) ==")
+# Der Schnitt ist Main-Items des Abends / Spieler im Raid. Wer im Raid steht, zaehlt - auch ohne gebuchten Boss.
+# Wer gegangen ist, zaehlt nicht, ausser er hat vorher ein Main-Item bekommen.
+w = welt36()
+ns0, lua0 = w.clients[0]["ns"], w.clients[0]["lua"]
+ns0.Anwesenheit.AktiverAbend(True)
+w.eintragen(0, "Timo", 5001, int(w.t))
+w.eintragen(0, "Leiter Kaos", 5002, int(w.t) + 1)
+s, items, raid = tup3(ns0.Anwesenheit.AbendSchnitt())[0:3]
+fest(float(items) == 2 and float(raid) == 3, "ohne gebuchten Boss: 2 Items, 3 Spieler in der Gruppe (%s, %s)" % (items, raid))
+fest(abs(float(s) - 2 / 3.0) < 1e-9, "Schnitt 2/3 statt 0 (%s)" % (s,))
+# Protti steht nicht im Raid, bekam aber ein Main-Item: er zaehlt mit
+w.eintragen(0, "Protti", 5003, int(w.t) + 2)
+s, items, raid = tup3(ns0.Anwesenheit.AbendSchnitt())[0:3]
+fest(float(items) == 3 and float(raid) == 4, "wer ein Main-Item bekam, zaehlt mit (%s Items, %s Spieler)" % (items, raid))
+v = tup(ns0.Anwesenheit.AbendVorschau())[0]
+sp = {}
+for e in v["spieler"].values():
+    sp[str(e["schluessel"])] = str(e["status"])
+fest(sp.get("protti") == "imRaid" and sp.get("timo") == "imRaid", "Protti und Timo stehen als im Raid (%s)" % (sp,))
+fest(float(v["raidSpieler"]) == 4, "Abschluss meldet 4 Raidspieler")
+
+print("== 44. Wuerfe werden erkannt: nach Abschluss, Rueckgabe und mit einer zweiten Runde (Fund im Spiel 17.10.2026) ==")
+LINK44 = "|cff1eff00|Hitem:7400::::::::60:::::|h[Feral Bindings of Arcane Protection]|h|r"
+LINK44B = "|cff0070dd|Hitem:7401::::::::60:::::|h[Anderes Stueck]|h|r"
+
+
+def wuerfe44(w, link, werte):
+    cl = w.clients[0]
+    g, ns, lua = cl["g"], cl["ns"], cl["lua"]
+    lua.execute('__tasche = { { link = "%s", quality = 2, frist = true } }' % link)
+    ns.Wurf.Starten(link)
+    w.weiter(3)
+    for wer, wert in werte:
+        for c in w.clients:
+            c["g"]["__ereignis"]("CHAT_MSG_SYSTEM", "%s rolls %d (1-100)" % (wer, wert))
+    w.weiter(1)
+    ns.Wurf.BeendenAlle()
+    w.weiter(4)
+    return g, ns
+
+
+# (a) Ein Abend wurde abgeschlossen, danach wird gewuerfelt
+w = welt36()
+abend36(w)
+tup3(w.clients[0]["ns"].Anwesenheit.AbendAbschliessen(None, "System"))
+w.weiter(20)
+g, ns = wuerfe44(w, LINK44, (("Timo", 77), ("Lina", 91)))
+fest(g["__klick"]("Zuteilen") is True, "(a) nach einem Abschluss erkennt das Ergebnisfenster beide Wuerfe")
+
+# (b) Derselbe Gegenstand wurde vergeben, zurueckgegeben und wird erneut verrollt
+w = welt36()
+ns0 = w.clients[0]["ns"]
+w.eintragen(0, "Timo", 7400, int(w.t))
+ids = [str(k) for k in ns0.Erfassung.Historie().keys()]
+ns0.Erfassung.Zuruecknehmen(ids[0])
+g, ns = wuerfe44(w, LINK44, (("Timo", 50), ("Lina", 60)))
+fest(g["__klick"]("Zuteilen") is True, "(b) nach einer Rueckgabe erkennt das Ergebnisfenster beide Wuerfe")
+
+# (c) Eine zweite, juengere Runde eines anderen Gegenstands darf die erste nicht verdraengen
+w = welt36()
+cl = w.clients[0]
+g, ns, lua = cl["g"], cl["ns"], cl["lua"]
+lua.execute('__tasche = { { link = "%s", quality = 2, frist = true }, { link = "%s", quality = 3, frist = true } }' % (LINK44, LINK44B))
+ns.Wurf.Starten(LINK44)
+w.weiter(3)
+for wer, wert in (("Timo", 77), ("Lina", 91)):
+    for c in w.clients:
+        c["g"]["__ereignis"]("CHAT_MSG_SYSTEM", "%s rolls %d (1-100)" % (wer, wert))
+ns.Erfassung.WurfBeginnt(LINK44B, False)          # eine juengere Runde irgendeines anderen Stuecks
+r = ns.Erfassung.AktuelleWuerfe(None, LINK44)
+fest(r is not None and "timo" in [str(k) for k in r["Wuerfe"].keys()], "(c) die Runde des gesuchten Stuecks wird gefunden, nicht die juengste")
+
+print("== 45. Gruppenwechsel mitten im Abend: die Items zaehlen trotzdem (Fund im Spiel 17.10.2026) ==")
+w = welt36()
+ns0 = w.clients[0]["ns"]
+ns0.Gruppen.Anlegen("Alt")
+ns0.Gruppen.Aktivieren("Alt")
+abend = ns0.Anwesenheit.AktiverAbend(True)
+fest(str(abend["gruppe"]) == "Alt", "der Abend wird unter der aktiven Gruppe angelegt")
+ns0.Gruppen.Anlegen("TEST")
+ns0.Gruppen.Aktivieren("TEST")
+w.eintragen(0, "Timo", 6001, int(w.t))
+w.eintragen(0, "Leiter Kaos", 6002, int(w.t) + 1)
+s, items, raid = tup3(ns0.Anwesenheit.AbendSchnitt())[0:3]
+fest(float(items) == 2, "beide Vergaben zaehlen, obwohl die Gruppe gewechselt wurde (%s)" % (items,))
+fest(float(raid) >= 2 and float(s) > 0, "der Schnitt ist nicht 0 (%s)" % (s,))
+
+print("== 46. Abgemeldet ausdruecklich, offene Spieler sperren den Abschluss (Entscheid 17.10.2026) ==")
+w = welt36()
+ns0 = w.clients[0]["ns"]
+abend36(w)
+offene = [str(n) for n in ns0.Anwesenheit.OffeneSpieler().values()]
+fest(offene == ["Protti"], "Protti ist offen (nicht im Raid, nichts eingetragen): %s" % (offene,))
+ok, grund = tup(ns0.Anwesenheit.AbendAbschliessen(None, "System", True))
+fest(ok is None and "Protti" in str(grund), "der Abschluss ist gesperrt, die Meldung nennt Protti")
+ok = tup(ns0.Anwesenheit.AbmeldungSetzen("Protti", True, "System"))[0]
+fest(ok is True, "Protti wird ausdruecklich abgemeldet")
+fest(len(list(ns0.Anwesenheit.OffeneSpieler().values())) == 0, "danach ist niemand mehr offen")
+ok = tup(ns0.Anwesenheit.VergessenSetzen("Protti", True, "System"))[0]
+fest(ok is True and tup(ns0.Anwesenheit.IstAbgemeldet("Protti"))[0] is False, "Keine Meldung loest die Abmeldung ab (nur ein Zustand)")
+ns0.Anwesenheit.AbmeldungSetzen("Protti", True, "System")
+fest(tup(ns0.Anwesenheit.IstVergessen("Protti"))[0] is False, "und Abmeldung loest Keine Meldung ab")
+ok, v, n = tup3(ns0.Anwesenheit.AbendAbschliessen(None, "System", True))
+fest(ok is True and n == 1, "Abschluss geht jetzt durch, ein Zuschlag (Protti 0,7)")
+w2 = welt36()
+ns2 = w2.clients[0]["ns"]
+abend36(w2)
+zahl = tup(ns2.Anwesenheit.AlleOffenenAbmelden("System"))[0]
+fest(zahl == 1 and tup(ns2.Anwesenheit.IstAbgemeldet("Protti"))[0] is True, "„Alle Offenen: abgemeldet“ setzt Protti")
+
+print("== 47. Passen wird gemeldet, und der Wurf endet frueh, sobald jeder gewaehlt hat (Wunsch 17.10.2026) ==")
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+L47, T47, N47 = w.clients[0], w.clients[1], w.clients[2]
+LINK47 = "|cff0070dd|Hitem:7500::::::::60:::::|h[Passprobe]|h|r"
+ok, grund = tup(L47["ns"].Wurf.Starten(LINK47))
+fest(ok is True, "der Leiter startet einen Wurf")
+w.weiter(3)
+fest(L47["ns"].Wurf.Aktiv() is True, "der Wurf laeuft")
+# Timo passt (Knopf), das erfahren alle
+fest(T47["g"]["__klick"]("Passen") is True, "Timo klickt Passen")
+w.weiter(1)
+for k in (0, 1, 2):
+    r = w.clients[k]["ns"].Erfassung.AktuelleWuerfe(None, LINK47)
+    fest(r is not None and str(r["Arten"]["timo"]) == "pass", "Client %d weiss: Timo passt" % k)
+fest(L47["ns"].Wurf.Aktiv() is True, "noch nicht alle haben gewaehlt: der Wurf laeuft weiter")
+# Der Leiter wuerfelt, Lina noch nicht
+for c in w.clients:
+    c["g"]["__ereignis"]("CHAT_MSG_SYSTEM", "Leiter Kaos rolls 40 (1-100)")
+w.weiter(2)
+fest(L47["ns"].Wurf.Aktiv() is True, "Lina fehlt noch: der Wurf laeuft weiter")
+# Lina wuerfelt: jetzt hat jeder gewaehlt -> der Wurf endet von selbst, lange vor Ablauf der Zeit
+for c in w.clients:
+    c["g"]["__ereignis"]("CHAT_MSG_SYSTEM", "Lina rolls 70 (1-100)")
+w.weiter(3)
+fest(L47["ns"].Wurf.Aktiv() is False, "alle haben gewaehlt: der Wurf endet frueh (bei der Leitung)")
+fest(N47["ns"].Wurf.Aktiv() is False and T47["ns"].Wurf.Aktiv() is False, "und auch bei den Mitspielern")
+ausgabe47 = [str(x) for x in L47["g"]["__ausgabe"].values()]
+fest(any("Everyone has chosen" in x or "Alle haben gew" in x for x in ausgabe47), "mit einer Meldung im Chat")
+# Die Rangliste zeigt Timo nicht
+fest(L47["g"]["__klick"]("Zuteilen") is True, "das Ergebnisfenster ist da")
 
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")

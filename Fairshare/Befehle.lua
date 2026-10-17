@@ -44,6 +44,13 @@ local function hilfe()
     print(L["  |cffffff78/fs verzauberer|r  – Verzauberer fürs Entzaubern (|cffffff78verzauberer add Name, Name|r, |cffffff78verzauberer del Name|r)"])
     print(L["  |cffffff78/fs beutetest|r    – Diagnose: Beutefenster und Zuteilung durch den Plündermeister"])
     print(L["  |cffffff78/fs gruppe|r       – Kader und Raidgruppen (|cffffff78gruppe hilfe|r)"])
+    print(L["  |cffffff78/fs anwesenheit|r  – Anwesenheit und Bosskämpfe des heutigen Abends"])
+    print(L["  |cffffff78/fs abschluss|r     – Raidabend abschließen und Zuschläge festschreiben"])
+    print(L["  |cffffff78/fs bank|r         – Bank- und Abwesenheitsliste (|cffffff78/fs bank <Name>|r)"])
+    print(L["  |cffffff78/fs unentschuldigt|r – Unentschuldigte Spieler (|cffffff78/fs unent <Name>|r)"])
+    print(L["  |cffffff78/fs vergessen|r    – Anmeldung vergessen (|cffffff78/fs vergessen <Name>|r)"])
+    print(L["  |cffffff78/fs abmeldung|r    – ausdrücklich abgemeldet (|cffffff78/fs abmeldung <Name>|r, |cffffff78alle|r = alle Offenen)"])
+    print(L["  |cffffff78/fs rueckgabe|r    – zurückgegebene Items, noch nicht neu vergeben (|cffffff78/fs rueckgabe <Nr>|r schließt ab)"])
     print(L["  |cffffff78/fs bereiche|r     – Würfelbereiche (|cffffff78bereiche haupt 1 100|r, |cffffff78zweit|r, |cffffff78setzen|r in Gargul, |cffffff78uebernehmen|r aus Gargul)"])
     print(L["  |cffffff78/fs auto|r         – Fenster bei Wurfbeginn automatisch öffnen (an/aus)"])
     print(L["  |cffffff78/fs import|r       – Garguls bisherige Aufzeichnungen übernehmen"])
@@ -256,6 +263,307 @@ end
 befehle["appearance"] = befehle["darstellung"]
 
 -- ---------------------------------------------------------------------
+--  Anwesenheit & Bosskämpfe
+-- ---------------------------------------------------------------------
+
+befehle["anwesenheit"] = function(rest)
+    rest = rest and rest:match("^%s*(.-)%s*$") or ""
+    local unter = rest:match("^(%S+)")
+    unter = unter and unter:lower() or ""
+
+    if unter == "reset" or unter == "neu" then
+        if ns.Anwesenheit then ns.Anwesenheit.AbendZuruecksetzen() end
+        sag(L["Neuer Raidabend begonnen (vorheriger Stand zurückgesetzt)."])
+        return
+    end
+
+    if unter == "boss" then
+        local bossName = rest:match("^%S+%s+(.+)$")
+        if not bossName or bossName == "" then
+            sag(L["Bitte einen Bossnamen angeben: /fs anwesenheit boss <Name>"])
+            return
+        end
+        if not ns.Anwesenheit then return end
+        local ok, anzahl, bName = ns.Anwesenheit.BossBuchen(bossName, nil, true)
+        if ok then
+            sag(string.format(L["Bosskampf %s von Hand gebucht (%d Spieler erfasst)."], bName, anzahl))
+        else
+            sag(ROT .. tostring(anzahl) .. "|r")
+        end
+        return
+    end
+
+    -- Übersicht ausgeben
+    if not ns.Anwesenheit then return end
+    local abend = ns.Anwesenheit.AktiverAbend(false)
+    if not abend or (abend.bosse or 0) == 0 then
+        sag(L["Noch keine Bosskämpfe an diesem Abend aufgezeichnet."])
+        return
+    end
+
+    local teilnehmer = ns.Anwesenheit.Uebersicht(abend)
+    sag(string.format(L["Heutiger Raidabend: %d Bosskämpfe erfasst (%d Teilnehmer)"], abend.bosse, #teilnehmer))
+
+    for _, t in ipairs(teilnehmer) do
+        local tag = (t.status == "kader" and GRUEN .. L["Kader"] .. "|r")
+                 or (t.status == "proberaid" and GELB .. L["Proberaid"] .. "|r")
+                 or (t.status == "neuling" and GELB .. L["Neuling (2. Abend)"] .. "|r")
+                 or (GRAU .. L["Gast"] .. "|r")
+
+        local quoteStr = t.imRaid and (GRUEN .. L["Im Raid (≥ 50 %)"] .. "|r") or (ROT .. L["Unter Quote (< 50 %)"] .. "|r")
+        print(string.format(L["  %s [%s]: %d/%d (%d %%) — %s"],
+            t.name, tag, t.bosse, t.gesamt, t.prozent, quoteStr))
+    end
+    print(GRAU .. L["Regel § 2: Ab 50 % der Bosskämpfe gilt man als im Raid (kein Fehl-Zuschlag)."] .. "|r")
+end
+befehle["anw"] = befehle["anwesenheit"]
+befehle["attendance"] = befehle["anwesenheit"]
+
+-- ---------------------------------------------------------------------
+--  Bank und Unentschuldigt (§ 2, § 6)
+-- ---------------------------------------------------------------------
+
+befehle["bank"] = function(rest)
+    rest = rest and rest:match("^%s*(.-)%s*$") or ""
+    if rest == "" then
+        Fenster.ZeigenAnsicht("bank")
+        return
+    end
+
+    local unter = rest:lower()
+    if unter == "status" or unter == "liste" then
+        if not ns.Anwesenheit then return end
+        local abend = ns.Anwesenheit.AktiverAbend(false)
+        local kandidaten = ns.Anwesenheit.KandidatenListe(abend)
+        sag(string.format(L["Bank- und Abwesenheitsliste (%d Kandidaten):"], #kandidaten))
+        for _, k in ipairs(kandidaten) do
+            local status = k.bank and (GRUEN .. L["Bank (Faktor 0)"] .. "|r")
+                        or (k.unentschuldigt and (ROT .. L["Unentschuldigt (Faktor 1,5, mindestens 2)"] .. "|r")
+                        or (k.vergessen and (GELB .. L["Anmeldung vergessen"] .. "|r")
+                        or (k.abgemeldet and (HELL .. L["Abgemeldet"] .. "|r")
+                        or (k.offen and (GELB .. L["Offen"] .. "|r")
+                        or (k.online and (HELL .. L["Online, nicht im Raid"] .. "|r") or (GRAU .. L["Offline"] .. "|r"))))))
+            local proto = k.protokoll ~= "" and ("  " .. GRAU .. "(" .. k.protokoll .. ")|r") or ""
+            print(string.format(L["  %s — %s%s"], k.name, status, proto))
+        end
+        return
+    end
+
+    local name = rest
+    if not ns.Anwesenheit then return end
+    local istBank = ns.Anwesenheit.IstBank(name)
+    local ok, err = ns.Anwesenheit.BankSetzen(name, not istBank)
+    if ok then
+        if not istBank then
+            sag(string.format(L["%s als Bank eingetragen (Faktor 0)."], Kern.Anzeigename(name)))
+        else
+            sag(string.format(L["Bank für %s aufgehoben."], Kern.Anzeigename(name)))
+        end
+        if Fenster.Sichtbar() then Fenster.Aktualisieren() end
+    else
+        sag(ROT .. tostring(err) .. "|r")
+    end
+end
+befehle["bench"] = befehle["bank"]
+befehle["abwesenheit"] = befehle["bank"]
+befehle["absence"] = befehle["bank"]
+
+--- ⭐ Ausdrückliche Abmeldung: `/fs abmeldung <Name>` setzt oder hebt sie auf, `/fs abmeldung alle`
+--  setzt alle noch offenen Spieler als abgemeldet.
+befehle["abmeldung"] = function(rest)
+    rest = rest and rest:match("^%s*(.-)%s*$") or ""
+    if not ns.Anwesenheit then return end
+    if rest == "" then
+        local offene = ns.Anwesenheit.OffeneSpieler()
+        sag(string.format(L["Offene Spieler heute: %d"], #offene))
+        for _, n in ipairs(offene) do print("  " .. n) end
+        print(GRAU .. L["Abmelden / aufheben mit: /fs abmeldung <Name>, alle Offenen mit: /fs abmeldung alle"] .. "|r")
+        return
+    end
+    if rest:lower() == "alle" or rest:lower() == "all" then
+        local zahl, err = ns.Anwesenheit.AlleOffenenAbmelden()
+        if zahl then
+            sag(string.format(L["%d offene Spieler als abgemeldet eingetragen."], zahl))
+            if Fenster.Sichtbar() then Fenster.Aktualisieren() end
+        else
+            sag(ROT .. tostring(err) .. "|r")
+        end
+        return
+    end
+    local ist = ns.Anwesenheit.IstAbgemeldet(rest)
+    local ok, err = ns.Anwesenheit.AbmeldungSetzen(rest, not ist)
+    if ok then
+        if not ist then
+            sag(string.format(L["%s als abgemeldet eingetragen."], Kern.Anzeigename(rest)))
+        else
+            sag(string.format(L["Abmeldung für %s aufgehoben."], Kern.Anzeigename(rest)))
+        end
+        if Fenster.Sichtbar() then Fenster.Aktualisieren() end
+    else
+        sag(ROT .. tostring(err) .. "|r")
+    end
+end
+befehle["abgemeldet"] = befehle["abmeldung"]
+befehle["signoff"] = befehle["abmeldung"]
+
+befehle["unentschuldigt"] = function(rest)
+    rest = rest and rest:match("^%s*(.-)%s*$") or ""
+    if rest == "" then
+        if not ns.Anwesenheit then return end
+        local abend = ns.Anwesenheit.AktiverAbend(false)
+        local anzahl = 0
+        sag(L["Unentschuldigte Spieler heute:"])
+        for k, u in pairs((abend and abend.unentschuldigt) or {}) do
+            anzahl = anzahl + 1
+            print(string.format(L["  %s — eingetragen von %s um %s"],
+                u.name or k, u.von or "?", date(L["%d.%m. %H:%M"], u.zeit or time())))
+        end
+        if anzahl == 0 then
+            print(L["  Keine unentschuldigten Spieler eingetragen."])
+        end
+        print(GRAU .. L["Eintragen / aufheben mit: /fs unentschuldigt <Name>"] .. "|r")
+        return
+    end
+
+    local name = rest
+    if not ns.Anwesenheit then return end
+    local istUnent = ns.Anwesenheit.IstUnentschuldigt(name)
+    local ok, err = ns.Anwesenheit.UnentschuldigtSetzen(name, not istUnent)
+    if ok then
+        if not istUnent then
+            sag(string.format(L["%s als unentschuldigt eingetragen (Faktor 1,5, mindestens 2)."], Kern.Anzeigename(name)))
+        else
+            sag(string.format(L["Unentschuldigt für %s aufgehoben."], Kern.Anzeigename(name)))
+        end
+        if Fenster.Sichtbar() then Fenster.Aktualisieren() end
+    else
+        sag(ROT .. tostring(err) .. "|r")
+    end
+end
+befehle["unent"] = befehle["unentschuldigt"]
+
+--- ⭐ Anmeldung vergessen (Gildenleitung): weder an- noch abgemeldet und nicht erschienen.
+befehle["vergessen"] = function(rest)
+    rest = rest and rest:match("^%s*(.-)%s*$") or ""
+    if rest == "" then
+        if not ns.Anwesenheit then return end
+        local abend = ns.Anwesenheit.AktiverAbend(false)
+        local anzahl = 0
+        sag(L["Spieler heute ohne Anmeldung (vergessen):"])
+        for k, v in pairs((abend and abend.vergessen) or {}) do
+            anzahl = anzahl + 1
+            print(string.format(L["  %s — eingetragen von %s um %s"],
+                v.name or k, v.von or "?", date(L["%d.%m. %H:%M"], v.zeit or time())))
+        end
+        if anzahl == 0 then
+            print(L["  Keine Spieler als vergessen eingetragen."])
+        end
+        print(GRAU .. L["Eintragen / aufheben mit: /fs vergessen <Name>"] .. "|r")
+        return
+    end
+
+    local name = rest
+    if not ns.Anwesenheit then return end
+    local istVerg = ns.Anwesenheit.IstVergessen(name)
+    local ok, err = ns.Anwesenheit.VergessenSetzen(name, not istVerg)
+    if ok then
+        if not istVerg then
+            sag(string.format(L["%s als „Anmeldung vergessen“ eingetragen."], Kern.Anzeigename(name)))
+        else
+            sag(string.format(L["„Anmeldung vergessen“ für %s aufgehoben."], Kern.Anzeigename(name)))
+        end
+        if Fenster.Sichtbar() then Fenster.Aktualisieren() end
+    else
+        sag(ROT .. tostring(err) .. "|r")
+    end
+end
+befehle["forgot"] = befehle["vergessen"]
+
+-- ---------------------------------------------------------------------
+--  Abendende & Zuschläge abschließen (§ 2, § 6)
+-- ---------------------------------------------------------------------
+
+befehle["abschluss"] = function(rest)
+    rest = (rest or ""):match("^%s*(.-)%s*$")
+    local sub = rest:lower()
+
+    if sub == "ja" or sub == "yes" then
+        local ok, vorschau, zZaehler = ns.Anwesenheit.AbendAbschliessen()
+        if ok then
+            sag(string.format(L["Raidabend %s erfolgreich abgeschlossen!"], tostring(vorschau.datum)))
+            print(string.format(L["  Schnitt: %.2f (%d Main-Items / %d Spieler). %d Zuschläge festgeschrieben."],
+                vorschau.schnitt, vorschau.mainItems, vorschau.raidSpieler, zZaehler or 0))
+            if Fenster.Sichtbar() then Fenster.Aktualisieren() end
+        else
+            sag(ROT .. tostring(vorschau) .. "|r")
+        end
+        return
+    end
+
+    if sub == "wiedereroeffnen" or sub == "wiedereröffnen" or sub == "reopen" or sub == "zurueck" or sub == "zurück" then
+        local ok, ab = ns.Anwesenheit.AbendWiedereroeffnen()
+        if ok then
+            sag(string.format(L["Raidabend %s wiedereröffnet, Zuschläge zurückgenommen."], tostring(ab.datum or ab.id)))
+            if Fenster.Sichtbar() then Fenster.Aktualisieren() end
+        else
+            sag(ROT .. tostring(ab) .. "|r")
+        end
+        return
+    end
+
+    -- Vorschau
+    local vorschau, err = ns.Anwesenheit.AbendVorschau()
+    if not vorschau then
+        sag(ROT .. tostring(err) .. "|r")
+        return
+    end
+
+    sag(string.format(L["Vorschau Raidabend-Abschluss (%s):"], tostring(vorschau.datum)))
+    print(string.format(L["  Schnitt: %.2f (%d Main-Items / %d Spieler im Raid, %d Bosse)"],
+        vorschau.schnitt, vorschau.mainItems, vorschau.raidSpieler, vorschau.gesamtBosse))
+
+    for _, p in ipairs(vorschau.spieler) do
+        if p.status == "unentschuldigt" then
+            print(string.format(L["  %s: %s — %s → Zuschlag +%.1f"],
+                p.name, L["Unentschuldigt"], L["Faktor 1,5, mindestens 2"], p.zuschlag))
+        elseif p.status == "vergessenStrafe" then
+            print(string.format(L["  %s: %s (%d. Mal in 8 Abenden) — wie unentschuldigt → Zuschlag +%.1f"],
+                p.name, L["Anmeldung vergessen"], p.fehlAnzahl, p.zuschlag))
+        elseif p.status == "vergessen" then
+            print(string.format(L["  %s: %s (%d. Fehlen) — Faktor %.1f → Zuschlag +%.1f"],
+                p.name, L["Anmeldung vergessen"], p.fehlAnzahl, p.faktor, p.zuschlag))
+        elseif p.status == "abgemeldet" then
+            print(string.format(L["  %s: %s (%d. Fehlen) — Faktor %.1f → Zuschlag +%.1f"],
+                p.name, L["Abgemeldet"], p.fehlAnzahl, p.faktor, p.zuschlag))
+        elseif p.status == "offen" then
+            print(string.format(L["  %s: Offen — noch nicht zugeordnet"], p.name))
+        elseif p.status == "bank" then
+            print(string.format(L["  %s: %s — %s (kein Zuschlag)"],
+                p.name, L["Bank"], L["Faktor 0"]))
+        elseif p.status == "imRaid" then
+            local prozent = (vorschau.gesamtBosse > 0) and math.floor(p.bosse / vorschau.gesamtBosse * 100 + 0.5) or 100
+            print(string.format(L["  %s: Im Raid (%d/%d Bosse, %d %%) — kein Zuschlag"],
+                p.name, p.bosse, vorschau.gesamtBosse, prozent))
+        end
+    end
+
+    print(L["Zum Festschreiben: /fs abschluss ja"])
+end
+befehle["close"] = befehle["abschluss"]
+
+befehle["abend"] = function(rest)
+    local sub, arg = (rest or ""):match("^(%S+)%s*(.*)$")
+    sub = sub and sub:lower() or ""
+    if sub == "abschluss" or sub == "close" then
+        befehle["abschluss"](arg)
+    elseif sub == "wiedereroeffnen" or sub == "wiedereröffnen" or sub == "reopen" then
+        befehle["abschluss"]("wiedereroeffnen " .. (arg or ""))
+    else
+        befehle["anwesenheit"](rest)
+    end
+end
+
+-- ---------------------------------------------------------------------
 --  Wer zeichnet auf, Abgleich
 -- ---------------------------------------------------------------------
 
@@ -448,7 +756,7 @@ befehle["rueckgaengig"] = function(arg)
         undoBereit = nil
         local ok, grund = ns.Erfassung.Zuruecknehmen(e.id)
         if ok then
-            sag(GRUEN .. string.format(L["Zurückgenommen: %s an %s."], Quelle.Gegenstandstext(e.eintrag), e.name) .. "|r")
+            sag(GRUEN .. string.format(L["Rückgabe vermerkt: %s von %s. Der Punkt wird abgezogen, sobald das Item neu vergeben ist."], Quelle.Gegenstandstext(e.eintrag), e.name) .. "|r")
         else
             sag(ROT .. tostring(grund) .. "|r")
         end
@@ -460,6 +768,35 @@ befehle["rueckgaengig"] = function(arg)
     print(L["  Zum Bestätigen innerhalb einer Minute: |cffffff78/fs rueckgaengig ja|r"])
 end
 befehle["undo"] = befehle["rueckgaengig"]
+
+--- ⭐ Zurueckgegebene Items, die noch niemand bekommen hat (Regelwerk § 1): Der Punkt bleibt, bis das Item
+--  neu vergeben oder entzaubert ist. Ist es anderweitig weitergegeben worden, schliesst man es hier ab.
+befehle["rueckgabe"] = function(rest)
+    local liste = ns.Erfassung.OffeneRueckgaben()
+    local nr = tonumber((rest or ""):match("^%s*(%d+)"))
+    if not nr then
+        sag(L["Zurückgegebene Items, noch nicht neu vergeben:"])
+        if #liste == 0 then print(L["  Keine."]) end
+        for i, x in ipairs(liste) do
+            print(string.format(L["  %d: %s, vorher bei %s"], i, Quelle.Gegenstandstext(x.e), Kern.Anzeigename(x.e.awardedTo)))
+        end
+        if #liste > 0 then
+            print(GRAU .. L["Mit /fs rueckgabe <Nr> bestätigst du: das Item ist weitergegeben, der Punkt wird abgezogen."] .. "|r")
+        end
+        return
+    end
+    local x = liste[nr]
+    if not x then sag(ROT .. L["Diese Nummer gibt es nicht."] .. "|r") return end
+    local ok, grund = ns.Erfassung.RueckgabeAbschliessen(x.id)
+    if ok then
+        sag(GRUEN .. string.format(L["Rückgabe abgeschlossen: %s – der Punkt von %s wurde abgezogen."],
+            Quelle.Gegenstandstext(x.e), Kern.Anzeigename(x.e.awardedTo)) .. "|r")
+        if Fenster.Sichtbar() then Fenster.Aktualisieren() end
+    else
+        sag(ROT .. tostring(grund) .. "|r")
+    end
+end
+befehle["returned"] = befehle["rueckgabe"]
 befehle["revert"] = befehle["rueckgaengig"]
 
 --- ⭐ Einstellungen teilen (Konfig.lua)

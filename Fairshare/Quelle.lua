@@ -275,7 +275,7 @@ end
 --  fehlen und nur C_Item existiert.
 --  ⚠️ Kennt der Client den Gegenstand nicht, bleibt die Nummer stehen.
 --  Das ist richtig so: lieber eine Nummer als ein erfundener Name.
-function Quelle.Gegenstandstext(eintrag)
+local function grundtext(eintrag)
     if type(eintrag) ~= "table" then return "?" end
     if eintrag.itemLink then return eintrag.itemLink end
 
@@ -289,6 +289,31 @@ function Quelle.Gegenstandstext(eintrag)
         if ok and link then return link end
     end
     return string.format(L["Gegenstand %s"], tostring(id))
+end
+
+--- ⭐ Kennzeichen einer Vergabe (Regelwerk § 1, § 5, § 6):
+--    abweichend vom Ergebnis (Main) | OS nach Absprache | zurueckgegeben, noch nicht neu vergeben.
+--  @return Text mit Farbcode, oder ""
+function Quelle.Kennzeichen(eintrag)
+    if type(eintrag) ~= "table" then return "" end
+    local teile = {}
+    if eintrag.kennzeichen == "A" then
+        teile[#teile + 1] = "|cffffaa55" .. L["abweichend vom Ergebnis"] .. "|r"
+    elseif eintrag.kennzeichen == "S" then
+        teile[#teile + 1] = "|cff7fbfff" .. L["OS nach Absprache"] .. "|r"
+    end
+    if eintrag.rueckgabe and not eintrag.zurueck then
+        teile[#teile + 1] = "|cffffff78" .. L["zurückgegeben"] .. "|r"
+    end
+    if #teile == 0 then return "" end
+    return "(" .. table.concat(teile, ", ") .. ")"
+end
+
+function Quelle.Gegenstandstext(eintrag)
+    local text = grundtext(eintrag)
+    local zusatz = Quelle.Kennzeichen(eintrag)
+    if zusatz ~= "" then text = text .. " " .. zusatz end
+    return text
 end
 
 --- Tagesschluessel fuer Kern.Raidtage.
@@ -311,10 +336,10 @@ local VERTEILUNG = {
     { "Moonspell",    5, 0 },
     { "Lupitus",      4, 1 },
     { "Järgerlie",    4, 0 },
-    { "Deters",       3, 2 },
+    { "Deters",       2, 2 },
     { "Chilini",      3, 0 },
     { "Kaosx",        2, 1 },
-    { "Simondan",     2, 0 },
+    { "Simondan",     3, 0 },
     { "Velera",       1, 1 },
     { "Renbi",        1, 0 },
     { "Pflasterelfe", 0, 2 },
@@ -352,18 +377,34 @@ function Quelle.Beispiel()
     return H
 end
 
---- Ein Beispiel-Wurf zum Ansehen der Hervorhebung.
---  Bewusst gemischt: zwei mit vielen Stuecken, zwei mit wenigen, und
---  einer, der in der Historie gar nicht vorkommt — der Fall, der sonst
---  durchs Raster fiele.
+--- Fiktive Zuschlaege und Anhebungen fuer die Demo (§ 2 und § 3).
+--  Zeigt u. a. Deters mit 1.7 Zuschlag aus verpassten Raids und Lupitus mit 2.0 (unentschuldigt).
+function Quelle.BeispielDaten()
+    return {
+        zuschlaege = {
+            ["deters"]  = 1.7,
+            ["lupitus"] = 2.0,
+        },
+        anhebungen = {},
+    }
+end
+
+--- Ein Beispiel-Wurf zum Ansehen der Hervorhebung und Rangfolge.
+--  Demonstriert alle Kernregeln des Regelwerks:
+--  - Nuhkomm (0 Items) liegt weit hinten und wird auf Niedrigster + 2 = 4.0 gesetzt (§ 3) -> 5. Platz
+--  - Kaosx (Wertung 2.0, Wurf 24) schlaegt Deters (Wertung 3.7, Wurf 98) -> Wertung vor Wurf!
+--  - Chilini (Wurf 81) schlaegt Simondan (Wurf 45) bei gleicher Wertung 3.0 -> Wurf entscheidet
+--  - Velera (1 OS, Wurf 38) schlaegt Pflasterelfe (2 OS, Wurf 49) -> weniger OS vor Wurf
 function Quelle.BeispielWurf()
     local Wuerfe, Arten, namen = {}, {}, {}
     local gewuerfelt = {
-        { "Xalessa", 87, "haupt" },
-        { "Renbi",   64, "haupt" },
-        { "Deters",  41, "zweit" },
-        { "Nuhkomm", 93, "haupt" },   -- taucht in der Beispiel-Historie nicht auf
-        { "Velera",  12, "zweit" },
+        { "Deters",       98, "haupt" },
+        { "Simondan",     45, "haupt" },
+        { "Nuhkomm",      93, "haupt" },
+        { "Kaosx",        24, "haupt" },
+        { "Velera",       38, "zweit" },
+        { "Chilini",      81, "haupt" },
+        { "Pflasterelfe", 49, "zweit" },
     }
     for _, W in ipairs(gewuerfelt) do
         namen[#namen + 1] = W[1]

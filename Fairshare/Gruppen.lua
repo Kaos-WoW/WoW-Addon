@@ -185,6 +185,19 @@ end
 --  Gilde lesen
 -- =====================================================================
 
+--- ⭐ Ist jemand im Spiel online? Aus `info.presence` der Gildenliste (C_Club).
+--  Die Werte sind `Enum.ClubMemberPresence`: Online, OnlineMobile (nur die App, nicht im Spiel), Offline,
+--  Away, Busy, Unknown. Frueher zaehlten Offline-Spieler als online (Nutzerfund 17.10.2026: „31 online“,
+--  obwohl fast niemand da war). Fehlt die Enum, gelten die bekannten Zahlen (1 Online, 4 Away, 5 Busy).
+function Gruppen.PraesenzOnline(p)
+    if p == "online" then return true end
+    local P = rawget(_G, "Enum") and Enum.ClubMemberPresence
+    if type(P) == "table" and P.Online ~= nil then
+        return (p == P.Online or p == P.Away or p == P.Busy) and true or false
+    end
+    return (p == 1 or p == 4 or p == 5) and true or false
+end
+
 --- Alle Gildenmitglieder.
 --  Forever liest ueber C_Club, Anniversary/Classic ueber GetGuildRosterInfo
 --  (so hat es schon die erste Fassung dieses Projekts gemessen).
@@ -203,10 +216,12 @@ function Gruppen.GildenMitglieder()
                 for _, id in ipairs(ids) do
                     local ok3, info = pcall(CC.GetMemberInfo, clubId, id)
                     if ok3 and type(info) == "table" and info.name then
+                        local online = Gruppen.PraesenzOnline(info.presence)
                         liste[#liste + 1] = {
                             name = info.name,
                             rang = info.guildRank,
                             rangIndex = info.guildRankOrder,
+                            online = online and true or false,
                         }
                     end
                 end
@@ -219,9 +234,14 @@ function Gruppen.GildenMitglieder()
         local info = rawget(_G, "GetGuildRosterInfo")
         if anzahl and info then
             for i = 1, (anzahl() or 0) do
-                local name, rang, rangIndex = info(i)
+                local name, rang, rangIndex, _, _, _, _, _, isOnline = info(i)
                 if name then
-                    liste[#liste + 1] = { name = name, rang = rang, rangIndex = rangIndex }
+                    liste[#liste + 1] = {
+                        name = name,
+                        rang = rang,
+                        rangIndex = rangIndex,
+                        online = isOnline and true or false,
+                    }
                 end
             end
         end
