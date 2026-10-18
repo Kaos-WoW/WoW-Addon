@@ -20,27 +20,63 @@ Agents dieselbe Datei gleichzeitig ändern oder die Arbeit des anderen überschr
 
 ---
 
-> 16.10.2026: **Release 0.2.0 (Regelwerk Resurrected)** im Spiel bestätigt und verifiziert:
-> - Vollständige Integration des neuen Regelwerks von Resurrected (Thunderstrike EU):
->   - § 1: Golf-Prinzip (niedrigste Wertung hat Vorrang vor Wurf; Wertung = Main-Items + Zuschläge + Anhebungen)
->   - § 2: Anwesenheitserfassung (≥ 50 % Bosse = im Raid), gleitendes 6-Abende-Fenster, Fehlfaktoren (0.7, 1.0, 1.0, 1.0, 1.3, 1.5; unentschuldigt sofort 1.5, mindestens 2 Wertungspunkte (seit 17.10.2026); Bank Faktor 0), Abendschnitt (Main-Items / Raidteilnehmer), automatische Zuschlagsberechnung
->   - § 3: Dynamische Anhebung (Liegt Hauptbedarf-Würfler > 1 unter Niedrigstem der anderen, Anhebung auf Niedrigster - 1; dauerhafte Speicherung bei Itemgewinn)
->   - § 4: Neulinge / Proberaid (Raid 1 ohne Main-Bedarf/Zuschläge; ab Raid 2 normales Mitglied) & Gäste (Wertung des niedrigsten Kaderspielers)
->   - § 5: Zweitbedarf / Offspec (Haupt vor OS; bei OS weniger Stücke vor Wurf)
->   - § 6: Rollen & Berechtigungen (Gildenleitung für Bank + Unentschuldigt, Raidleiter für Bank, Raider reine Ansicht)
-> - Neuer UI-Reiter **Abwesenheit** mit Live-Toggles und Berechtigungsprüfung
-> - Raidabend-Abschluss (`[Abend abschließen]` mit 8s-Bestätigung & `/fs abschluss`), automatische Festschreibung der Zuschläge, Reset des Abwesenheit-Reiters für den Folgeraid, Wiedereröffnen-Funktion (`[Abend wiedereröffnen]`)
-> - Chronologische Spielerdetail-Ansicht (Datum, Art, Punkte +1,0 / +0,7 / +1,5 / 0,0, Formel & Status)
-> - Vollständige Test-Isolation (`Anwesenheit._SetDB`), 365/365 Unit-Tests bestanden.
-
 ## Belegt
+
+*Nichts belegt.* Claude hat am 18.10.2026 abgegeben (Volumen aufgebraucht). Wer als Nächstes arbeitet,
+trägt sich hier ein.
 
 | Agent | Bereich | Dateien | Seit | Stand |
 |---|---|---|---|---|
-| Claude | Regelwerk-Angleichung 16.10.2026 abends: Neuling 2. Abend = Niedrigster, Gast-Wertung im Wurf, Rückgabe (Punkt erst bei Neuvergabe), Kennzeichnung „abweichend“/„OS nach Absprache“, Stammgast nahtlos, Standard-Rangstufe | `Fairshare/Kern.lua`, `Fairshare/Anwesenheit.lua`, `Fairshare/Wurf.lua`, `Fairshare/Erfassung.lua`, `Fairshare/Konfig.lua`, `Fairshare/Locale.lua`, `Fairshare/Tests.lua`, `tests/*.py`, `AGENTS.md`, `REGELWERK-ENTWURF.md` | 16.10.2026 | Code fertig, alle Tests grün (442 Kern, 53 Szenarien, 728 Texte); wartet auf Test im Spiel. Seit 17.10.2026: unentschuldigt 1,5 (mindestens 2), Anhebung = Niedrigster im Kader + 2 (einmal je Abend), „Anmeldung vergessen“; 17.10. Abwesenheits-Reiter: Online-Anzeige korrigiert, Schalter „Raid mitzeigen“; 17.10. abends: „Im Raid“ = am Abendende in der Gruppe statt Boss-Quote; offener Abend folgt der aktiven Gruppe (Schnitt war 0, weil Abend- und Vergabegruppe verschieden waren); Abgemeldet ausdrücklich, „Offen“ sperrt den Abschluss (447 Kern); Passen wird gemeldet, Wurf endet früh, wenn alle gewählt haben; Mehrgruppen Schritt 1: Raidkader per Rangsync, Einteilung je Tag/Gruppe (geteilt), Abendkennung Datum+Gruppe; „Fairshare nutzen?“ nur für den Plündermeister (alle übernehmen), Einteilen nur mit Schreibrecht, Raidtage statt Heute/Morgen; geteilte Einstellungen: Wurzel Stufe 1+2, Rangstufe nur von ihnen, nur lesen für andere, Selbstheilung, schlafendes Addon hört Gilde. Zusätzlich verändert: `Fenster.lua`, `Befehle.lua`, `Abgleich.lua`, `Quelle.lua`, `tests/szenarien.py` |
 
 ## Erledigt, nicht committet
 
-| Agent | Was | Dateien |
-|---|---|---|
-| Antigravity | Regelwerk Resurrected v0.2.0: Anwesenheit, Bank/Abwesenheit, dynamische Anhebung, Raidabschluss, Spielerdetails, Testisolation | `Fairshare/Anwesenheit.lua`, `Fairshare/Befehle.lua`, `Fairshare/Fairshare.toc`, `Fairshare/Fenster.lua`, `Fairshare/Gruppen.lua`, `Fairshare/Kern.lua`, `Fairshare/Locale.lua`, `Fairshare/Quelle.lua`, `Fairshare/Tests.lua`, `Fairshare/Wurf.lua`, `REGELWERK-ENTWURF.md`, `tests/rechenkern.py`, `tests/sim.py`, `tests/texte.py` |
+Nichts. Alles bis zum 18.10.2026 ist committet. **Gepusht ist nur bis `7546594`**; die drei Commits danach (`0155fc7`, `e3de7ec`, Dokumentation) liegen nur lokal.
+
+## Übergabe (Stand 18.10.2026 abends)
+
+**Commits seit dem Regelwerk auf `main` (`7546594` ist gepusht, die folgenden nicht):**
+
+| Commit | Inhalt |
+|---|---|
+| `7546594` | Loot-Regelwerk Resurrected (Wertung, Zuschläge, Anhebung, Datenbuch, Würfel-Fixes) |
+| `0155fc7` | Mehrere Gruppen (Raidkader, Einteilung, Bench), Abgemeldet/Offen, geteilte Einstellungen mit Vertrauenswurzel |
+| `e3de7ec` | Raidtage je Gruppe, „Keine Meldung“, Wochenabschluss, schlanke Abwesenheit, Farben, Gruppen blenden andere aus |
+| (nächster) | Dokumentation (WORKBOARD, AGENTS, REGELWERK-ENTWURF) |
+
+**Tests (immer vor dem Commit laufen lassen):**
+`python luacheck.py Fairshare/*.lua` · `python tests/rechenkern.py` (447) · `python tests/szenarien.py` (56 Szenarien) ·
+`python tests/texte.py --streng` (740 Schlüssel) · danach `.\deploy.ps1` (rollt in `_classic_beta_` aus; Änderungen: `/reload`, neue Dateien: WoW-Neustart).
+Patches bisher als Python-Skripte im Scratchpad (CRLF erhalten, `python -X utf8 -I`); Lua-Text nie per Heredoc, sondern per Write-Werkzeug.
+
+**Im Spiel vom Nutzer bestätigt:** Regelwerk (Wertung, Zuschläge, Anhebung, Neuling, Gast, Rückgabe), Würfelfenster inkl. Passen und frühem
+Ende, „Fairshare nutzen?“ nur für den Plündermeister, geteilte Einstellungen mit Sperre/Selbstheilung, Raidkader per Rangsync, Einteilung
+(hinzufügen, verschieben, Rechtsklick entfernt), Raidtage je Gruppe, Bench (Absence, Einspringen), „Keine Meldung“, Reihenfolge in der
+Einteilung, Abschluss je Gruppe, Gruppenwechsel = anderer Abend, schlanke Abwesenheit, Wochenabschluss (Buchung funktioniert).
+
+**Gerade gebaut, noch NICHT im Spiel gesehen (zuerst prüfen lassen):**
+1. Farben je Gruppe in „Assignment“ (Gruppe 1 hellblau, 2 orange, 3 violett …, Bench teal, Keine Meldung rot).
+2. Gruppen als Ziel ausgewählt → Spieler anderer Gruppen sind ausgeblendet (Bench, Keine Meldung, Nicht-Eingeteilte bleiben).
+3. **„Neuen Abend beginnen“** in einer abgeschlossenen Abwesenheit (lässt die Wertungen stehen); die abgeschlossene Liste ist jetzt leer.
+
+**Entscheide des Nutzers, die nicht offensichtlich sind (nicht neu aufrollen):**
+- Im Raid = wer am **Abendende** in der Gruppe steht (nicht Boss-Quote); wer früher geht und kein Main-Item hatte, gilt als abwesend.
+- Abgemeldete werden **nirgends eingeteilt**: Wer im Raidkader steht und in der **Woche (Mo–So)** nirgends eingeteilt war, ist abgemeldet; Buchung per
+  „Woche abschließen“, **zwei Zuschläge je Spieler**, Schnitt = Mittel der Gruppen-Schnitte je Abend-Nummer. „Keine Meldung“ ist ein Ziel der Einteilung.
+- Eine Gruppe hat **eigene Raidtage = eigene Raid-ID**; Raidleitung baut die Gruppen so, dass an beiden Tagen dieselben Spieler stehen, Teilzeit-Spieler kommen auf die Bank.
+- **Stufe 1 und 2 sind die Wurzel des Vertrauens** (dürfen immer senden/einteilen/buchen); die Rangstufe ändern nur sie; andere sehen geteilte Einstellungen nur lesend.
+- Verworfen: automatische Umteilung/Warnung, wenn jemand in einer anderen Gruppe raidet als eingeteilt (Raidleitung organisiert vorher).
+- Fenster-Mindestbreite 880.
+
+**Offene Punkte / Ideen (alle vom Nutzer so gewollt, nichts davon beauftragt):**
+- **Kleineres Fenster ermöglichen** (später, erst wenn alles andere durch ist): Werkzeugleiste umbrechen/Überlaufmenü, kürzere Knöpfe, Spalten einklappen.
+- „Anmeldung vergessen“ heißt in manchen Texten noch so, der Knopf/das Ziel heißt „Keine Meldung“ (Vereinheitlichung der Texte offen).
+- Eine Übersicht „wer war an den letzten Abenden da“ (Spielerdetail oder Tabelle für alle) gibt es nicht; die Daten liegen je Abend in `abschluss.spieler`.
+- Das für die Gildenleitung geteilte Regelwerk (Claude-Doc) ist **nicht** automatisch aktuell: Inhalt = `REGELWERK-ENTWURF.md` (Stand 18.10.2026) dort einfügen.
+- Eine Fassung 0.2.1 für alle ist nicht gebaut (Zip nur auf Wunsch; Protokoll/Datenbuch sind seit dem 17./18.10. geändert, **alle brauchen dieselbe Fassung**, neue Dateien gibt es nicht).
+- Push steht aus (Nutzer entscheidet).
+
+**Stolperfallen, die uns Zeit gekostet haben:**
+- Die Zeilen der Übersicht (`Fenster.lua`) werden von allen Ansichten benutzt: Wer eine Ansicht erweitert, muss die Knöpfe der anderen dort ausdrücklich verstecken.
+- Der Prüfstand (`Anwesenheit._SetDB`/Tests) nutzt die Liste des letzten Bosses statt der echten Gruppe; die Simulation hat eine eigene Uhr (`time()`), daher überall `date(…, time())`.
+- Ein schlafendes Addon (kein Plündermeister, „Nein“) hört nur `K`, `A`, `T`, `U` (Weiche in `Abgleich.lua`); alles andere ist gesperrt.
+- Die Fenster-Mindestbreite stützt sich auf die Knöpfe in der Werkzeugleiste; neue Knöpfe dort zuerst auf Überlappung prüfen.

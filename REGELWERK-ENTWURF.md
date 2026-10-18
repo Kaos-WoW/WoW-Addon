@@ -1,6 +1,6 @@
 # Fairshare – Regelwerk-Entwurf: Wertung und Vorrang
 
-Stand 16.10.2026 · **Alle Punkte geklärt, noch nichts gebaut.**
+Stand 18.10.2026 · **Alles umgesetzt** (Addon 0.2.0 auf der Forever-Beta). Seit dem 16.10. dazugekommen: mehrere Gruppen mit Einteilung, Bench und Wochenabschluss (§ 2 und § 6a).
 Wie beim Golf: **Wer die niedrigste Wertung hat, hat Vorrang.** Gleichstand wird gewürfelt (höchster Wurf gewinnt).
 
 ## 0. Die Begriffe in einem Blick
@@ -13,6 +13,8 @@ Wie beim Golf: **Wer die niedrigste Wertung hat, hat Vorrang.** Gleichstand wird
 | **Schnitt des Abends** | vergebene Main-Items ÷ Spieler im Raid, meist etwa 1 |
 | **Anhebung** | Wer weit unter allen anderen liegt, wird zu Beginn des Abends einmal auf den Niedrigsten plus 2 gesetzt (§ 3) |
 | **Kader** | die Spieler der Gildenränge, die zum Raid gehören; wer nicht dazugehört, ist **Gast** |
+| **Raidkader** | der Pool, den man per Knopf bis zu einem Gildenrang einliest und aus dem man die Gruppen zusammenklickt |
+| **Einteilung** | wer an einem Raidtag in welcher Gruppe ist (**Gruppe 1, Gruppe 2 …**, **Bench** oder **Keine Meldung**); wer nirgends steht, gilt als abgemeldet |
 
 ## 1. Die Wertung
 
@@ -34,15 +36,15 @@ Gegenüber dem Schnitt der Anwesenden gilt: **Faktor unter 1 = Vorteil, 1,0 = ne
 | Situation am Abend | Zuschlag |
 |---|---|
 | **Im Raid** (am Abendende in der Gruppe, oder vorher ein Main-Item bekommen) | keiner, es zählen nur die erhaltenen Main-Items |
-| **Bank** (von Raidleiter, Gildenleiter oder Offizier eingetragen, nachweislich online) | **Faktor 0** |
-| **Abgemeldet** (Kader, nicht im Raid, nicht Bank – die Standardannahme) | **1. Fehlen 0,7 · 2. bis 4. Fehlen 1,0 · 5. Fehlen 1,3 · ab 6. Fehlen 1,5** |
-| **Unentschuldigt** (Gildenleiter oder Offizier trägt ein) | **sofort Faktor 1,5, mindestens 2 Wertungspunkte** |
-| **Anmeldung vergessen** (Gildenleitung trägt ein) | **1. und 2. Mal in 8 Abenden wie abgemeldet, ab dem 3. Mal Faktor 1,5, mindestens 2 Wertungspunkte** |
+| **Bench** (in der Einteilung gesetzt; steht in der Abwesenheit jeder Gruppe, kann einspringen) | **Faktor 0** |
+| **Abgemeldet** (im Raidkader, aber **in der Woche nirgends eingeteilt** – das Addon erkennt es von selbst, gebucht wird mit „Woche abschließen“, für **zwei Abende**) | **1. Fehlen 0,7 · 2. bis 4. Fehlen 1,0 · 5. Fehlen 1,3 · ab 6. Fehlen 1,5** |
+| **Unentschuldigt** (eingeteilt, ohne Info nicht gekommen; Raidleiter oder Gildenleitung markiert in der Abwesenheit) | **sofort Faktor 1,5, mindestens 2 Wertungspunkte** |
+| **Keine Meldung** (weder an- noch abgemeldet; in der Einteilung als Ziel „Keine Meldung“ gesetzt, früher „Anmeldung vergessen“) | **1. und 2. Mal in 8 Abenden wie abgemeldet, ab dem 3. Mal Faktor 1,5, mindestens 2 Wertungspunkte** |
 
-- „n-tes Fehlen“ = Zahl der Fehlabende (abgemeldet **und** unentschuldigt) **innerhalb der letzten 6 Raidabende**, den aktuellen mitgezählt. Die Bank ist kein Fehlen.
+- „n-tes Fehlen“ = Zahl der Fehlabende (abgemeldet, unentschuldigt, Keine Meldung) **innerhalb der letzten 6 Raidabende des Spielers**, den aktuellen mitgezählt. Es zählen nur **die eigenen Abende** eines Spielers; Abende einer anderen Gruppe, in denen er nicht vorkommt, schieben sein Fenster nicht weiter. Die Bench ist kein Fehlen.
 - Der Zuschlag wird **am Abend selbst festgeschrieben** und bleibt danach bestehen. Das Fenster zählt nur, welche Stufe der *nächste* verpasste Abend bekommt. Wer abwechselnd fehlt und kommt, rutscht trotzdem hoch.
 - Jeder Zuschlag ist im Spielerdetail sichtbar (Abend, Faktor, Grund).
-- **Anmeldung vergessen** (weder an- noch abgemeldet und nicht erschienen): Die Gildenleitung trägt „Vergessen“ ein. Das 1. und 2. Mal innerhalb von 8 Raidabenden gilt der Abend wie eine normale Abmeldung, ab dem 3. Mal wie unentschuldigt. Auch das lässt sich zurücknehmen.
+- **Keine Meldung** (weder an- noch abgemeldet): Wer so eingeteilt ist, bekommt beim Wochenabschluss das 1. und 2. Mal innerhalb von 8 Raidabenden die Wertung einer normalen Abmeldung, ab dem 3. Mal wie unentschuldigt. Das lässt sich mit „Woche zurücknehmen“ korrigieren.
 - „Unentschuldigt“ kann zurückgenommen werden, wenn es einen guten Grund gab (zum Beispiel ein Unfall): vor dem Abschluss durch Entfernen der Markierung, danach über „Abend wiedereröffnen“.
 
 ## 3. Die Anhebung – wer weit zurückliegt, kommt hinter die anderen
@@ -80,19 +82,33 @@ Gegenüber dem Schnitt der Anwesenden gilt: **Faktor unter 1 = Vorteil, 1,0 = ne
 | Was | Wer | Wie |
 |---|---|---|
 | Anwesenheit | automatisch | Am Abendende: wer dann im Raid steht, ist anwesend; Bosskämpfe zählen nicht. Wer früher geht, gilt als abwesend (außer er hat vorher ein Main-Item bekommen) und kann als unentschuldigt markiert werden |
-| **Bank** | **Raidleiter oder Gildenleitung** | Haken in der Liste „online, nicht im Raid“; Addon prüft, dass der Spieler online war. Nachträglich änderbar bis zum nächsten Raid, jede Änderung mit Name und Zeit protokolliert |
-| **Unentschuldigt** | Gildenleitung | Eintrag mit Name und Zeit, für alle sichtbar; zurücknehmen darf die Gildenleitung |
-| **Anmeldung vergessen** | Gildenleitung | Knopf „Vergessen“ in der Liste, wie bei Unentschuldigt; zurücknehmbar |
+| **Bench** | wer einteilen darf | Ziel „Bench“ in der **Einteilung**; in der Abwesenheit holt ein Klick den Spieler in die Gruppe |
+| **Einteilen, Woche abschließen** | Stufe 1 und 2 (Gildenmeister, Offiziere) und die weiteren Ränge bis zur eingestellten Grenze | Ansicht „Einteilung“ |
+| **Unentschuldigt** | Gildenleitung | Eintrag mit Name und Zeit in der Abwesenheit, für alle sichtbar; zurücknehmen darf die Gildenleitung |
+| **Keine Meldung** | wer einteilen darf | Ziel „Keine Meldung“ in der **Einteilung**; gebucht beim Wochenabschluss |
 | **Stammgast aufnehmen** | Gildenleitung | von Hand im Addon in den Kader |
-| **Einstellungen setzen und teilen** | Gildenleitung | wie bei „Einstellungen teilen“ |
+| **Einstellungen setzen und teilen** | Stufe 1 und 2 immer; weitere Ränge bis zur Grenze | wie bei „Einstellungen teilen“. Die Grenze selbst ändern nur Stufe 1 und 2. Alle anderen sehen die geteilten Einstellungen nur zum Lesen und werden beim Anmelden auf den offiziellen Stand zurückgesetzt |
 | Abweichende Vergabe | wer zuteilt | wird im **Raidchat** und in der **Historie** als „abweichend vom Ergebnis“ gekennzeichnet |
 
 Der Plündermeister trägt nichts ein, was die Wertung verändert.
 
+## 6a. Mehrere Gruppen: Einteilung, Bench, Wochenabschluss
+
+Die Gruppen setzen sich Woche für Woche neu zusammen. Darum gibt es keine festen Kader je Gruppe, sondern eine **Einteilung**.
+
+- **Raidkader:** Ein Knopf liest die Gildenliste bis zu einem gewählten Rang ein. Daraus klickt man die Spieler in eine Gruppe.
+- **Raidtage je Gruppe:** Jede Gruppe hat ihre eigenen Wochentage (ihre Raid-ID, meist zwei Abende). Die Gruppen können an verschiedenen oder an denselben Tagen raiden. Für jeden Tag, an dem irgendeine Gruppe raidet, gibt es eine Einteilung.
+- **Einteilung:** Je Raidtag steht jeder Spieler in **höchstens einer** Gruppe, auf der **Bench** oder bei **Keine Meldung**. Die Raidleitung baut die Gruppen so, dass an beiden Tagen einer Gruppe dieselben Spieler stehen. Wer nur an einem Tag kann, kommt auf die Bench, wenn kein Platz ist. Die Einteilung geht an alle mit dem Addon. Wer einteilen darf, bestimmt die Rangprüfung der Einstellungen (§ 6).
+- **Bench:** Spieler auf der Bench haben **Faktor 0** und stehen in der Abwesenheit jeder Gruppe, damit man sie einspringen lassen kann. Ein Klick holt sie in die aktive Gruppe.
+- **Abgemeldet:** Wer in der Woche nirgends eingeteilt ist, braucht keinen Eintrag: Das Addon erkennt ihn als abgemeldet.
+- **Wochenabschluss:** Nach dem letzten Gruppenabend der Woche bucht die Gildenleitung mit **„Woche abschließen“** (zweimal klicken, die Vorschau steht im Chat) die Abmeldungen und die „Keine Meldung“ der Woche. **Jeder dieser Spieler bekommt Zuschläge für zwei Abende.** Der Schnitt je Abend ist das **Mittel der Schnitte der Gruppen** für diese Abend-Nummer: der erste Abend jeder Gruppe zusammen, dann der zweite. Wer an einem Gruppenabend dabei war oder irgendwo (Gruppe, Bench) eingeteilt war, bekommt nichts.
+- **Abwesenheit einer Gruppe:** Sie zeigt nur die eigenen Eingeteilten und die Bench. Wer eingeteilt war und ohne Info nicht kommt, wird mit **Unentschuldigt** markiert. Wer noch offen ist, verhindert den Abschluss.
+- **Neuen Abend beginnen:** Nach dem Abschluss macht dieser Knopf die Liste frei, ohne die gebuchten Wertungen anzutasten. „Abend wiedereröffnen“ nimmt dagegen den Abschluss samt Zuschlägen zurück.
+
 ## 7. Einstellungen (setzt eine Person der Gildenleitung, werden an alle geteilt)
 
-Faktoren je Fehlen 0,7 / 1,0 / 1,0 / 1,0 / 1,3 / 1,5 · Fenster 6 Abende · Unentschuldigt Faktor 1,5, mindestens 2 Punkte · Bank 0 · Anhebung (Niedrigster der Kaderspieler im Raid + 2) · Anmeldung vergessen (ab dem 3. Mal in 8 Abenden wie unentschuldigt) · Rangstufe der Gildenleitung.
-Wer die Rangstufe ändern darf, bestimmt dieselbe Rangprüfung: nur wer ohnehin senden darf.
+Faktoren je Fehlen 0,7 / 1,0 / 1,0 / 1,0 / 1,3 / 1,5 · Fenster 6 Abende (eigene Abende des Spielers) · Unentschuldigt Faktor 1,5, mindestens 2 Punkte · Bench 0 · Anhebung (Niedrigster der Kaderspieler im Raid + 2) · Keine Meldung (ab dem 3. Mal in 8 Abenden wie unentschuldigt) · Raidtage je Gruppe · Rangstufe (Stufe 1 und 2 immer, weitere Ränge einstellbar).
+Die Rangstufe selbst können nur Stufe 1 und 2 ändern.
 
 ## 8. Beispiele
 
@@ -143,6 +159,7 @@ Immer dieselben vier Spieler: **Kaos, Shadow, Canu, Protti.** Zahlen sind Wertun
 
 ## 9. Noch offen
 
-Nichts mehr offen (alle Punkte am 16.10.2026 beantwortet). Zwei Festlegungen zum Schluss:
+Nichts mehr offen (alle Punkte bis 18.10.2026 beantwortet). Festlegungen zum Schluss:
 1. **OS nach Absprache:** Vergibt der Plündermeister ein OS-Item nach der Absprache im Raid, steht im Raidchat und in der Historie neutral „OS nach Absprache“ statt „abweichend vom Ergebnis“.
 2. **Rückgabe:** Mit „Zuschlag“ bei der Rückgabe war der **Punkt des Items** gemeint, nicht der Zuschlag für verpasste Abende.
+3. **Raidet jemand in einer anderen Gruppe, als er eingeteilt ist,** ist das Sache der Raidleitung: Sie baut die Gruppen vorher so, dass es nicht vorkommt. Das Addon macht dafür keine Sonderregel.
