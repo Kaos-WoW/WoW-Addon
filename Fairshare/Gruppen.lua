@@ -82,9 +82,14 @@ function Gruppen.Aktiv()
 end
 
 --- @return true, oder false und ein Grund
+--- ⭐ Der reservierte „Gruppenname“ für die Bench in der Einteilung (Entscheid 18.10.2026): Wer dort steht, wird
+--  in keiner Gruppe erwartet, erscheint aber in der Abwesenheit jeder Gruppe, falls er einspringen muss.
+Gruppen.BENCH = "Bench"
+
 function Gruppen.Anlegen(name)
     name = type(name) == "string" and name:match("^%s*(.-)%s*$") or ""
     if name == "" then return false, L["kein Name"] end
+    if name:lower() == Gruppen.BENCH:lower() then return false, L["Dieser Name ist reserviert."] end
     if #name > 40 then return false, L["Name zu lang (höchstens 40 Zeichen)"] end
     -- ⚠️ Kein Semikolon und keine Steuerzeichen: Der Name geht beim Abgleich
     -- mit auf die Reise. Kodieren schuetzt zwar, aber Ruhe ist besser.
@@ -385,6 +390,328 @@ function Gruppen.AutoSynchronisieren()
         print("|cff1B6B57Fairshare|r: " ..
             string.format(L["Kader „%s“: Entfernen übersprungen (zu viele auf einmal) – bitte in den Einstellungen prüfen."], name))
     end
+end
+
+-- =====================================================================
+--  ⭐ Raidkader (Pool) und Einteilung je Abend und Gruppe (Entscheid 17.10.2026)
+--
+--  Die Gruppen wechseln von Woche zu Woche. Darum gibt es
+--    * den **Raidkader**: ein Knopf liest die Gildenliste bis zu einem gewaehlten Gildenrang ein; daraus
+--      laesst sich anklicken, wer in eine Gruppe kommt (statt Namen zu tippen), und
+--    * die **Einteilung** je Kalendertag: fuer jeden Spieler steht, in welcher Gruppe er an diesem Tag ist
+--      (hoechstens in einer). Sie wird an alle mit dem Addon verteilt (Nachricht `T`).
+--
+--  Verteilen ohne Streit: Je Spieler und Tag gibt es EINEN Eintrag { Gruppe, Zeit, Urheber }; der juengere
+--  gewinnt, bei gleicher Zeit der Urheber mit dem groesseren Namen. So konvergieren alle Clients, auch wenn
+--  zwei Leiter gleichzeitig aendern. Eine leere Gruppe bedeutet „nicht eingeteilt“.
+-- =====================================================================
+
+local function ichName()
+    if GetUnitName then
+        local n = GetUnitName("player", true)
+        if n and n ~= "" then return n end
+    end
+    return (UnitName and UnitName("player")) or "Spieler"
+end
+
+--- Der Gildenrang, bis zu dem der Raidkader eingelesen wird (Rangindex; kleiner = hoeher).
+function Gruppen.RaidkaderRang()
+    return db().raidkaderRang
+end
+
+function Gruppen.RaidkaderRangSetzen(index)
+    db().raidkaderRang = tonumber(index)
+end
+
+--- ⭐ Liest die Gildenliste bis zum gewaehlten Rang ein: das ist der Raidkader.
+--  @param bisRang  Rangindex (alle bis einschliesslich diesem Rang); sonst der gemerkte
+--  @return Zahl der Mitglieder, oder nil und ein Grund
+function Gruppen.RaidkaderSync(bisRang)
+    bisRang = tonumber(bisRang) or db().raidkaderRang
+    if bisRang == nil then return nil, L["Bitte erst einen Gildenrang wählen."] end
+    local M, grund = Gruppen.GildenMitglieder()
+    if not M then return nil, grund end
+
+    local liste = {}
+    for _, m in ipairs(M) do
+        if m.rangIndex ~= nil and m.rangIndex <= bisRang then
+            liste[#liste + 1] = { name = m.name, rang = tostring(m.rang or m.rangIndex), rangIndex = m.rangIndex }
+        end
+    end
+    -- Niemand in den Raengen: eher eine unvollstaendig geladene Gildenliste als ein leerer Kader.
+    if #liste == 0 then return nil, L["In den gewählten Rängen ist niemand – nichts geändert."] end
+    table.sort(liste, function(a, b) return a.name:lower() < b.name:lower() end)
+
+    local d = db()
+    d.raidkader = { stand = time(), bisRang = bisRang, namen = liste }
+    d.raidkaderRang = bisRang
+    return #liste
+end
+
+--- Der eingelesene Raidkader: Liste aus { name, rang, rangIndex } (leer, wenn noch nicht eingelesen).
+function Gruppen.Raidkader()
+    local r = db().raidkader
+    return (r and r.namen) or {}, r and r.stand
+end
+
+local TAG = 86400
+
+--- Das Datum (JJJJ-MM-TT) von heute plus `tage`.
+function Gruppen.EinteilungTag(tage)
+    return date("%Y-%m-%d", time() + (tonumber(tage) or 0) * TAG)
+end
+
+local function einteilungen()
+    local d = db()
+    d.einteilung = d.einteilung or {}
+    return d.einteilung
+end
+
+--- Alte Tage entfernen (aelter als drei Wochen).
+local function einteilungAufraeumen()
+    local grenze = date("%Y-%m-%d", time() - 21 * TAG)
+    local E = einteilungen()
+    for tag in pairs(E) do
+        if type(tag) ~= "string" or tag < grenze then E[tag] = nil end
+    end
+end
+
+--- In welcher Gruppe ist der Spieler an diesem Tag?
+--  @return Gruppenname, Eintrag  oder nil (nicht eingeteilt)
+function Gruppen.EinteilungVon(datum, name)
+    local T = einteilungen()[datum]
+    local k = Kern.Schluessel(name)
+    local e = T and k and T[k]
+    if e and e.gruppe and e.gruppe ~= "" then return e.gruppe, e end
+    return nil
+end
+
+-- ---------------------------------------------------------------------
+--  ⭐ Raidtage: an welchen Wochentagen raidet die Gilde (Einstellungen → Gruppen)
+-- ---------------------------------------------------------------------
+
+-- Lua-Wochentag (date("*t").wday): 1 = Sonntag … 7 = Samstag. Angezeigt wird Montag bis Sonntag.
+local WOCHENFOLGE = { 2, 3, 4, 5, 6, 7, 1 }
+
+--- Die Wochentage in Anzeigereihenfolge (Montag bis Sonntag), als Lua-Wochentag.
+function Gruppen.RaidtageFolge()
+    return WOCHENFOLGE
+end
+
+function Gruppen.RaidtagName(wday)
+    local N = { [1] = L["So"], [2] = L["Mo"], [3] = L["Di"], [4] = L["Mi"], [5] = L["Do"], [6] = L["Fr"], [7] = L["Sa"] }
+    return N[wday] or "?"
+end
+
+function Gruppen.RaidtagGewaehlt(wday)
+    local r = db().raidtage
+    return (r and r[wday]) and true or false
+end
+
+function Gruppen.RaidtagSetzen(wday, an)
+    wday = tonumber(wday)
+    if not wday or wday < 1 or wday > 7 then return false end
+    local d = db()
+    d.raidtage = d.raidtage or {}
+    d.raidtage[wday] = an and true or nil
+    return true
+end
+
+--- ⭐ Die Tage, für die es eine Einteilung gibt: das nächste Vorkommen (ab heute) jedes Raidtags, nach
+--  Datum sortiert. Sind keine Raidtage gewählt: heute und morgen.
+--  @return Liste aus { datum, label }
+function Gruppen.EinteilungTage()
+    local r = db().raidtage or {}
+    local gewaehlt = false
+    for _ in pairs(r) do gewaehlt = true break end
+    local jetzt = time()
+    if not gewaehlt then
+        return {
+            { datum = date("%Y-%m-%d", jetzt),       label = L["Heute"] },
+            { datum = date("%Y-%m-%d", jetzt + TAG), label = L["Morgen"] },
+        }
+    end
+    local liste = {}
+    for tage = 0, 6 do
+        local t = jetzt + tage * TAG
+        local wd = date("*t", t).wday
+        if r[wd] then
+            liste[#liste + 1] = { datum = date("%Y-%m-%d", t), label = Gruppen.RaidtagName(wd) .. " " .. date(L["%d.%m."], t) }
+        end
+    end
+    -- ⭐ Heute lässt sich immer einteilen (auch an einem Tag, der kein Raidtag ist): Die Abwesenheit des Abends
+    -- richtet sich nach der Einteilung von heute.
+    local heute = date("%Y-%m-%d", jetzt)
+    if liste[1] == nil or liste[1].datum ~= heute then
+        table.insert(liste, 1, { datum = heute, label = L["Heute"] })
+    end
+    return liste
+end
+
+--- Die Namen, die an diesem Tag in dieser Gruppe eingeteilt sind (alphabetisch).
+function Gruppen.EinteilungListe(datum, gruppe)
+    local liste = {}
+    for _, e in pairs(einteilungen()[datum] or {}) do
+        if e.gruppe == gruppe then liste[#liste + 1] = e.name end
+    end
+    table.sort(liste, function(a, b) return a:lower() < b:lower() end)
+    return liste
+end
+
+--- Die Spieler auf der Bench an diesem Tag.
+function Gruppen.BenchListe(datum)
+    return Gruppen.EinteilungListe(datum, Gruppen.BENCH)
+end
+
+--- Gibt es fuer diesen Tag ueberhaupt eine Einteilung (in irgendeiner Gruppe)?
+function Gruppen.EinteilungVorhanden(datum)
+    for _, e in pairs(einteilungen()[datum] or {}) do
+        if e.gruppe and e.gruppe ~= "" then return true end
+    end
+    return false
+end
+
+--- ⭐ Wer darf einteilen? Nur wer laut Einstellungen schreiben darf (Gildenrang wie beim Teilen der
+--  Einstellungen, Entscheid 17.10.2026) — Raidleiter und Assistenten allein genügen nicht.
+function Gruppen.EinteilungDarf(name)
+    name = name or ichName()
+    if name == "System" then return true end
+    return (ns.Konfig and ns.Konfig.Darf and ns.Konfig.Darf(name)) and true or false
+end
+
+local function tagOk(datum)
+    if type(datum) ~= "string" or not datum:match("^%d%d%d%d%-%d%d%-%d%d$") then return false end
+    return datum >= date("%Y-%m-%d", time() - 3 * TAG) and datum <= date("%Y-%m-%d", time() + 21 * TAG)
+end
+
+local function gruppeOk(g)
+    return type(g) == "string" and #g <= 40 and not g:find("[;~|%c]")
+end
+
+local function nameOk(n)
+    return type(n) == "string" and #n >= 1 and #n <= 40 and not n:find("[;~|,%c]")
+end
+
+--- Traegt einen Spieler ein (der juengere Eintrag gewinnt). @return true, wenn sich etwas geaendert hat
+local function einteilungEinsetzen(datum, name, gruppe, zeit, von)
+    local k = Kern.Schluessel(name)
+    if not k then return false end
+    local T = einteilungen()
+    T[datum] = T[datum] or {}
+    local alt = T[datum][k]
+    if alt and ((alt.zeit or 0) > zeit or ((alt.zeit or 0) == zeit and tostring(alt.von or "") >= tostring(von))) then
+        return false
+    end
+    T[datum][k] = { name = Kern.Anzeigename(name), gruppe = gruppe or "", zeit = zeit, von = von }
+    return true
+end
+
+--- Eine Meldung `T;<Datum>;<Urheber>;<Name>|<Gruppe>|<Zeit>~<Name>|<Gruppe>|<Zeit>…` an die Gilde und die Gruppe.
+--  @param schluessel  Liste der Spielerschluessel dieses Tages (nil = alle)
+function Gruppen.EinteilungSenden(datum, schluessel)
+    local T = einteilungen()[datum]
+    if not T or not ns.Abgleich or not ns.Abgleich.Senden then return false end
+    local von = ichName()
+    local teile, aktuell = {}, ""
+    local function anhaengen(stueck)
+        if aktuell ~= "" and #aktuell + 1 + #stueck > 200 then
+            teile[#teile + 1] = aktuell
+            aktuell = stueck
+        else
+            aktuell = (aktuell == "") and stueck or (aktuell .. "~" .. stueck)
+        end
+    end
+    local keys = schluessel
+    if not keys then
+        keys = {}
+        for k in pairs(T) do keys[#keys + 1] = k end
+        table.sort(keys)
+    end
+    for _, k in ipairs(keys) do
+        local e = T[k]
+        if e and nameOk(e.name) and gruppeOk(e.gruppe or "") then
+            anhaengen(string.format("%s|%s|%d", e.name, e.gruppe or "", e.zeit or 0))
+        end
+    end
+    if aktuell ~= "" then teile[#teile + 1] = aktuell end
+    for _, teil in ipairs(teile) do
+        local text = string.format("T;%s;%s;%s", datum, von, teil)
+        ns.Abgleich.Senden(text, false, "GUILD")
+        ns.Abgleich.Senden(text, false)               -- Gruppenkanal, wenn man in einer Gruppe ist
+    end
+    return #teile > 0
+end
+
+--- ⭐ Teilt einen Spieler fuer einen Tag einer Gruppe zu (leer/nil = nicht eingeteilt). In hoechstens einer Gruppe.
+--  @return true, oder nil und ein Grund
+function Gruppen.EinteilungSetzen(datum, name, gruppe, von)
+    von = von or ichName()
+    if not Gruppen.EinteilungDarf(von) then
+        return nil, L["Keine Berechtigung (nur Gildenränge mit Schreibrecht)."]
+    end
+    if not tagOk(datum) then return nil, L["Ungültiges Datum."] end
+    if not nameOk(name) then return nil, L["Ungültiger Spielername."] end
+    gruppe = gruppe or ""
+    if gruppe ~= "" and not (gruppeOk(gruppe) and (gruppe == Gruppen.BENCH or Gruppen.Holen(gruppe))) then
+        return nil, L["Diese Gruppe gibt es nicht."]
+    end
+
+    local k = Kern.Schluessel(name)
+    local alt = einteilungen()[datum] and einteilungen()[datum][k]
+    local zeit = time()
+    if alt and (alt.zeit or 0) >= zeit then zeit = alt.zeit + 1 end     -- immer juenger als der eigene alte Eintrag
+    einteilungEinsetzen(datum, name, gruppe, zeit, von)
+    einteilungAufraeumen()
+    Gruppen.EinteilungSenden(datum, { k })
+    return true
+end
+
+local eMerke = {}
+
+--- Letzte Meldungen zur Einteilung (fuer `/fs einteilung status`).
+function Gruppen.EinteilungStatus()
+    return eMerke
+end
+
+--- Eine Einteilungsmeldung ist eingetroffen (Gilde oder Gruppe).
+function Gruppen.EinteilungEmpfangen(rest, sender, kanalName)
+    if type(rest) ~= "string" or Kern.GleicherSpieler(sender, ichName()) then return end
+    local function merke(text)
+        eMerke[#eMerke + 1] = date("%H:%M:%S", time()) .. "  " .. text
+        if #eMerke > 8 then table.remove(eMerke, 1) end
+    end
+
+    local datum, von, teil = rest:match("^(%d%d%d%d%-%d%d%-%d%d);([^;]*);(.*)$")
+    if not datum or not tagOk(datum) or not nameOk(von) then
+        merke(string.format(L["Einteilung von %s: Nachricht ungültig"], tostring(sender)))
+        return
+    end
+    -- Es gilt der Absender selbst, nicht die Angabe im Text (kein Weiterreichen).
+    if not Kern.GleicherSpieler(sender, von) then
+        merke(string.format(L["Einteilung von %s: Urheber stimmt nicht"], tostring(sender)))
+        return
+    end
+    if not Gruppen.EinteilungDarf(sender) then
+        merke(string.format(L["Einteilung von %s: Absender darf nicht einteilen"], tostring(sender)))
+        return
+    end
+
+    local n, neu = 0, 0
+    local jetzt = time()
+    for eintrag in (teil .. "~"):gmatch("(.-)~") do
+        if eintrag ~= "" then
+            n = n + 1
+            if n > 60 then break end
+            local name, gruppe, zeit = eintrag:match("^([^|]+)|([^|]*)|(%d+)$")
+            zeit = tonumber(zeit)
+            if name and nameOk(name) and gruppeOk(gruppe) and zeit and zeit > 1000000000 and zeit <= jetzt + 2 * TAG then
+                if einteilungEinsetzen(datum, name, gruppe, zeit, von) then neu = neu + 1 end
+            end
+        end
+    end
+    einteilungAufraeumen()
+    merke(string.format(L["Einteilung von %s angenommen: %d Einträge, %d neu"], tostring(sender), n, neu))
+    if ns.Fenster and ns.Fenster.Sichtbar and ns.Fenster.Sichtbar() then ns.Fenster.Aktualisieren() end
 end
 
 local rahmen = CreateFrame("Frame")

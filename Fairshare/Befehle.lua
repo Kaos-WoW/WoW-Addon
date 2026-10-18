@@ -50,6 +50,7 @@ local function hilfe()
     print(L["  |cffffff78/fs unentschuldigt|r – Unentschuldigte Spieler (|cffffff78/fs unent <Name>|r)"])
     print(L["  |cffffff78/fs vergessen|r    – Anmeldung vergessen (|cffffff78/fs vergessen <Name>|r)"])
     print(L["  |cffffff78/fs abmeldung|r    – ausdrücklich abgemeldet (|cffffff78/fs abmeldung <Name>|r, |cffffff78alle|r = alle Offenen)"])
+    print(L["  |cffffff78/fs einteilung|r   – Raidkader und Einteilung je Tag und Gruppe (|cffffff78/fs raidkader <Rang>|r liest den Raidkader ein)"])
     print(L["  |cffffff78/fs rueckgabe|r    – zurückgegebene Items, noch nicht neu vergeben (|cffffff78/fs rueckgabe <Nr>|r schließt ab)"])
     print(L["  |cffffff78/fs bereiche|r     – Würfelbereiche (|cffffff78bereiche haupt 1 100|r, |cffffff78zweit|r, |cffffff78setzen|r in Gargul, |cffffff78uebernehmen|r aus Gargul)"])
     print(L["  |cffffff78/fs auto|r         – Fenster bei Wurfbeginn automatisch öffnen (an/aus)"])
@@ -370,6 +371,34 @@ befehle["absence"] = befehle["bank"]
 
 --- ⭐ Ausdrückliche Abmeldung: `/fs abmeldung <Name>` setzt oder hebt sie auf, `/fs abmeldung alle`
 --  setzt alle noch offenen Spieler als abgemeldet.
+--- ⭐ Einteilung je Tag und Gruppe: `/fs einteilung` oeffnet die Ansicht, `/fs einteilung status` zeigt die
+--  letzten Meldungen, `/fs raidkader [Rangnummer]` liest den Raidkader bis zum Rang ein.
+befehle["einteilung"] = function(rest)
+    rest = rest and rest:match("^%s*(.-)%s*$") or ""
+    if rest:lower() == "status" then
+        sag(L["Letzte Einteilungsmeldungen:"])
+        local S = ns.Gruppen.EinteilungStatus()
+        if #S == 0 then print(L["  Noch keine empfangen."]) end
+        for _, z in ipairs(S) do print("  " .. z) end
+        return
+    end
+    Fenster.ZeigenAnsicht("einteilung")
+end
+befehle["assignment"] = befehle["einteilung"]
+
+befehle["raidkader"] = function(rest)
+    rest = rest and rest:match("^%s*(.-)%s*$") or ""
+    local rang = tonumber(rest)
+    local n, grund = ns.Gruppen.RaidkaderSync(rang)
+    if n then
+        sag(string.format(L["Raidkader eingelesen: %d Mitglieder."], n))
+        if Fenster.Sichtbar() then Fenster.Aktualisieren() end
+    else
+        sag(ROT .. tostring(grund) .. "|r")
+    end
+end
+befehle["raidroster"] = befehle["raidkader"]
+
 befehle["abmeldung"] = function(rest)
     rest = rest and rest:match("^%s*(.-)%s*$") or ""
     if not ns.Anwesenheit then return end

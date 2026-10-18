@@ -175,7 +175,11 @@ function Rolle.Aktiv()
     if nutzung == "nein" then
         return false, L["Du hast Fairshare für diese Gruppe abgelehnt – das Addon schläft"]
     elseif nutzung ~= "ja" then
-        return false, L["Fairshare wartet auf deine Antwort – /fs nutzung"]
+        -- ⭐ Fragen muss nur der Plündermeister; alle anderen warten auf seine Antwort (Nutzung.lua)
+        if Rolle.IchBinPluendermeister() then
+            return false, L["Fairshare wartet auf deine Antwort – /fs nutzung"]
+        end
+        return false, L["Fairshare wartet auf die Antwort des Plündermeisters – oder /fs nutzung ja"]
     end
     return true
 end
@@ -193,11 +197,26 @@ function Rolle.Nutzung()
     return nil
 end
 
---- @param wert "ja" | "nein" | nil (zurücknehmen: es wird neu gefragt)
-function Rolle.NutzungSetzen(wert)
+--- @param wert    "ja" | "nein" | nil (zurücknehmen: es wird neu gefragt)
+--  @param quelle  "leiter": vom Plündermeister übernommen (Nachricht `U`); sonst die eigene Entscheidung.
+--                 Die eigene bleibt, wenn der Plündermeister später etwas anderes meldet.
+function Rolle.NutzungSetzen(wert, quelle)
     local d = ns.Erfassung.Einstellungen()
     d.nutzung = (wert == "ja" or wert == "nein") and wert or nil
+    d.nutzungQuelle = d.nutzung and (quelle == "leiter" and "leiter" or "selbst") or nil
     if ns.Nutzung then ns.Nutzung.Entschieden(d.nutzung) end
+    -- ⭐ Antwortet der Plündermeister, gilt es für alle in der Gruppe mit dem Addon
+    if d.nutzung and quelle ~= "leiter" and ns.Nutzung and ns.Nutzung.Verkuenden then
+        pcall(ns.Nutzung.Verkuenden)
+    end
+end
+
+--- Ist dieser (andere) Spieler gerade Plündermeister unserer Gruppe?
+function Rolle.IstPluendermeister(name)
+    for _, k in ipairs((Rolle.Kandidaten())) do
+        if k.ml and Kern.GleicherSpieler(k.name, name) then return true end
+    end
+    return false
 end
 
 --- Zeichnet DIESER Spieler gerade auf?

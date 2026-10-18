@@ -49,6 +49,25 @@ function Anwesenheit._SetDB(mockDB)
     dbOverride = mockDB
 end
 
+--- ⭐ Die Kennung einer Gruppe fuer Abendkennungen und Datenbuch: nur `[%w_.-]`, hoechstens 24 Zeichen.
+--  @return Text, oder nil ohne Gruppe
+function Anwesenheit.GruppenKennung(gruppe)
+    if type(gruppe) ~= "string" or gruppe == "" then return nil end
+    local s = gruppe:gsub("[^%w_%.%-]", "-")
+    s = s:gsub("%-+", "-")
+    s = s:gsub("^%-", "")
+    s = s:gsub("%-$", "")
+    if s == "" then s = "g" end
+    return s:sub(1, 24)
+end
+
+--- ⭐ Die Kennung eines Abends: Datum und Gruppe (zwei Gruppen am selben Tag ueberschreiben sich nicht).
+--  Ohne Gruppe nur das Datum, wie bisher.
+function Anwesenheit.AbendId(datum, gruppe)
+    local g = Anwesenheit.GruppenKennung(gruppe)
+    return g and (tostring(datum) .. "_" .. g) or tostring(datum)
+end
+
 --- Liefert den aktiven Raidabend oder erstellt einen frischen.
 --  Alte Abende (älter als 14 Stunden oder von einem anderen Kalendertag)
 --  werden automatisch in die Historie (FairshareDB.abende) archiviert.
@@ -58,9 +77,15 @@ function Anwesenheit.AktiverAbend(erstellen)
     local heute = date("%Y-%m-%d", jetzt)
 
     local akt = d.aktiverAbend
+    local aktiveGruppe = ns.Gruppen and ns.Gruppen.AktivName and ns.Gruppen.AktivName() or nil
     if akt then
+        -- ⭐ Ein Gruppenwechsel ist ein ANDERER Abend (Entscheid 17.10.2026: mehrere Gruppen). Der alte wird
+        -- archiviert, wenn er schon Bosskaempfe hatte, sonst verworfen. Ein abgeschlossener Abend bleibt
+        -- unberuehrt stehen (er gehoert zu seiner Gruppe).
+        local gruppeAnders = (not akt.abgeschlossen) and (akt.gruppe or "") ~= (aktiveGruppe or "")
         local alt = (akt.start and (jetzt - akt.start > 14 * 3600))
                  or (akt.datum and akt.datum ~= heute)
+                 or gruppeAnders
         if alt then
             if (akt.bosse or 0) > 0 then
                 local id = akt.id or (akt.datum or heute)
@@ -69,11 +94,6 @@ function Anwesenheit.AktiverAbend(erstellen)
             d.aktiverAbend = nil
             akt = nil
         else
-            -- ⭐ Der offene Abend folgt der aktiven Gruppe. Sonst zaehlte AbendMainItems keine Vergabe, wenn die
-            -- Gruppe nach dem Anlegen des Abends gewechselt wurde (Fund im Spiel 17.10.2026: Abend unter
-            -- „20er: Grp 2“ angelegt, Items unter „TEST“ vergeben -> 0 Main-Items, Schnitt 0).
-            local aktiveGruppe = ns.Gruppen and ns.Gruppen.AktivName and ns.Gruppen.AktivName()
-            if aktiveGruppe and not akt.abgeschlossen then akt.gruppe = aktiveGruppe end
             akt.bank = akt.bank or {}
             akt.unentschuldigt = akt.unentschuldigt or {}
             akt.abgemeldet = akt.abgemeldet or {}
@@ -84,7 +104,7 @@ function Anwesenheit.AktiverAbend(erstellen)
 
     if not akt and erstellen then
         akt = {
-            id          = heute,
+            id          = Anwesenheit.AbendId(heute, aktiveGruppe),
             datum       = heute,
             start       = jetzt,
             bosse       = 0,
@@ -97,7 +117,7 @@ function Anwesenheit.AktiverAbend(erstellen)
             vergessen   = {},    -- Keine Meldung (weder an- noch abgemeldet, nicht erschienen)
             abgemeldet  = {},    -- ausdruecklich abgemeldet (vom Leiter eingetragen)
             protokoll   = {},    -- { { typ = "bank"|"unentschuldigt", an = bool, spieler = name, von = autor, zeit = timestamp } }
-            gruppe      = ns.Gruppen and ns.Gruppen.AktivName and ns.Gruppen.AktivName() or nil,
+            gruppe      = aktiveGruppe,
         }
         d.aktiverAbend = akt
     end
@@ -399,6 +419,38 @@ function Anwesenheit.DarfUnentschuldigtVerwalten(spieler)
     return false
 end
 
+--- ⭐ Die Spieler, die an diesem Abend erwartet werden: die **Einteilung** dieser Gruppe an diesem Tag, wenn es fuer
+--  den Tag eine gibt (Entscheid 17.10.2026: mehrere Gruppen, Spieler der anderen Gruppe sind nie „abwesend“);
+--  sonst wie bisher der Kader der Gruppe.
+--  @return Liste der Namen, nurEinteilung (true: der Gilden-Rueckfall darf nicht greifen), Bench-Namen
+--          (die Bench des Tages steht in der Abwesenheit jeder Gruppe, mit Bank-Faktor 0)
+local function erwarteteNamen(abend)
+    local datum = (abend and abend.datum) or date("%Y-%m-%d", time())
+    local gruppe = (abend and abend.gruppe) or (ns.Gruppen and ns.Gruppen.AktivName and ns.Gruppen.AktivName()) or nil
+    if ns.Gruppen and ns.Gruppen.EinteilungVorhanden and ns.Gruppen.EinteilungVorhanden(datum) then
+        local bench = ns.Gruppen.BenchListe(datum)
+        -- Gibt es für den Tag eine Einteilung, aber keine Gruppe ist gewählt: niemand wird erwartet
+        -- (nie die ganze Gilde; Fund im Spiel 18.10.2026: alle 32 standen in der Liste)
+        if not gruppe then return {}, true, bench end
+        return ns.Gruppen.EinteilungListe(datum, gruppe), true, bench
+    end
+    if ns.Gruppen and ns.Gruppen.Pflicht then return ns.Gruppen.Pflicht(gruppe) or {}, false, {} end
+    return {}, false, {}
+end
+
+Anwesenheit.ErwarteteNamen = erwarteteNamen
+
+--- ⭐ Ein Spieler von der Bench springt ein: Er kommt in die aktive Gruppe (Einteilung von heute) und wird damit
+--  erwartet; erscheint er nicht im Raid, ist er offen und muss eingetragen werden.
+--  @return true, oder nil und ein Grund
+function Anwesenheit.BenchEinspringen(spielerName, vonName)
+    local gruppe = ns.Gruppen and ns.Gruppen.AktivName and ns.Gruppen.AktivName()
+    if not gruppe then return nil, L["Keine Gruppe aktiv."] end
+    local abend = Anwesenheit.AktiverAbend(false)
+    local datum = (abend and abend.datum) or date("%Y-%m-%d", time())
+    return ns.Gruppen.EinteilungSetzen(datum, spielerName, gruppe, vonName)
+end
+
 --- Setzt oder hebt den Bank-Status für einen Spieler auf (§ 2: Faktor 0).
 function Anwesenheit.BankSetzen(spielerName, an, vonName)
     local autor = vonName or ichName()
@@ -662,20 +714,30 @@ function Anwesenheit.KandidatenListe(abend, mitRaid)
     local pool = {}
     local gesehen = {}
 
-    -- 1. Kaderspieler der aktuellen Gruppe
-    if ns.Gruppen and ns.Gruppen.Pflicht then
-        local pflicht = ns.Gruppen.Pflicht()
-        for _, n in ipairs(pflicht or {}) do
-            local k = Kern.Schluessel(n)
-            if k and not gesehen[k] then
+    -- 1. Die erwarteten Spieler dieser Gruppe (Einteilung des Tages, sonst Kader)
+    local pflicht, nurEinteilung, bench = erwarteteNamen(abend)
+    for _, n in ipairs(pflicht or {}) do
+        local k = Kern.Schluessel(n)
+        if k and not gesehen[k] then
+            gesehen[k] = true
+            pool[#pool + 1] = n
+        end
+    end
+    -- ⭐ Die Bench des Tages steht in jeder Gruppe in der Liste (springt einer ein, stellt man ihn hier um)
+    local benchSet = {}
+    for _, n in ipairs(bench or {}) do
+        local k = Kern.Schluessel(n)
+        if k then
+            benchSet[k] = true
+            if not gesehen[k] then
                 gesehen[k] = true
                 pool[#pool + 1] = n
             end
         end
     end
 
-    -- Falls kein Gruppenkader vorhanden: Gildenmitglieder als Pool
-    if #pool == 0 and ns.Gruppen and ns.Gruppen.GildenMitglieder then
+    -- Falls kein Gruppenkader vorhanden: Gildenmitglieder als Pool (nie bei einer Einteilung)
+    if #pool == 0 and not nurEinteilung and ns.Gruppen and ns.Gruppen.GildenMitglieder then
         local GM = ns.Gruppen.GildenMitglieder()
         for _, m in ipairs(GM or {}) do
             local k = Kern.Schluessel(m.name)
@@ -726,9 +788,13 @@ function Anwesenheit.KandidatenListe(abend, mitRaid)
             local uEintrag = abend and abend.unentschuldigt and abend.unentschuldigt[k]
             local vEintrag = abend and abend.vergessen and abend.vergessen[k]
             local aEintrag = abend and abend.abgemeldet and abend.abgemeldet[k]
+            -- Bench laut Einteilung gilt wie Bank (Faktor 0), solange nichts anderes eingetragen ist
+            local benchE = benchSet[k] and not bEintrag and not uEintrag and not vEintrag and not aEintrag
             local istOnline = onlineMap[k] or false
             local protokollText = ""
-            if aEintrag then
+            if benchE then
+                protokollText = L["Bench laut Einteilung – Klick auf Bank holt ihn in die Gruppe."]
+            elseif aEintrag then
                 protokollText = string.format(L["Abgemeldet: %s, %s"], aEintrag.von or "?", date(L["%d.%m. %H:%M"], aEintrag.zeit or time()))
             elseif bEintrag then
                 protokollText = string.format(L["Bank: %s, %s"], bEintrag.von or "?", date(L["%d.%m. %H:%M"], bEintrag.zeit or time()))
@@ -741,11 +807,12 @@ function Anwesenheit.KandidatenListe(abend, mitRaid)
             kandidaten[#kandidaten + 1] = {
                 name           = Kern.Anzeigename(n),
                 online         = istOnline,
-                bank           = bEintrag,
+                bank           = bEintrag or (benchE and { name = Kern.Anzeigename(n), von = "Einteilung", zeit = 0 }) or nil,
+                benchEinteilung = benchE and true or false,
                 unentschuldigt = uEintrag,
                 vergessen      = vEintrag,
                 abgemeldet     = aEintrag,
-                offen          = (not inRaid[k] and not bEintrag and not uEintrag and not vEintrag and not aEintrag) and true or false,
+                offen          = (not inRaid[k] and not bEintrag and not benchE and not uEintrag and not vEintrag and not aEintrag) and true or false,
                 imRaid         = inRaid[k] and true or false,
                 protokoll      = protokollText,
             }
@@ -757,6 +824,7 @@ function Anwesenheit.KandidatenListe(abend, mitRaid)
         local bAktiv = (b.bank ~= nil or b.unentschuldigt ~= nil or b.vergessen ~= nil or b.abgemeldet ~= nil) and 1 or 0
         if a.imRaid ~= b.imRaid then return b.imRaid and true or false end     -- wer im Raid steht, zuletzt
         if a.offen ~= b.offen then return a.offen and true or false end       -- wer noch offen ist, zuerst
+        if a.benchEinteilung ~= b.benchEinteilung then return a.benchEinteilung and true or false end   -- dann die Bench
         if aAktiv ~= bAktiv then return aAktiv > bAktiv end
         if a.online ~= b.online then return a.online and not b.online end
         return a.name < b.name
@@ -960,19 +1028,30 @@ function Anwesenheit.AbendVorschau(abend, offeneAlsAbgemeldet)
     local pool = {}
     local gesehen = {}
 
-    -- 1. Aus Gruppen-Pflicht
-    if ns.Gruppen and ns.Gruppen.Pflicht then
-        for _, n in ipairs(ns.Gruppen.Pflicht(abend.gruppe) or {}) do
-            local k = Kern.Schluessel(n)
-            if k and not gesehen[k] then
+    -- 1. Die erwarteten Spieler (Einteilung des Tages, sonst Kader der Gruppe)
+    local pflichtListe, nurEinteilung, benchListe = erwarteteNamen(abend)
+    for _, n in ipairs(pflichtListe or {}) do
+        local k = Kern.Schluessel(n)
+        if k and not gesehen[k] then
+            gesehen[k] = true
+            pool[#pool + 1] = n
+        end
+    end
+    -- ⭐ Bench laut Einteilung: Bank-Faktor 0 (jeder Gruppenabend führt sie mit)
+    local benchSet = {}
+    for _, n in ipairs(benchListe or {}) do
+        local k = Kern.Schluessel(n)
+        if k then
+            benchSet[k] = true
+            if not gesehen[k] then
                 gesehen[k] = true
                 pool[#pool + 1] = n
             end
         end
     end
 
-    -- 2. Aus Gildenmitgliedern
-    if #pool == 0 and ns.Gruppen and ns.Gruppen.GildenMitglieder then
+    -- 2. Aus Gildenmitgliedern (nie bei einer Einteilung)
+    if #pool == 0 and not nurEinteilung and ns.Gruppen and ns.Gruppen.GildenMitglieder then
         for _, m in ipairs(ns.Gruppen.GildenMitglieder() or {}) do
             local k = Kern.Schluessel(m.name)
             if k and not gesehen[k] then
@@ -1068,6 +1147,12 @@ function Anwesenheit.AbendVorschau(abend, offeneAlsAbgemeldet)
                 faktor = Kern.FehlFaktor(fehlAnzahl, "abgemeldet")
                 zuschlag = Kern.Zuschlag(faktor, schnitt)
             end
+        elseif benchSet[k] and not aEintrag then
+            -- Bench laut Einteilung, nichts anderes eingetragen: wie Bank
+            status = "bank"
+            faktor = Kern.FAKTOR_BANK
+            zuschlag = 0
+            fehlAnzahl = 0
         elseif aEintrag or offeneAlsAbgemeldet then
             status = "abgemeldet"
             fehlAnzahl = Anwesenheit.Fehlhistorie(n, 5) + 1
@@ -1364,7 +1449,11 @@ function Anwesenheit.KaderNiedrigste(ausser)
 end
 
 --- Kennung der Auswertung eines Tages (Marker, damit sie nur einmal stattfindet).
-local function auswertungsKennung(tag) return "hm_" .. tag end
+local function auswertungsKennung(tag)
+    -- ⭐ je Gruppe und Tag (zwei Gruppen am selben Tag werten ihre Anhebung getrennt aus)
+    local g = Anwesenheit.GruppenKennung(ns.Gruppen and ns.Gruppen.AktivName and ns.Gruppen.AktivName())
+    return g and ("hm_" .. tag .. "_" .. g) or ("hm_" .. tag)
+end
 
 --- ⭐ Anhebung (§ 3), einmal je Abend: Wer mehr als 1 Punkt unter dem Niedrigsten der ANDEREN
 --  Kaderspieler im Raid liegt, wird auf deren Niedrigsten PLUS `Kern.ANHEBUNG_ABSTAND` gesetzt —

@@ -701,6 +701,13 @@ function Abgleich.Empfangen(text, sender, kanalName)
         return
     end
 
+    -- ⭐ Einteilung je Abend und Gruppe (Gruppen.lua): kommt ueber die Gilde oder die Gruppe;
+    -- Gruppen.EinteilungEmpfangen prueft den Absender selbst (Rang oder Rolle).
+    if typ == "T" then
+        if ns.Gruppen then ns.Gruppen.EinteilungEmpfangen(rest, sender, kanalName) end
+        return
+    end
+
     local gilde, unit = ns.Rolle.Absender(sender)
 
     -- ⭐ Wuerfelfenster (Wurf.lua): Beginn und Ende eines Wurfs. Bewusst VOR der
@@ -710,6 +717,12 @@ function Abgleich.Empfangen(text, sender, kanalName)
     -- (/fs wurf status).
     if typ == "S" or typ == "X" or typ == "P" then
         if ns.Wurf then ns.Wurf.Empfangen(typ, rest, sender, unit) end
+        return
+    end
+
+    -- ⭐ „Fairshare nutzen?": die Antwort des Plündermeisters (Nutzung.lua prüft, dass er es ist)
+    if typ == "U" then
+        if ns.Nutzung then ns.Nutzung.Empfangen(rest, sender, unit) end
         return
     end
 
@@ -886,6 +899,15 @@ rahmen:RegisterEvent("PLAYER_ENTERING_WORLD")
 pcall(function() rahmen:RegisterEvent("PARTY_LOOT_METHOD_CHANGED") end)
 rahmen:SetScript("OnEvent", function(_, ereignis, praefix, text, kanalName, sender)
     local ok, fehler = pcall(function()
+        -- ⭐ Auch ein schlafendes Addon muss die Antwort des Plündermeisters („Fairshare nutzen?“, Nachricht `U`)
+        -- hören können: Präfix anmelden und genau diese Nachricht durchlassen.
+        if ereignis == "PLAYER_ENTERING_WORLD" then praefixAnmelden() end
+        -- Ebenso die Meldungen der Gilde: geteilte Einstellungen (K, A) und die Einteilung (T) hängen nicht an der
+        -- Beutemethode (sonst kämen sie nie bei jemandem an, der gerade nicht im Raid ist).
+        if ereignis == "CHAT_MSG_ADDON" and praefix == PRAEFIX and type(text) == "string" and text:match("^[UKAT];") then
+            Abgleich.Empfangen(text, sender, kanalName)
+            return
+        end
         -- ⭐ Nur mit Plündermeister als Beutemethode im Dienst (Entscheid 15.10.2026).
         if not ns.Rolle.Aktiv() then
             Abgleich.Pruefen()   -- räumt Hinweis und Liste weg

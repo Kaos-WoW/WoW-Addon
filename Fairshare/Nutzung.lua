@@ -85,7 +85,8 @@ local function dialogBauen()
     p.frage = S.Text(p, 14, C.tx, "LEFT", true)
     p.frage:SetPoint("TOPLEFT", p, "TOPLEFT", 18, -46)
     p.frage:SetWidth(354)
-    p.frage:SetText(L["Die Beutemethode dieser Gruppe ist Plündermeister. Soll Fairshare die Beuteverteilung verwalten?"])
+    p.frage:SetText(L["Die Beutemethode dieser Gruppe ist Plündermeister. Soll Fairshare die Beuteverteilung verwalten?"]
+        .. " " .. L["Deine Antwort gilt für alle in der Gruppe, die das Addon haben."])
 
     p.ja = S.Text(p, 12, C.mu, "LEFT", true)
     p.ja:SetPoint("TOPLEFT", p.frage, "BOTTOMLEFT", 0, -12)
@@ -175,6 +176,54 @@ function Nutzung.Entschieden(wert)
     fensterAuffrischen()
 end
 
+local letzteVerkuendung = 0
+local protokoll = {}
+
+local function merke(text)
+    protokoll[#protokoll + 1] = date("%H:%M:%S", time()) .. "  " .. text
+    if #protokoll > 6 then table.remove(protokoll, 1) end
+end
+
+--- Die letzten Meldungen zu „Fairshare nutzen?“ (Diagnose).
+function Nutzung.Protokoll()
+    return protokoll
+end
+
+--- ⭐ Der Plündermeister meldet seine Antwort an die Gruppe (`U;ja` oder `U;nein`): Alle mit dem Addon
+--  übernehmen sie, ohne selbst gefragt zu werden. Nur der Plündermeister sendet; wiederholt wird es,
+--  wenn sich die Gruppe ändert (damit auch Nachzügler es erfahren).
+--  @param spaeter  true: höchstens alle 5 s (bei vielen Gruppenmeldungen hintereinander)
+function Nutzung.Verkuenden(spaeter)
+    local v = ns.Rolle.Nutzung()
+    if not v then return false end
+    if not ns.Rolle.IchBinPluendermeister() then return false end
+    if spaeter and (time() - letzteVerkuendung) < 5 then return false end
+    letzteVerkuendung = time()
+    return ns.Abgleich.Senden("U;" .. v, true) and true or false
+end
+
+--- Eine Meldung `U` ist eingetroffen. Es zählt nur der Plündermeister der eigenen Gruppe; eine eigene
+--  Entscheidung des Spielers bleibt unberührt.
+function Nutzung.Empfangen(rest, sender, unit)
+    if not unit or type(rest) ~= "string" then merke("U von " .. tostring(sender) .. ": sender not in the group") return end
+    if UnitIsUnit and UnitIsUnit(unit, "player") then return end
+    if ns.Rolle.Methode() ~= "master" then merke("U: loot method is not master looter") return end
+    local name = (GetUnitName and GetUnitName(unit, true)) or sender
+    if not ns.Rolle.IstPluendermeister(name) then merke("U von " .. tostring(name) .. ": not the master looter") return end
+
+    local wert = rest:match("^(%a+)")
+    if wert ~= "ja" and wert ~= "nein" then return end
+    local d = ns.Erfassung.Einstellungen()
+    if d.nutzung ~= nil and d.nutzungQuelle ~= "leiter" then merke("U " .. wert .. ": own decision stays") return end
+    if d.nutzung == wert then return end                                      -- nichts Neues
+    merke("U " .. wert .. " from master looter " .. tostring(name) .. " adopted")
+    ns.Rolle.NutzungSetzen(wert, "leiter")
+    print("|cff1B6B57Fairshare|r: " .. string.format(
+        wert == "ja" and L["Der Plündermeister %s hat Fairshare für diese Gruppe eingeschaltet."]
+                     or L["Der Plündermeister %s hat Fairshare für diese Gruppe ausgeschaltet."],
+        tostring(name)))
+end
+
 --- Gruppe oder Beutemethode haben sich geändert (oder wir sind gerade angemeldet).
 function Nutzung.Auswerten()
     local gruppe = IsInGroup and IsInGroup()
@@ -188,6 +237,7 @@ function Nutzung.Auswerten()
         local d = ns.Erfassung.Einstellungen()
         local hatteAntwort = d.nutzung ~= nil
         d.nutzung = nil
+        d.nutzungQuelle = nil
         gefragt = false
         if dialog then dialog:Hide() end
         pcall(ns.Abgleich.Pruefen)
@@ -195,9 +245,14 @@ function Nutzung.Auswerten()
         return
     end
 
-    -- Plündermeister: einmal fragen.
-    if ns.Rolle.Nutzung() == nil and not gefragt then
-        Nutzung.Fragen()
+    -- ⭐ Gefragt wird NUR der Plündermeister. Alle anderen übernehmen seine Antwort (Nachricht `U`).
+    if ns.Rolle.IchBinPluendermeister() then
+        if ns.Rolle.Nutzung() == nil and not gefragt then
+            Nutzung.Fragen()
+        elseif ns.Rolle.Nutzung() ~= nil and C_Timer then
+            -- Gruppe hat sich geändert: Antwort erneut melden, damit Nachzügler sie bekommen
+            C_Timer.After(2, function() pcall(Nutzung.Verkuenden, true) end)
+        end
     end
 end
 

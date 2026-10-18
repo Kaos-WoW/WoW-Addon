@@ -53,6 +53,13 @@ local function farbig(c, text) return S.Code(c) .. text .. "|r" end
 --  Zeilen
 -- =====================================================================
 
+--- ⭐ Ist diese Zeile für diesen Spieler gesperrt? Geteilte Einstellungen (`def.geteilt`) darf nur ändern, wer
+--  senden darf; die Rangstufe (`def.geteilt == "wurzel"`) nur Stufe 1 und 2.
+local function gesperrt(def)
+    if not def.geteilt or not ns.Konfig or not ns.Konfig.Gesperrt then return false end
+    return ns.Konfig.Gesperrt(def.geteilt == "wurzel")
+end
+
 local function zeile(karte, def)
     local r = CreateFrame("Frame", nil, karte)
     r.def = def
@@ -69,6 +76,7 @@ local function zeile(karte, def)
         local sw = S.Schalter(r)
         r.ctrl, r.ctrlB, r.ctrlH = sw, 32, 18
         local function kippen()
+            if gesperrt(def) then return end
             def.set(not sw.an)
             Einstellungen.Aktualisieren()
         end
@@ -81,7 +89,7 @@ local function zeile(karte, def)
 
     elseif art == "segment" then
         local seg = S.Segment(r, function(wert)
-            def.set(wert)
+            if not gesperrt(def) then def.set(wert) end
             Einstellungen.Aktualisieren()
         end)
         local b = seg:SetWerte(def.werte)
@@ -93,6 +101,7 @@ local function zeile(karte, def)
         local k = def.knopf
         local b = S.Knopf(r, "", k.art or "secondary")
         b:SetScript("OnClick", function()
+            if gesperrt(def) then return end
             k.klick()
             Einstellungen.Aktualisieren()
         end)
@@ -100,7 +109,7 @@ local function zeile(karte, def)
         function r.bedienen()
             local t = type(k.text) == "function" and k.text() or k.text
             b:SetLabel(t)
-            b:SetAktiv(k.aktiv == nil or k.aktiv() ~= false)
+            b:SetAktiv((k.aktiv == nil or k.aktiv() ~= false) and not gesperrt(def))
             r.ctrlB = math.ceil(b:GetWidth())
         end
 
@@ -122,7 +131,7 @@ local function zeile(karte, def)
             local a, z = e1:GetText(), e2:GetText()
             e1:ClearFocus()
             e2:ClearFocus()
-            def.set(a, z)
+            if not gesperrt(def) then def.set(a, z) end
             Einstellungen.Aktualisieren()
         end
         e1:SetScript("OnEnterPressed", setzen)
@@ -146,6 +155,7 @@ local function zeile(karte, def)
         b:SetPoint("LEFT", eb, "RIGHT", 8, 0)
         local function abschicken()
             local t = eb:GetText()
+            if gesperrt(def) then eb:SetText("") eb:ClearFocus() Einstellungen.Aktualisieren() return end
             k.klick(t)
             eb:SetText("")
             eb:ClearFocus()
@@ -162,6 +172,11 @@ local function zeile(karte, def)
     function r.update()
         local lab = type(def.label) == "function" and def.label() or def.label or ""
         local bes = type(def.beschr) == "function" and def.beschr() or def.beschr or ""
+        if gesperrt(def) then
+            bes = (bes ~= "" and (bes .. " ") or "") .. S.Code(C.warn) ..
+                  (def.geteilt == "wurzel" and L["Gesperrt: nur Gildenmeister und Offiziere (Stufe 1 und 2) dürfen das ändern."]
+                                           or L["Gesperrt: nur Gildenränge mit Schreibrecht dürfen das ändern."]) .. "|r"
+        end
         r.label:SetText(lab)
         r.beschr:SetText(bes)
         r.label:SetShown(lab ~= "")
@@ -340,7 +355,6 @@ local MODUS_TEXT = {
 }
 
 local SENDERANG = {
-    { wert = 1, label = L["Nur Gildenleiter"] },
     { wert = 2, label = string.format(L["bis Stufe %d"], 2) },
     { wert = 3, label = string.format(L["bis Stufe %d"], 3) },
     { wert = 4, label = string.format(L["bis Stufe %d"], 4) },
@@ -392,11 +406,11 @@ local function seiteErfassung(P)
         beschr = L["Aus heißt: nichts Neues wird erfasst. Vorhandenes bleibt."],
         get = function() return d().erfassen end,
         set = function(v) d().erfassen = v end })
-    zeile(k1, { art = "schalter", label = L["Eingesteckte Beute des Plündermeisters nicht zählen"],
+    zeile(k1, { geteilt = true, art = "schalter", label = L["Eingesteckte Beute des Plündermeisters nicht zählen"],
         beschr = L["Nimmt der Plündermeister Beute selbst auf, um sie später zu verteilen, ist das keine Vergabe. Eingetragen wird erst, wer sie bekommt (Wurf starten → Zuteilen)."],
         get = function() return d().pmEingesteckt ~= false end,
         set = function(v) d().pmEingesteckt = v end })
-    zeile(k1, { art = "schalter", label = L["Nur Ausgewürfeltes zählen"],
+    zeile(k1, { geteilt = true, art = "schalter", label = L["Nur Ausgewürfeltes zählen"],
         beschr = L["Streng: Ohne Bedarfswurf zugeteilte Stücke fallen heraus."],
         get = function() return d().nurGewuerfelt end,
         set = function(v) d().nurGewuerfelt = v end })
@@ -433,11 +447,11 @@ local function seiteErfassung(P)
         end })
 
     local k3 = karte(P, L["Was wird erfasst"])
-    zeile(k3, { art = "segment", label = L["Ort"], werte = ORTE,
+    zeile(k3, { geteilt = true, art = "segment", label = L["Ort"], werte = ORTE,
         beschr = function() return ORT_TEXT[d().ort] or "" end,
         get = function() return d().ort end,
         set = function(v) d().ort = v end })
-    zeile(k3, { art = "segment", label = L["Ab welcher Qualität"], werte = QUALITAETEN, gestapelt = true,
+    zeile(k3, { geteilt = true, art = "segment", label = L["Ab welcher Qualität"], werte = QUALITAETEN, gestapelt = true,
         beschr = L["Auf Stufe 60 fällt in manchen Raids überwiegend Blaues – lieber zu viel erfassen als einen Drop verlieren."],
         get = function() return d().mindestQualitaet end,
         set = function(v) d().mindestQualitaet = v end })
@@ -447,7 +461,7 @@ end
 
 --- Eine Zeile mit zwei Zahlen (niedrigster und hoechster Wurf).
 local function bereichZeile(k, art, label)
-    zeile(k, { art = "bereich", label = label,
+    zeile(k, { geteilt = true, art = "bereich", label = label,
         beschr = function()
             return Meldung.bereich or L["Niedrigster und höchster Wurf. Eingabe mit Enter oder dem Knopf."]
         end,
@@ -469,7 +483,7 @@ local function seiteWuerfeln(P)
         L["Welche Wurfzahlen als Hauptbedarf und als Zweitbedarf (OS) gelten. Beim Start eines Wurfs gehen sie an alle in der Gruppe."])
     bereichZeile(kb, "haupt", L["Bereich für Hauptbedarf"])
     bereichZeile(kb, "zweit", L["Bereich für Zweitbedarf (OS)"])
-    zeile(kb, { art = "knopf", label = L["Standardbereiche"],
+    zeile(kb, { geteilt = true, art = "knopf", label = L["Standardbereiche"],
         beschr = function() return string.format(L["Setzt %d-%d für Hauptbedarf und %d-%d für Zweitbedarf zurück."], 1, 100, 1, 50) end,
         knopf = { text = L["Standard"],
             klick = function()
@@ -479,11 +493,11 @@ local function seiteWuerfeln(P)
 
     local kw = karte(P, L["Würfelfenster"],
         L["Der Plündermeister oder Leiter startet einen Wurf; alle in der Gruppe bekommen ein kleines Fenster zum Würfeln für Hauptbedarf oder Zweitbedarf (OS). Gargul wird dafür nicht gebraucht."])
-    zeile(kw, { art = "segment", label = L["Dauer eines Wurfs"], werte = DAUERN,
+    zeile(kw, { geteilt = true, art = "segment", label = L["Dauer eines Wurfs"], werte = DAUERN,
         beschr = L["Danach endet der Wurf von selbst. Im Startdialog lässt sich die Zeit für einen einzelnen Wurf frei wählen und wird dann zum neuen Standard."],
         get = function() return ns.Wurf.Dauer() end,
         set = function(v) d().wurfDauer = v end })
-    zeile(kw, { art = "schalter", label = L["Wurf und Vergabe im Gruppenchat ansagen"],
+    zeile(kw, { geteilt = true, art = "schalter", label = L["Wurf und Vergabe im Gruppenchat ansagen"],
         beschr = L["Beim Wurfbeginn schreibt der Starter eine Zeile in den Raid- oder Gruppenchat (damit auch Spieler ohne Addon mitwürfeln), und der Aufzeichner meldet jede eingetragene Vergabe."],
         get = function() return d().ansagen ~= false end,
         set = function(v) d().ansagen = v end })
@@ -502,7 +516,7 @@ local function seiteWuerfeln(P)
     local kv = karte(P, L["Verzauberer"],
         L["Spieler mit Verzauberkunst. Würfelt niemand auf einen Gegenstand, wird er zum Entzaubern an einen von ihnen vergeben."])
     for i = 1, 8 do
-        zeile(kv, { art = "knopf",
+        zeile(kv, { geteilt = true, art = "knopf",
             sichtbar = function() return verz()[i] ~= nil end,
             label = function() return verz()[i] or "" end,
             beschr = function()
@@ -516,7 +530,7 @@ local function seiteWuerfeln(P)
             end,
             knopf = { text = L["Entfernen"], klick = function() ns.Wurf.VerzaubererEntfernen(i) end } })
     end
-    zeile(kv, { art = "eingabe", label = L["Verzauberer hinzufügen"],
+    zeile(kv, { geteilt = true, art = "eingabe", label = L["Verzauberer hinzufügen"],
         beschr = function()
             return Meldung.verz or L["Name eingeben, mit Nachnamen falls vorhanden. Mehrere mit Komma."]
         end,
@@ -593,7 +607,7 @@ local function seiteWuerfeln(P)
 
     -- ⭐ Einstellungen teilen (Konfig.lua): nur einer stellt ein, alle bekommen es
     local ks = karte(P, L["Einstellungen teilen"],
-        L["Nur einer stellt das Addon ein und schickt es an alle: Würfelbereiche, Würfelzeit, Verzauberer, Gruppen und die Erfassungs-Einstellungen. Persönliches (Fenster, wer aufzeichnet) bleibt unberührt."])
+        L["Gildenmeister und Offiziere (Stufe 1 und 2) stellen das Addon ein und schicken es an alle: Würfelbereiche, Würfelzeit, Verzauberer, Gruppen, Raidtage und die Erfassungs-Einstellungen. Wer nicht schreiben darf, bekommt sie nur zum Lesen und beim Anmelden wieder auf den offiziellen Stand gesetzt. Persönliches (Fenster, wer aufzeichnet) bleibt unberührt."])
     zeile(ks, { art = "info",
         label = function() return ns.Konfig.Status()[1] end,
         beschr = function() return ns.Konfig.Status()[2] end })
@@ -601,7 +615,7 @@ local function seiteWuerfeln(P)
         beschr = L["Aus: Nachrichten mit geteilten Einstellungen werden ignoriert."],
         get = function() return d().konfigAnnehmen ~= false end,
         set = function(v) d().konfigAnnehmen = v end })
-    zeile(ks, { art = "segment", label = L["Wer darf Einstellungen senden"], werte = SENDERANG,
+    zeile(ks, { art = "segment", geteilt = "wurzel", label = L["Wer darf Einstellungen senden"], werte = SENDERANG,
         beschr = function()
             local R = ns.Gruppen.Raenge()
             if not R then return L["Gildenliste nicht geladen"] end
@@ -656,7 +670,7 @@ local function seiteWuerfeln(P)
             return string.format(L["%d Mitspieler mit dem Addon erkannt"], bekannte) .. "  ·  " ..
                 (abw > 0 and farbig(C.warn, string.format(L["%d weichen ab"], abw)) or L["keine Abweichung bekannt"])
         end })
-    zeile(k3, { art = "schalter", label = L["Automatisch abgleichen"],
+    zeile(k3, { geteilt = true, art = "schalter", label = L["Automatisch abgleichen"],
         beschr = L["Weichen die Historien in der Gruppe ab, gleicht der Leiter oder Plündermeister von selbst ab. Aus: es erscheint nur ein Hinweis."],
         get = function() return d().autoAbgleich ~= false end,
         set = function(v) d().autoAbgleich = v end })
@@ -722,7 +736,7 @@ local function seiteGruppen(P)
         beschr = L["Nur wirksam, wenn unten Gildenränge gewählt sind."],
         get = function() local g = G.Aktiv() return g and g.auto ~= false end,
         set = function(v) local g = G.Aktiv() if g then g.auto = v end end })
-    zeile(k2, { art = "eingabe", label = L["Namen hinzufügen"],
+    zeile(k2, { geteilt = true, art = "eingabe", label = L["Namen hinzufügen"],
         beschr = function()
             return Meldung.namen or L["Mit Komma trennen – Nachnamen enthalten Leerzeichen. Diese Namen bleiben immer erhalten."]
         end,
@@ -731,7 +745,7 @@ local function seiteGruppen(P)
                 local n = G.KaderErgaenzen(G.AktivName(), text)
                 Meldung.namen = farbig(C.ok, string.format(L["%d ergänzt"], n or 0))
             end } })
-    zeile(k2, { art = "eingabe", label = L["Name entfernen"],
+    zeile(k2, { geteilt = true, art = "eingabe", label = L["Name entfernen"],
         beschr = function()
             return Meldung.entfernt or L["Wer nur durch einen Rang im Kader steht, kommt beim nächsten Abgleich zurück – dafür den Rang abwählen."]
         end,
@@ -751,7 +765,7 @@ local function seiteGruppen(P)
             end
             return string.format(L["%d Namen: %s"], #liste, table.concat(teile, ", "))
         end })
-    zeile(k2, { art = "knopf", label = L["Gruppe löschen"],
+    zeile(k2, { geteilt = true, art = "knopf", label = L["Gruppe löschen"],
         beschr = function()
             return loeschenBereit and farbig(C.warn, L["Nochmal klicken, um die Gruppe wirklich zu löschen."])
                    or L["Die Vergaben bleiben erhalten, sie verlieren nur ihre Gruppe nicht."]
@@ -774,7 +788,7 @@ local function seiteGruppen(P)
         label = L["Gildenliste nicht geladen"],
         beschr = function() local _, grund = G.Raenge() return tostring(grund or "") end })
     for i = 1, 10 do
-        zeile(k3, { art = "schalter",
+        zeile(k3, { geteilt = true, art = "schalter",
             sichtbar = function() local R = G.Raenge() return R ~= nil and R[i] ~= nil end,
             label = function() local R = G.Raenge() return R and R[i] and R[i].name or "" end,
             get = function()
@@ -787,8 +801,18 @@ local function seiteGruppen(P)
             end })
     end
 
+    -- ⭐ Raidtage: an diesen Wochentagen gibt es eine eigene Einteilung (Ansicht „Einteilung“)
+    local kr = karte(P, L["Raidtage"],
+        L["An welchen Wochentagen raidet ihr? Für jeden gewählten Tag gibt es eine eigene Einteilung. Ohne Auswahl zeigt die Einteilung heute und morgen."])
+    for i = 1, 7 do
+        local wd = G.RaidtageFolge()[i]
+        zeile(kr, { geteilt = true, art = "schalter", label = G.RaidtagName(wd),
+            get = function() return G.RaidtagGewaehlt(wd) end,
+            set = function(v) G.RaidtagSetzen(wd, v) end })
+    end
+
     local k4 = karte(P, L["Neue Gruppe"])
-    zeile(k4, { art = "eingabe", label = L["Name"],
+    zeile(k4, { geteilt = true, art = "eingabe", label = L["Name"],
         beschr = function()
             return Meldung.neu or L["Höchstens 40 Zeichen, ohne Semikolon."]
         end,

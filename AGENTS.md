@@ -62,7 +62,7 @@ das nur liest, weder Haupt/Zweit noch Gruppen noch Abgleich leisten kann.
 | `Einstellungen.lua` | das Einstellungsfenster (Karten und Zeilen, drei Seiten) | ja |
 | `Fenster.lua` | die Übersicht im KaosUI-Look: Liste, Verlauf, Abwesenheit, Spielerdetail, Wurf-Modus | ja |
 | `Befehle.lua` | `/fs` | ja |
-| `Tests.lua` | Prüfstand für `Kern.lua` und `Anwesenheit.lua` (447 Prüfungen); dazu `tests/szenarien.py` (47 Szenarien) | **nein** |
+| `Tests.lua` | Prüfstand für `Kern.lua` und `Anwesenheit.lua` (447 Prüfungen); dazu `tests/szenarien.py` (53 Szenarien) | **nein** |
 
 Alles Rechnerische steht in `Kern.lua` und wird dort getestet. Jede
 Auswertung nimmt die Historie **als Parameter**, dadurch laufen Beispieldaten
@@ -143,6 +143,20 @@ Speziell für die Gilde **Resurrected** (Thunderstrike EU) entwickeltes Regelwer
   - Unit-Tests in `Tests.lua` (365 Prüfungen) laufen in einer isolierten Mock-Datenbank. Dadurch lesen Tests weder die SavedVariables des Spielers noch hinterlassen sie Testdaten.
 
 ---
+
+### ⭐ „Fairshare nutzen?": nur der Plündermeister wird gefragt (17.10.2026)
+
+Der Plündermeister beantwortet den Dialog; seine Antwort geht als Nachricht `U;ja|nein` an die Gruppe (`Nutzung.Verkuenden`, bei jeder Änderung der Gruppe wiederholt, damit Nachzügler sie bekommen). Alle anderen werden **nicht** gefragt und übernehmen sie (`Nutzung.Empfangen`: nur vom Plündermeister der eigenen Gruppe, Beutemethode muss Plündermeister sein). Eine **eigene Entscheidung** (`/fs nutzung ja|nein`, `FairshareDB.nutzungQuelle = "selbst"`) bleibt auch bei erneuter Meldung bestehen; wer nur übernommen hat (`"leiter"`), folgt später dem Plündermeister. ⚠️ `U` wird auch von einem **schlafenden** Addon angenommen (Weiche vor der `Rolle.Aktiv()`-Sperre in `Abgleich.lua`). Hat der Plündermeister das Addon nicht, bleibt nur `/fs nutzung ja`. Szenario 49.
+
+### ⭐ Mehrere Gruppen: Raidkader, Einteilung, Abendkennung (Schritt 1, 17.10.2026)
+
+Die Gruppen wechseln wöchentlich, darum (Konzept und Entscheide in `memory/fairshare-bewertung-prioritaet.md`):
+* **Raidkader** (`Gruppen.RaidkaderSync(bisRang)`, `Gruppen.Raidkader()`): ein Knopf liest die Gildenliste bis zu einem Rangindex ein; daraus klickt man Spieler in eine Gruppe. Ansicht „Einteilung“ (Segment oben, `/fs einteilung`), Befehl `/fs raidkader <Rang>`.
+* **Einteilung** je Kalendertag und Spieler **genau eine Gruppe** (`FairshareDB.einteilung[Tag][Schlüssel] = { name, gruppe, zeit, von }`, leer = nicht eingeteilt). `Gruppen.EinteilungSetzen/-Von/-Liste/-Vorhanden/-Senden/-Empfangen`. Verteilen ohne Streit: der **jüngere Eintrag gewinnt** (bei gleicher Zeit der größere Urheber-Name), darum konvergieren alle Clients. Nachricht `T;<Datum>;<Urheber>;<Name>|<Gruppe>|<Zeit>~…` über Gilde **und** Gruppe; angenommen nur, wenn der **Absender** selbst einteilen darf (`Gruppen.EinteilungDarf`: **nur Gildenränge mit Schreibrecht** laut Einstellungen, `Konfig.Darf`; Entscheid 17.10.2026, Raidleiter allein genügen nicht) und der Urheber im Text mit dem Absender übereinstimmt (kein Weiterreichen). Datum höchstens 3 Tage zurück und 21 voraus. **Raidtage** (Einstellungen → Gruppen → Raidtage, `FairshareDB.raidtage[Lua-Wochentag]`, mit den Einstellungen geteilt, Zeile `D|SMTWTFS`): Für jeden gewählten Wochentag gibt es eine eigene Einteilung (`Gruppen.EinteilungTage`: nächstes Vorkommen ab heute, der Knopf in der Ansicht blättert durch); ohne Raidtage „Heute/Morgen“; **Heute steht immer vorn**, auch an einem Tag, der kein Raidtag ist (die Abwesenheit des Abends richtet sich nach der Einteilung von heute; ohne sie gilt der ganze Kader der Gruppe, die Abwesenheit sagt es in einem gelben Hinweis). Knopf „Einteilung senden“. **Rechtsklick auf den Namen** nimmt einen Spieler aus seiner Gruppe (egal welche oben gewählt ist; die Zeilen sind `Button` mit `RegisterForClicks`). Szenarien 48 und 50.
+* **Abwesenheitsliste/Abschluss** einer Gruppe nehmen die Einteilung des Tages als erwartete Spieler (`Anwesenheit.ErwarteteNamen`); gibt es für den Tag keine, gilt wie bisher der Kader. Mit Einteilung greift der Gilden-Rückfall nie (Spieler der anderen Gruppe sind nie „abwesend“). Ist eine Einteilung da, aber **keine Gruppe aktiv**, wird niemand erwartet (Hinweis statt Liste). ⭐ **In der Abwesenheit wählt der Gruppen-Knopf die aktive Gruppe** (Klick = aktivieren, nächste Gruppe der Reihe; ein Wechsel ist ein anderer Abend); in den anderen Ansichten filtert er nur.
+* ⭐ **Bench** (Entscheid 18.10.2026): In der Einteilung ist „Bench“ ein weiteres Ziel (reservierter Name `Gruppen.BENCH`, keine Gruppe darf so heißen; im Gruppen-Knopf der Ansicht nach den Gruppen). Wer dort steht, wird in keiner Gruppe erwartet, steht aber **in der Abwesenheit jeder Gruppe** (Status „Bench“ hervorgehoben, Zeile oben nach den Offenen), gilt als **Bank mit Faktor 0** und blockiert den Abschluss nicht (`benchSet` in `KandidatenListe`/`AbendVorschau`; eine ausdrückliche Markierung geht vor). Der Bank-Knopf zeigt dort „✓ Bench“; ein Klick **holt ihn in die aktive Gruppe** (`Anwesenheit.BenchEinspringen`), er springt ein. Szenario 53.
+* **Abendkennung** = Datum + Gruppe (`Anwesenheit.AbendId`, `GruppenKennung`: nur `[%w_.-]`, höchstens 24 Zeichen), ohne Gruppe nur das Datum. **Ein Gruppenwechsel ist ein anderer Abend** (der alte wird archiviert, wenn er Bosskämpfe hatte, sonst verworfen; ein abgeschlossener bleibt). Der Anhebungs-Vermerk heißt `hm_<Tag>_<Gruppe>`.
+* **Noch offen (Schritte 2/3):** Bench-Reiter, Tagesabschluss für vorab Abgemeldete (Schnitt = Mittel der Gruppen-Schnitte des Tages), Fehlabende-Fenster nur über die eigenen Abende.
 
 ### Das Datenbuch: Zuschläge, Abschlüsse und Anhebungen erreichen alle (16.10.2026, Protokollversion 3)
 
@@ -296,9 +310,19 @@ Nur einer stellt ein (Würfelbereiche, Verzauberer, Gruppen …), alle bekommen 
   **Gildenkanal** (Nachricht `K;<Stand>;<von>;<k>;<n>;<Paket>`, Zeilen wie `B|1|100|1|50`, `V|Name,Name`, `G|Name|auto|Ränge`,
   `X|Name|Namen`) an alle, die online sind. `Abgleich.Senden(text, vorn, kanalName)` kennt jetzt auch `"GUILD"`;
   `Abgleich.Empfangen` reicht `K`/`A` an `Konfig.Empfangen` weiter, **vor** der Gruppenprüfung.
-* **Wer darf senden:** Gildenrang. `Konfig.RangStufe(name)` = Stufe aus der Reihenfolge der vorkommenden Ränge (1 = höchster; Forever
-  zählt ab 1, die alte Liste ab 0), Grenze `konfigRang` (Standard **1 = nur Gildenleiter**), selbst Teil der geteilten
-  Einstellungen: ändern kann sie nur, wer ohnehin senden darf.
+* **Wer darf senden (Entscheid 17.10.2026):** Gildenrang. `Konfig.RangStufe(name)` = Stufe aus der Reihenfolge der vorkommenden Ränge (1 = höchster; Forever
+  zählt ab 1, die alte Liste ab 0). ⭐ **Wurzel des Vertrauens: Stufe 1 und 2 (`Konfig.WURZEL`) dürfen immer** — auf jedem Client, auch bei einem
+  frischen mit Standardwerten; sonst käme nie eine Meldung an (Henne-Ei: die Grenze reist selbst in einer Meldung). Die Grenze
+  `konfigRang` (Standard und Mindestwert **2**) erweitert das nur nach unten (3 bis 6) und ist selbst Teil der geteilten Einstellungen:
+  **ändern darf sie nur die Wurzel**; die Rangangabe in einer Meldung von Stufe 3 oder tiefer wird ignoriert. Dasselbe Recht gilt fürs
+  Einteilen (`Gruppen.EinteilungDarf`). **Nur lesen:** Die Zeilen mit `geteilt = true` (und `"wurzel"` für die Rangstufe) in
+  `Einstellungen.lua` sind für Spieler gesperrt, deren Rang bekannt ist und nicht reicht (`Konfig.Gesperrt`). **Selbstheilung**
+  (`Konfig.Heilen`, 45 s nach dem Anmelden und nach Gruppenbeitritt): Wer nicht schreiben darf, wird auf den letzten offiziellen Stand
+  (`konfigRoh`) zurückgesetzt; wer schreiben darf oder dessen Rang unbekannt ist, nicht. ⚠️ Echte Sperre gegen jemanden, der an
+  seinem eigenen Rechner Dateien ändert, gibt es in WoW nicht; die Sicherheit liegt bei den **Empfängern** (Absender und Rang
+  liefert der Server). Szenario 51.
+* **Auch ein schlafendes Addon** (kein Plündermeister, Antwort Nein) hört `K`, `A`, `T` und `U` (Weiche vor der `Rolle.Aktiv()`-Sperre
+  in `Abgleich.lua`) und fragt beim Anmelden die Gilde nach neueren Einstellungen; im Gruppenkanal fragt nur ein Addon im Dienst.
 * **Annehmen** nur wenn: Absender in der eigenen Gilde **und** Urheber (`von`) darf senden (Gildenliste muss geladen sein, sonst
   nichts) **und** der Stand neuer ist. Weitergereichtes (Absender ≠ Urheber) nur, wenn **ich** in den letzten 3 min nachgefragt
   habe — sonst könnte sich jedes Gildenmitglied als Leiter ausgeben. Schalter *Einstellungen der Gildenleitung übernehmen*

@@ -513,7 +513,7 @@ c3["g"]["FairshareDB"] = c3["lua"].table_from({"fenster": c3["lua"].table_from(
     {"uebersicht": c3["lua"].table_from({"b": 10, "h": 99999})})})
 c3["ns"].Fenster.Zeigen(False)
 f3 = c3["g"]["FairshareFenster"]
-fest(f3._w == 760 and f3._h == 1100, "unsinnige gemerkte Werte werden auf die Grenzen gesetzt (%s x %s)" % (f3._w, f3._h))
+fest(f3._w == 880 and f3._h == 1100, "unsinnige gemerkte Werte werden auf die Grenzen gesetzt (%s x %s)" % (f3._w, f3._h))
 
 print("== 15. Mitgliederabgleich: Raenge, hinzufuegen und entfernen ==")
 w = gruppe(3)
@@ -1926,7 +1926,7 @@ w = welt30()
 ok, grund = tup(w.clients[2]["ns"].Konfig.Senden())
 fest(ok is None or ok is False, "Raider darf nicht senden (%s)" % str(grund)[:60])
 w.clients[1]["ns"].Konfig.Senden()
-fest(db30(w, 1)["konfigStand"] is None, "auch ein Offizier nicht, solange die Grenze bei 1 liegt")
+fest(db30(w, 1)["konfigStand"] is not None, "ein Offizier (Stufe 2) darf immer senden: Stufe 1 und 2 sind die Wurzel des Vertrauens")
 
 # --- Gefaelscht oder von Unberechtigten ---------------------------------------------
 w = welt30()
@@ -2121,7 +2121,8 @@ vorher = len(w.protokoll)
 g["__ereignis"]("PARTY_LOOT_METHOD_CHANGED")
 ns.Abgleich.HalloSpaeter(1)
 w.weiter(20)
-fest(len(w.protokoll) == vorher, "kein Hallo, kein Abgleich auf dem Kanal (%d neu)" % (len(w.protokoll) - vorher))
+neue = [x for x in w.protokoll[vorher:] if str(x[1])[:2] not in ("A;", "K;", "U;", "T;")]     # Einstellungen/Einteilung der Gilde sind erlaubt
+fest(len(neue) == 0, "kein Hallo, kein Abgleich auf dem Kanal (%d neu)" % (len(neue),))
 fest(not ns.Abgleich.Abweichend or len(list(ns.Abgleich.Abweichend.values())) == 0, "keine Abweichungsliste")
 # Wieder Pluendermeister: die Antwort war vergessen, es wird neu gefragt
 for c in w.clients:
@@ -2451,8 +2452,16 @@ fest(abs(res["neuling"]["wertung"] - (niedrigster + 2)) < 1e-9,
 w.weiter(20)
 fest(abs(anhebung_von(w, 1, "neuling") - (niedrigster + 2)) < 1e-9 and abs(anhebung_von(w, 2, "neuling") - (niedrigster + 2)) < 1e-9,
      "der Start des Neulings ging als Anhebung an alle")
-fest(all(w.clients[k]["ns"].Anwesenheit.Daten()["anhebungsliste"]["hm_" + str(w.clients[k]["lua"].eval("os.date('%Y%m%d')"))] is not None for k in (0, 1, 2)),
-     "der Vermerk, dass der Tag ausgewertet ist, liegt bei allen")
+def hat_vermerk(k):
+    """Der Vermerk heisst hm_<Tag> oder, mit aktiver Gruppe, hm_<Tag>_<Gruppe>."""
+    tag = str(w.clients[k]["lua"].eval("os.date('%Y%m%d')"))
+    for kennung in w.clients[k]["ns"].Anwesenheit.Daten()["anhebungsliste"].keys():
+        if str(kennung).startswith("hm_" + tag):
+            return True
+    return False
+
+
+fest(all(hat_vermerk(k) for k in (0, 1, 2)), "der Vermerk, dass der Tag ausgewertet ist, liegt bei allen")
 vorher = buchstand(w, 0)
 probe(ns0, lua0.table_from(NAMEN))
 fest(buchstand(w, 0) == vorher, "ein zweiter Durchlauf bucht den Neuling-Start nicht noch einmal")
@@ -2846,20 +2855,24 @@ ns.Erfassung.WurfBeginnt(LINK44B, False)          # eine juengere Runde irgendei
 r = ns.Erfassung.AktuelleWuerfe(None, LINK44)
 fest(r is not None and "timo" in [str(k) for k in r["Wuerfe"].keys()], "(c) die Runde des gesuchten Stuecks wird gefunden, nicht die juengste")
 
-print("== 45. Gruppenwechsel mitten im Abend: die Items zaehlen trotzdem (Fund im Spiel 17.10.2026) ==")
+print("== 45. Gruppenwechsel ist ein anderer Abend, die Items zaehlen im neuen (Fund im Spiel 17.10.2026) ==")
 w = welt36()
 ns0 = w.clients[0]["ns"]
 ns0.Gruppen.Anlegen("Alt")
 ns0.Gruppen.Aktivieren("Alt")
 abend = ns0.Anwesenheit.AktiverAbend(True)
-fest(str(abend["gruppe"]) == "Alt", "der Abend wird unter der aktiven Gruppe angelegt")
+fest(str(abend["gruppe"]) == "Alt" and str(abend["id"]).endswith("_Alt"), "der Abend wird unter der aktiven Gruppe angelegt (%s)" % (abend["id"],))
 ns0.Gruppen.Anlegen("TEST")
 ns0.Gruppen.Aktivieren("TEST")
+abend2 = ns0.Anwesenheit.AktiverAbend(True)
+fest(str(abend2["gruppe"]) == "TEST" and str(abend2["id"]).endswith("_TEST"), "nach dem Wechsel ist es ein neuer Abend der neuen Gruppe (%s)" % (abend2["id"],))
 w.eintragen(0, "Timo", 6001, int(w.t))
 w.eintragen(0, "Leiter Kaos", 6002, int(w.t) + 1)
 s, items, raid = tup3(ns0.Anwesenheit.AbendSchnitt())[0:3]
-fest(float(items) == 2, "beide Vergaben zaehlen, obwohl die Gruppe gewechselt wurde (%s)" % (items,))
+fest(float(items) == 2, "beide Vergaben zaehlen im Abend der neuen Gruppe (%s)" % (items,))
 fest(float(raid) >= 2 and float(s) > 0, "der Schnitt ist nicht 0 (%s)" % (s,))
+fest(str(ns0.Anwesenheit.GruppenKennung("20er: Grp 2")) == "20er-Grp-2", "Gruppennamen werden zu gueltigen Kennungen (%s)" % (ns0.Anwesenheit.GruppenKennung("20er: Grp 2"),))
+fest(str(ns0.Anwesenheit.AbendId("2026-10-17", None)) == "2026-10-17", "ohne Gruppe bleibt die Kennung das Datum")
 
 print("== 46. Abgemeldet ausdruecklich, offene Spieler sperren den Abschluss (Entscheid 17.10.2026) ==")
 w = welt36()
@@ -2916,6 +2929,289 @@ ausgabe47 = [str(x) for x in L47["g"]["__ausgabe"].values()]
 fest(any("Everyone has chosen" in x or "Alle haben gew" in x for x in ausgabe47), "mit einer Meldung im Chat")
 # Die Rangliste zeigt Timo nicht
 fest(L47["g"]["__klick"]("Zuteilen") is True, "das Ergebnisfenster ist da")
+
+def ev(ns, datum, name):
+    """EinteilungVon liefert (Gruppe, Eintrag); hier nur die Gruppe oder None."""
+    r = tup(ns.Gruppen.EinteilungVon(datum, name))
+    return None if r[0] is None else str(r[0])
+
+
+print("== 48. Raidkader per Rangsync, Einteilung je Tag und Gruppe, geteilt an alle (Entscheid 17.10.2026) ==")
+w = welt36()
+c0, c1, c2 = w.clients[0], w.clients[1], w.clients[2]
+ns0, ns1, ns2, lua0 = c0["ns"], c1["ns"], c2["ns"], c0["lua"]
+for c in w.clients:
+    c["ns"].Gruppen.Anlegen("20er")
+for c_ in w.clients:
+    c_["lua"].execute("""
+__gilde = {
+  [11] = { name = "Gildenleiter", guildRank = "Gildenmeister", guildRankOrder = 1 },
+  [12] = { name = "Raider Eins", guildRank = "Raider", guildRankOrder = 3 },
+  [13] = { name = "Raider Zwei", guildRank = "Raider", guildRankOrder = 3 },
+  [14] = { name = "Neuling", guildRank = "Anwaerter", guildRankOrder = 5 },
+  [21] = { name = "Leiter Kaos", guildRank = "Gildenmeister", guildRankOrder = 1 },
+  [22] = { name = "Timo", guildRank = "Nebenrolle", guildRankOrder = 7 },
+  [23] = { name = "Lina", guildRank = "Nebenrolle", guildRankOrder = 7 },
+  [24] = { name = "Protti", guildRank = "Nebenrolle", guildRankOrder = 7 },
+}
+C_Club = {
+  GetGuildClubId = function() return 1 end,
+  GetClubMembers = function() local t = {} for id in pairs(__gilde) do t[#t + 1] = id end table.sort(t) return t end,
+  GetMemberInfo = function(club, id) return __gilde[id] end,
+}
+""")
+# Raidkader: ohne Rang geht nichts, mit Rang kommen alle bis dahin
+r = tup3(ns0.Gruppen.RaidkaderSync())
+fest(r[0] is None, "ohne gewaehlten Rang wird nichts eingelesen (%s)" % (r[1],))
+n = tup3(ns0.Gruppen.RaidkaderSync(3))[0]
+fest(n == 4, "bis Rang 3: vier Mitglieder, Leiter Kaos (Rang 1) eingeschlossen (%s)" % (n,))
+kader = [str(x["name"]) for x in tup3(ns0.Gruppen.Raidkader())[0].values()]
+fest("Neuling" not in kader and "Gildenleiter" in kader and "Raider Eins" in kader, "Neuling (Rang 5) ist nicht im Raidkader (%s)" % (kader,))
+fest(ns0.Gruppen.RaidkaderRang() == 3, "der gewaehlte Rang wird gemerkt")
+
+heute = str(ns0.Gruppen.EinteilungTag(0))
+# Der Leiter teilt Timo ein, alle erfahren es
+ok = tup(ns0.Gruppen.EinteilungSetzen(heute, "Timo", "40er"))[0]
+fest(ok is True, "der Leiter teilt Timo in 40er ein")
+w.weiter(5)
+fest(all(ev(w.clients[k]["ns"], heute, "Timo") == "40er" for k in (0, 1, 2)), "alle Clients wissen: Timo ist in 40er ")
+# Ein Mitglied darf nicht einteilen
+ok, grund = tup(ns1.Gruppen.EinteilungSetzen(heute, "Lina", "40er"))
+fest(ok is None, "ein Mitglied ohne Gildenrang-Recht darf nicht einteilen (%s)" % (grund,))
+# Auch ein Raidleiter-Assistent ohne Schreibrecht darf nicht (nur wer laut Einstellungen schreiben darf)
+fest(tup(ns1.Gruppen.EinteilungDarf("Timo"))[0] is False, "Timo (Rang 7) hat kein Schreibrecht")
+fest(tup(ns0.Gruppen.EinteilungDarf("Leiter Kaos"))[0] is True, "Leiter Kaos (Gildenmeister) hat Schreibrecht")
+# Timo wird in die andere Gruppe verschoben: hoechstens eine Gruppe
+tup(ns0.Gruppen.EinteilungSetzen(heute, "Timo", "20er"))
+w.weiter(5)
+fest(ev(ns2, heute, "Timo") == "20er", "Timo ist jetzt in 20er")
+fest(len(list(ns2.Gruppen.EinteilungListe(heute, "40er").values())) == 0, "und nicht mehr in 40er (hoechstens eine Gruppe)")
+# Herausnehmen
+tup(ns0.Gruppen.EinteilungSetzen(heute, "Timo", ""))
+w.weiter(5)
+fest(ev(ns2, heute, "Timo") is None, "herausgenommen: nicht eingeteilt")
+# Aeltere Meldung gewinnt nie gegen die juengere
+ns2.Abgleich.Empfangen("T;%s;Leiter Kaos;Timo|40er|1100000000" % heute, "Leiter Kaos-Realm", "GUILD")
+fest(ev(ns2, heute, "Timo") is None, "eine alte Meldung ueberschreibt nichts")
+# Fremde Absender: ohne Recht, mit falschem Urheber
+ns2.Abgleich.Empfangen("T;%s;Timo;Lina|40er|%d" % (heute, int(w.t)), "Timo-Realm", "GUILD")
+fest(ev(ns2, heute, "Lina") is None, "ein Absender ohne Recht wird abgelehnt")
+ns2.Abgleich.Empfangen("T;%s;Leiter Kaos;Lina|40er|%d" % (heute, int(w.t)), "Timo-Realm", "GUILD")
+fest(ev(ns2, heute, "Lina") is None, "falscher Urheber wird abgelehnt")
+
+# Die Abwesenheitsliste einer Gruppe zeigt nur ihre Eingeteilten
+for n_ in ("Lina", "Protti"):
+    tup(ns0.Gruppen.EinteilungSetzen(heute, n_, "40er" if n_ == "Lina" else "20er"))
+ns0.Gruppen.Aktivieren("40er")
+abend = ns0.Anwesenheit.AktiverAbend(True)
+namen = sorted(str(e["name"]).lower() for e in tup3(ns0.Anwesenheit.KandidatenListe(abend, True))[0].values())
+fest(namen == ["lina"], "Gruppe 40er erwartet nur Lina, Protti (20er) nicht (%s)" % (namen,))
+
+# Die Ansicht „Einteilung": oeffnen, Knoepfe, ein Klick setzt in die gewaehlte Gruppe
+g0 = c0["g"]
+sl0 = g0["SlashCmdList"]["FAIRSHARE"]
+sl0("einteilung")
+w.weiter(1)
+fest(ns0.Fenster.Sichtbar() is True, "/fs einteilung oeffnet das Fenster")
+fest(g0["__klick"]("Raidkader synchronisieren") is True, "Knopf Raidkader synchronisieren laeuft")
+fest(g0["__klick"]("Heute") is True and g0["__klick"]("Morgen") is True, "Tag umschalten geht (Heute <-> Morgen)")
+fest(g0["__klick"]("Einteilung senden") is True, "Knopf Einteilung senden laeuft")
+sl0("raidkader 3")
+sl0("einteilung status")
+# Die Zeilen werden von allen Ansichten mitbenutzt: Knoepfe einer Ansicht duerfen in der anderen nicht stehen bleiben
+def sichtbar(art):
+    return int(ns0.Fenster.ZeilenKnoepfe()[art])
+sl0("einteilung")
+fest(sichtbar("teil") > 0 and sichtbar("unent") == 0 and sichtbar("bank") == 0, "Einteilung zeigt Hinzufuegen, keine Knoepfe der Abwesenheit (%d/%d)" % (sichtbar("teil"), sichtbar("unent")))
+tup(ns0.Gruppen.EinteilungSetzen(heute, "Protti", "40er"))      # Protti steht nicht im Raid: er erscheint in der Abwesenheit
+sl0("bank")
+fest(sichtbar("unent") > 0 and sichtbar("teil") == 0, "Abwesenheit zeigt ihre Knoepfe, kein Hinzufuegen mehr (Fund im Spiel 18.10.2026)")
+sl0("einteilung")
+fest(sichtbar("teil") > 0 and sichtbar("unent") == 0 and sichtbar("abmeld") == 0, "und wieder zurueck")
+# Rechtsklick auf den Namen nimmt den Spieler aus der Gruppe (egal welche gewaehlt ist)
+tup(ns0.Gruppen.EinteilungSetzen(heute, "Lina", "40er"))
+ns0.Fenster.Aktualisieren()
+fest(ev(ns0, heute, "Lina") == "40er", "Lina ist in 40er")
+ns0.Fenster.ZeileKlick("Lina", "LeftButton")
+fest(ev(ns0, heute, "Lina") == "40er", "ein Linksklick auf den Namen aendert nichts")
+fest(ns0.Fenster.ZeileKlick("Lina", "RightButton") is True, "Rechtsklick auf den Namen")
+fest(ev(ns0, heute, "Lina") is None, "Lina ist nicht mehr eingeteilt (Wunsch 18.10.2026)")
+w.weiter(5)
+fest(ev(w.clients[1]["ns"], heute, "Lina") is None, "und das erfahren auch die anderen")
+ns0.Fenster.Verstecken()
+
+print("== 49. „Fairshare nutzen?“: nur der Plündermeister wird gefragt, alle anderen uebernehmen (Wunsch 17.10.2026) ==")
+w = gruppe(3, nutzung=None)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+m0, m1, m2 = w.clients[0], w.clients[1], w.clients[2]
+fest(m0["ns"].Nutzung.Sichtbar() is True, "der Plündermeister wird gefragt")
+fest(m1["ns"].Nutzung.Sichtbar() is False and m2["ns"].Nutzung.Sichtbar() is False, "die anderen werden NICHT gefragt")
+fest(tup(m1["ns"].Rolle.Aktiv())[0] is False, "bis zur Antwort schlaeft das Addon bei den anderen")
+D = m0["ns"].Nutzung.Dialog()
+D["jaKnopf"]._scripts.OnClick(D["jaKnopf"])
+w.weiter(3)
+fest(m1["ns"].Rolle.Nutzung() == "ja" and m2["ns"].Rolle.Nutzung() == "ja", "„Ja“ des Plündermeisters gilt auch bei den anderen %s" % ([str(x) for x in m1["ns"].Nutzung.Protokoll().values()],))
+fest(tup(m1["ns"].Rolle.Aktiv())[0] is True and tup(m2["ns"].Rolle.Aktiv())[0] is True, "bei den anderen laeuft das Addon jetzt")
+# Eine eigene Entscheidung bleibt, auch wenn der Plündermeister es erneut meldet
+m1["g"]["SlashCmdList"]["FAIRSHARE"]("nutzung nein")
+fest(m1["ns"].Rolle.Nutzung() == "nein", "Timo entscheidet fuer sich: nein")
+w.weiter(6)
+m0["ns"].Nutzung.Verkuenden()
+w.weiter(3)
+fest(m1["ns"].Rolle.Nutzung() == "nein", "die eigene Entscheidung bleibt bei einer erneuten Meldung")
+# Aendert der Plündermeister seine Antwort, folgt, wer sie nur uebernommen hatte
+m0["ns"].Rolle.NutzungSetzen("nein")
+w.weiter(3)
+fest(m2["ns"].Rolle.Nutzung() == "nein", "„Nein“ des Plündermeisters wird uebernommen")
+# Nur der Plündermeister zaehlt: eine Meldung eines Mitspielers wird ignoriert
+w2 = gruppe(3, nutzung=None)
+w2.ereignis("PLAYER_ENTERING_WORLD")
+w2.weiter(15)
+w2.clients[2]["ns"].Abgleich.Empfangen("U;ja", "Timo-Realm")
+fest(w2.clients[2]["ns"].Rolle.Nutzung() is None, "eine Meldung ohne Plündermeister-Rolle wird ignoriert")
+
+print("== 50. Raidtage: Wochentage waehlen, Einteilung je Raidtag, mit allen geteilt (Wunsch 17.10.2026) ==")
+w = welt36()
+n0, n1, l0 = w.clients[0]["ns"], w.clients[1]["ns"], w.clients[0]["lua"]
+tage = [str(x["label"]) for x in tup3(n0.Gruppen.EinteilungTage())[0].values()]
+fest(tage == ["Heute", "Morgen"], "ohne Raidtage: heute und morgen (%s)" % (tage,))
+heute_wd = int(l0.eval("date('*t', time()).wday"))
+zweiter = (heute_wd % 7) + 3 if (heute_wd % 7) + 3 <= 7 else ((heute_wd % 7) + 3) - 7
+n0.Gruppen.RaidtagSetzen(heute_wd, True)
+n0.Gruppen.RaidtagSetzen(zweiter, True)
+liste = list(n0.Gruppen.EinteilungTage().values())
+fest(len(liste) == 2, "zwei Raidtage gewaehlt: zwei Tage in der Liste (%d)" % len(liste))
+fest(str(liste[0]["datum"]) == str(n0.Gruppen.EinteilungTag(0)), "der erste ist heute (der Raidtag faellt auf heute)")
+n0.Gruppen.RaidtagSetzen(((heute_wd + 3) % 7) + 1, True)
+fest(len(list(n0.Gruppen.EinteilungTage().values())) == 3, "drei oder mehr Raidtage sind moeglich")
+# Die Raidtage gehen mit den geteilten Einstellungen an die anderen
+z = n0.Konfig.Kodieren(n0.Konfig.Sammeln())
+zeilen = [str(x) for x in z.values()]
+fest(any(x.startswith("D|") and len(x) == 9 for x in zeilen), "Raidtage stehen im Paket der geteilten Einstellungen (%s)" % ([x for x in zeilen if x.startswith("D|")],))
+s = n1.Konfig.Dekodieren(w.clients[1]["lua"].table_from(zeilen))
+fest(s is not None and s["raidtage"] is not None, "und werden beim Empfaenger gelesen")
+n1.Konfig.Anwenden(s)
+fest(all(n1.Gruppen.RaidtagGewaehlt(d_) == n0.Gruppen.RaidtagGewaehlt(d_) for d_ in range(1, 8)), "der Empfaenger hat dieselben Raidtage")
+fest(str(n0.Gruppen.RaidtagName(2)) in ("Mo", "Mon"), "Wochentage haben Kurznamen")
+# Heute laesst sich immer einteilen, auch wenn heute kein Raidtag ist
+for d_ in range(1, 8):
+    n0.Gruppen.RaidtagSetzen(d_, d_ == (heute_wd % 7) + 1)
+liste = list(n0.Gruppen.EinteilungTage().values())
+fest(str(liste[0]["datum"]) == str(n0.Gruppen.EinteilungTag(0)) and str(liste[0]["label"]) == "Heute" and len(liste) == 2,
+     "Heute steht immer vorn, auch wenn es kein Raidtag ist (%d Tage)" % len(liste))
+
+print("== 51. Geteilte Einstellungen: Stufe 1 und 2 immer, Rangstufe nur von ihnen, nur lesen, Selbstheilung (Wunsch 17.10.2026) ==")
+w = welt30()
+for k in (0, 1, 2, 3):
+    pass
+ns0, ns1, ns2 = w.clients[0]["ns"], w.clients[1]["ns"], w.clients[2]["ns"]
+# Die Standardgrenze ist 2: Ein Offizier wird auch von Clients angenommen, die nie eine Grenze bekommen haben
+fest(ns2.Konfig.RangGrenze() == 2, "Standardgrenze ist Stufe 2")
+fest(tup(ns2.Konfig.DarfWurzel("Timo"))[0] is True and tup(ns2.Konfig.DarfWurzel("Lina"))[0] is False, "Wurzel = Stufe 1 und 2")
+# Ein schlafendes Addon (Timo sagte Nein zu Fairshare) bekommt trotzdem die geteilten Einstellungen und die Einteilung
+db30(w, 1)["nutzung"] = "nein"
+fest(tup(ns1.Rolle.Aktiv())[0] is False, "Timos Addon schlaeft")
+einstellen_leiter(w)
+ns0.Gruppen.RaidtagSetzen(2, True)
+ns0.Konfig.Senden()
+heute = str(ns0.Gruppen.EinteilungTag(0))
+ns0.Gruppen.EinteilungSetzen(heute, "Lina", "10er")
+w.weiter(8)
+fest(db30(w, 1)["konfigStand"] is not None, "ein schlafendes Addon uebernimmt die geteilten Einstellungen")
+fest(tup(ns1.Gruppen.RaidtagGewaehlt(2))[0] is True, "die Raidtage kommen mit")
+r = tup(ns1.Gruppen.EinteilungVon(heute, "Lina"))[0]
+fest(r is not None and str(r) == "10er", "und die Einteilung kommt ebenfalls an")
+db30(w, 1)["nutzung"] = "ja"
+
+# Die Rangstufe aendern darf nur die Wurzel: Lina (Stufe 3) darf senden, ihre Rangangabe wird ignoriert
+for k in (0, 1, 2, 3):
+    db30(w, k)["konfigRang"] = 3
+db30(w, 2)["konfigRang"] = 5          # Lina stellt es bei sich hoch und sendet
+stand0 = db30(w, 1)["konfigStand"]
+ns2.Konfig.Senden()
+w.weiter(8)
+fest(db30(w, 1)["konfigStand"] != stand0, "Lina (Stufe 3, bei Grenze 3 berechtigt) wird angenommen")
+fest(int(db30(w, 1)["konfigRang"]) == 3, "ihre Rangangabe (5) wird ignoriert, die Grenze bleibt 3")
+# Gesperrt: Raider ab Stufe 3 ohne Recht (Grenze zurueck auf 2)
+for k in (0, 1, 2, 3):
+    db30(w, k)["konfigRang"] = 2
+fest(tup(ns2.Konfig.Gesperrt())[0] is True, "Lina ist gesperrt (Stufe 3 > Grenze 2)")
+fest(tup(ns1.Konfig.Gesperrt())[0] is False and tup(ns1.Konfig.Gesperrt(True))[0] is False, "Timo (Stufe 2) ist nicht gesperrt, auch nicht bei der Rangstufe")
+db30(w, 2)["konfigRang"] = 3
+fest(tup(ns2.Konfig.Gesperrt())[0] is False and tup(ns2.Konfig.Gesperrt(True))[0] is True, "bei Grenze 3 darf Lina schreiben, die Rangstufe aber nicht aendern")
+db30(w, 2)["konfigRang"] = 2
+
+# Selbstheilung: Wer nicht schreiben darf, wird auf den offiziellen Stand zurueckgesetzt
+w = welt30()
+einstellen_leiter(w)
+ns0, ns1, ns2 = w.clients[0]["ns"], w.clients[1]["ns"], w.clients[2]["ns"]
+ns0.Konfig.Senden()
+w.weiter(8)
+offiziell = db30(w, 2)["wurfDauer"]
+db30(w, 2)["wurfDauer"] = 99
+db30(w, 1)["wurfDauer"] = 99
+fest(tup(ns2.Konfig.Heilen())[0] is True and db30(w, 2)["wurfDauer"] == offiziell, "Lina (ohne Recht) wird auf den offiziellen Stand zurueckgesetzt (%s)" % (db30(w, 2)["wurfDauer"],))
+fest(tup(ns1.Konfig.Heilen())[0] is False and db30(w, 1)["wurfDauer"] == 99, "Timo (Offizier, darf schreiben) behaelt seinen Stand")
+
+print("== 52. Abwesenheit mit mehreren Gruppen: der Knopf waehlt die Gruppe, ohne Gruppe keine Gildenliste (Fund im Spiel 18.10.2026) ==")
+w = welt36()
+c0 = w.clients[0]
+ns0, g0 = c0["ns"], c0["g"]
+for n_ in ("20er", "Gruppe 1"):
+    ns0.Gruppen.Anlegen(n_)
+ns0.Gruppen.Aktivieren(None)
+heute = str(ns0.Gruppen.EinteilungTag(0))
+tup(ns0.Gruppen.EinteilungSetzen(heute, "Protti", "20er", "System"))
+tup(ns0.Gruppen.EinteilungSetzen(heute, "Moe", "Gruppe 1", "System"))
+# Ohne gewaehlte Gruppe: niemand erwartet, auf keinen Fall die ganze Gilde
+liste = [str(e["name"]) for e in tup3(ns0.Anwesenheit.KandidatenListe(None, True))[0].values()]
+fest(len(liste) == 0, "ohne gewaehlte Gruppe wird niemand erwartet (%s)" % (liste,))
+g0["SlashCmdList"]["FAIRSHARE"]("bank")
+fest(g0["__klick"]("Gruppe: keine") is True, "der Gruppen-Knopf in der Abwesenheit klickt")
+fest(str(ns0.Gruppen.AktivName()) == "20er", "erster Klick aktiviert die erste Gruppe (%s)" % (ns0.Gruppen.AktivName(),))
+liste = sorted(str(e["name"]).lower() for e in tup3(ns0.Anwesenheit.KandidatenListe(None, True))[0].values())
+fest(liste == ["protti"], "Gruppe 20er erwartet nur ihre Eingeteilten (%s)" % (liste,))
+g0["__klick"]("Gruppe: 20er")
+g0["__klick"]("Gruppe: 40er")
+fest(str(ns0.Gruppen.AktivName()) == "Gruppe 1", "weitere Klicks: naechste Gruppe (%s)" % (ns0.Gruppen.AktivName(),))
+liste = sorted(str(e["name"]).lower() for e in tup3(ns0.Anwesenheit.KandidatenListe(None, True))[0].values())
+fest(liste == ["moe"], "Gruppe 1 erwartet nur ihre Eingeteilten (%s)" % (liste,))
+ns0.Fenster.Verstecken()
+
+print("== 53. Bench in der Einteilung: steht in der Abwesenheit jeder Gruppe, Faktor 0, Klick holt ihn in die Gruppe (Wunsch 18.10.2026) ==")
+w = welt36()
+n0 = w.clients[0]["ns"]
+n0.Gruppen.Anlegen("20er")
+n0.Gruppen.Aktivieren("40er")
+heute = str(n0.Gruppen.EinteilungTag(0))
+fest(tup(n0.Gruppen.Anlegen("bench"))[0] is False, "eine Gruppe darf nicht Bench heissen")
+tup(n0.Gruppen.EinteilungSetzen(heute, "Protti", "40er", "System"))     # erwartet, nicht im Raid -> offen
+tup(n0.Gruppen.EinteilungSetzen(heute, "Moe", "Bench", "System"))        # Bench
+tup(n0.Gruppen.EinteilungSetzen(heute, "Zora", "20er", "System"))        # andere Gruppe
+liste = tup3(n0.Anwesenheit.KandidatenListe(None, True))[0]
+eintraege = {str(e["name"]).lower(): e for e in liste.values()}
+fest("moe" in eintraege and bool(eintraege["moe"]["benchEinteilung"]), "die Bench steht in der Abwesenheit, als Bench erkennbar")
+fest("protti" in eintraege and bool(eintraege["protti"]["offen"]), "der Eingeteilte, der fehlt, ist offen")
+fest("zora" not in eintraege, "Spieler der anderen Gruppe stehen nicht drin")
+fest(eintraege["moe"]["bank"] is not None and not bool(eintraege["moe"]["offen"]), "Bench gilt wie Bank und ist nicht offen")
+# Der Abschluss: Bench ist Bank (Faktor 0), blockiert nicht
+n0.Anwesenheit.AktiverAbend(True)
+n0.Anwesenheit.AbmeldungSetzen("Protti", True, "System")
+v = tup(n0.Anwesenheit.AbendVorschau())[0]
+st = {str(e["schluessel"]): (str(e["status"]), float(e["zuschlag"])) for e in v["spieler"].values()}
+fest(st.get("moe") == ("bank", 0.0), "Bench: Status bank, kein Zuschlag (%s)" % (st.get("moe"),))
+ok = tup3(n0.Anwesenheit.AbendAbschliessen(None, "System", True))[0]
+fest(ok is True, "Der Abend laesst sich abschliessen (Bench blockiert nicht)")
+# Einspringen: der Klick holt ihn in die aktive Gruppe
+w2 = welt36()
+m0 = w2.clients[0]["ns"]
+m0.Gruppen.Aktivieren("40er")
+heute = str(m0.Gruppen.EinteilungTag(0))
+tup(m0.Gruppen.EinteilungSetzen(heute, "Moe", "Bench", "System"))
+fest(tup(m0.Anwesenheit.BenchEinspringen("Moe", "System"))[0] is True, "Bench-Spieler springt ein")
+r = tup(m0.Gruppen.EinteilungVon(heute, "Moe"))[0]
+fest(r is not None and str(r) == "40er", "er steht jetzt in der aktiven Gruppe (%s)" % (r,))
 
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")

@@ -28,7 +28,7 @@ local Kern, Quelle = ns.Kern, ns.Quelle
 local S = ns.Stil
 local C = S.C
 
-local BREITE, HOEHE = 760, 600
+local BREITE, HOEHE = 880, 600
 local KOPF, FUSS = 44, 40
 local MAXZEILEN, ZEILENHOEHE = 40, 24
 local TAFEL_X = 16
@@ -46,6 +46,7 @@ local AKZENT = S.Code(C.ac)
 local rahmen, kopfZeile, tafel, fuss, unterzeile, kopfTag
 local zeilen = {}
 local ansichtSeg, zeitSeg, abgleichBtn, einstellBtn, gruppeBtn, zurueckBtn, beispielBtn, nurBtn, wurfBtn, abschlussBtn, offeneBtn
+local rangBtn, syncBtn, tagBtn, sendenBtn      -- Ansicht „Einteilung“
 local zustand = { wochen = 0, beispiel = false, spieler = nil, versatz = 0, maxVersatz = 0,
                   ansicht = "liste", gruppe = nil, alleSpieler = false }
 
@@ -65,6 +66,12 @@ local function layout(name, w)
         local dx = a + L6 + b + L6 + c + L6 + d + L6 + 112 + L6 + 100 + L6
         return { { 0, a, "LEFT" }, { a + L6, b, "LEFT" }, { a + L6 + b + L6, c, "CENTER" },
                  { a + L6 + b + L6 + c + L6, d, "CENTER" }, { dx, math.max(100, w - dx - 10), "LEFT" } }
+    elseif name == "einteilung" then
+        -- Spieler | Rang | Eingeteilt in | Knopf | Hinweis
+        local a, b, c, d = 170, 120, 170, 110
+        local dx = a + L6 + b + L6 + c + L6 + d + L6
+        return { { 0, a, "LEFT" }, { a + L6, b, "LEFT" }, { a + L6 + b + L6, c, "LEFT" },
+                 { a + L6 + b + L6 + c + L6, d, "CENTER" }, { dx, math.max(80, w - dx - 10), "LEFT" } }
     elseif name == "spieler" then
         local a, b, c = 100, 105, 65
         local dx = a + L6 + b + L6 + c + L6
@@ -172,7 +179,18 @@ local function baueZeile(index)
 
     z:SetScript("OnEnter", function(s) if s.spielername then s.hover:SetShown(true) end end)
     z:SetScript("OnLeave", function(s) s.hover:SetShown(false) end)
-    z:SetScript("OnClick", function(s)
+    if z.RegisterForClicks then z:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
+    z:SetScript("OnClick", function(s, taste)
+        -- ⭐ Einteilung: Rechtsklick auf den Namen nimmt den Spieler aus seiner Gruppe (egal in welcher er steht)
+        if zustand.ansicht == "einteilung" then
+            if taste == "RightButton" and s.spielername and zustand.einteilungDatum then
+                local ok, grund = ns.Gruppen.EinteilungSetzen(zustand.einteilungDatum, s.spielername, "")
+                if not ok then print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(grund) .. "|r") end
+                Fenster.Aktualisieren()
+            end
+            return
+        end
+        if taste == "RightButton" then return end
         if zustand.ansicht == "bank" then return end
         if zustand.spieler or not s.spielername then return end
         zustand.spieler = s.spielername
@@ -207,6 +225,12 @@ local function baueZeile(index)
     z.abmeldBtn:SetFest(100)
     z.abmeldBtn:SetFrameLevel(z:GetFrameLevel() + 3)
     z.abmeldBtn:Hide()
+
+    -- Einteilung: in die gewaehlte Gruppe setzen / herausnehmen
+    z.teilBtn = S.Knopf(z, L["Hinzufügen"], "secondary", 20)
+    z.teilBtn:SetFest(104)
+    z.teilBtn:SetFrameLevel(z:GetFrameLevel() + 3)
+    z.teilBtn:Hide()
     return z
 end
 
@@ -259,6 +283,17 @@ local function kopfBauen()
     zu:SetScript("OnClick", function() rahmen:Hide() end)
 end
 
+--- ⭐ Der Tag der Einteilung: der gewählte Raidtag (sonst der erste), mit Beschriftung und der ganzen Liste.
+--  @return datum, label, liste
+local function einteilungsTag()
+    local liste = ns.Gruppen.EinteilungTage()
+    local wahl = liste[1]
+    for _, t in ipairs(liste) do
+        if t.datum == zustand.einteilungTag then wahl = t end
+    end
+    return wahl.datum, wahl.label, liste
+end
+
 local function baueFenster()
     if rahmen then return end
 
@@ -286,6 +321,7 @@ local function baueFenster()
         { wert = "liste", label = L["Spieler"] },
         { wert = "verlauf", label = L["Verlauf"] },
         { wert = "bank", label = L["Abwesenheit"] },
+        { wert = "einteilung", label = L["Einteilung"] },
     })
     ansichtSeg:SetPoint("TOPLEFT", rahmen, "TOPLEFT", 16, -(KOPF + 12))
 
@@ -336,6 +372,19 @@ local function baueFenster()
     gruppeBtn:SetScript("OnClick", function()
         local Namen = ns.Gruppen and ns.Gruppen.Namen() or {}
         if #Namen == 0 then return end
+        -- ⭐ In der Einteilung ist auch die Bench ein Ziel
+        if zustand.ansicht == "einteilung" then Namen[#Namen + 1] = ns.Gruppen.BENCH end
+        -- ⭐ Abwesenheit: die Gruppe wählen (= aktivieren), deren Abend du führst; ein Wechsel ist ein anderer Abend
+        if zustand.ansicht == "bank" and not zustand.beispiel then
+            local aktuell, nach = ns.Gruppen.AktivName(), Namen[1]
+            for i, n in ipairs(Namen) do
+                if n == aktuell then nach = Namen[i + 1] or Namen[1] break end
+            end
+            ns.Gruppen.Aktivieren(nach)
+            zustand.versatz = 0
+            Fenster.Aktualisieren()
+            return
+        end
         local naechste
         if zustand.gruppe == nil then
             naechste = Namen[1]
@@ -367,6 +416,65 @@ local function baueFenster()
             print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(grund) .. "|r")
         end
         Fenster.Aktualisieren()
+    end)
+
+    -- ⭐ Ansicht „Einteilung": Rang waehlen, Raidkader einlesen, Tag waehlen, Einteilung senden
+    rangBtn = S.Knopf(rahmen, "", "secondary", 24)
+    rangBtn:SetPoint("RIGHT", gruppeBtn, "LEFT", -8, 0)
+    rangBtn:Hide()
+    rangBtn:SetScript("OnClick", function()
+        local R = ns.Gruppen.Raenge()
+        if not R then return end
+        local liste = {}
+        for _, r in ipairs(R) do liste[#liste + 1] = r end
+        local aktuell = ns.Gruppen.RaidkaderRang()
+        local naechster = liste[1]
+        for i, r in ipairs(liste) do
+            if r.index == aktuell then naechster = liste[i + 1] or liste[1] break end
+        end
+        if naechster then ns.Gruppen.RaidkaderRangSetzen(naechster.index) end
+        Fenster.Aktualisieren()
+    end)
+
+    syncBtn = S.Knopf(rahmen, L["Raidkader synchronisieren"], "primary", 24)
+    syncBtn:SetPoint("RIGHT", rangBtn, "LEFT", -8, 0)
+    syncBtn:Hide()
+    syncBtn:SetScript("OnClick", function()
+        local n, grund = ns.Gruppen.RaidkaderSync()
+        if n then
+            print("|cff1B6B57Fairshare|r: " .. string.format(L["Raidkader eingelesen: %d Mitglieder."], n))
+        else
+            print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(grund) .. "|r")
+        end
+        zustand.versatz = 0
+        Fenster.Aktualisieren()
+    end)
+
+    tagBtn = S.Knopf(rahmen, "", "secondary", 24)
+    tagBtn:SetPoint("RIGHT", syncBtn, "LEFT", -8, 0)
+    tagBtn:Hide()
+    tagBtn:SetScript("OnClick", function()
+        -- der nächste Raidtag der Reihe
+        local datum, _, liste = einteilungsTag()
+        local nach = liste[1]
+        for i, t in ipairs(liste) do
+            if t.datum == datum then nach = liste[i + 1] or liste[1] break end
+        end
+        zustand.einteilungTag = nach.datum
+        zustand.versatz = 0
+        Fenster.Aktualisieren()
+    end)
+
+    sendenBtn = S.Knopf(rahmen, L["Einteilung senden"], "secondary", 24)
+    sendenBtn:SetPoint("RIGHT", tagBtn, "LEFT", -8, 0)
+    sendenBtn:Hide()
+    sendenBtn:SetScript("OnClick", function()
+        local datum = einteilungsTag()
+        if ns.Gruppen.EinteilungSenden(datum) then
+            print("|cff1B6B57Fairshare|r: " .. string.format(L["Einteilung für %s gesendet."], datum))
+        else
+            print("|cff1B6B57Fairshare|r: " .. ROT .. L["Es gibt noch keine Einteilung zum Senden."] .. "|r")
+        end
     end)
 
     -- Die Tafel: Kopfzeile und Zeilen auf einer Karte
@@ -439,7 +547,7 @@ local function baueFenster()
         end
     end)
 
-    S.Verstellbar(rahmen, "uebersicht", { b = BREITE, h = HOEHE, minB = 760, minH = 420,
+    S.Verstellbar(rahmen, "uebersicht", { b = BREITE, h = HOEHE, minB = 880, minH = 420,
         maxB = 1300, maxH = 1100 }, function() Fenster.Aktualisieren() end)
 
     rahmen:SetScript("OnShow", function()
@@ -482,6 +590,7 @@ local function leereZeilen(ab)
         if z.unentBtn then z.unentBtn:Hide() end
         if z.vergessenBtn then z.vergessenBtn:Hide() end
         if z.abmeldBtn then z.abmeldBtn:Hide() end
+        if z.teilBtn then z.teilBtn:Hide() end
         z.hover:SetShown(false)
         z.markiert:SetShown(false)
         z.a:SetText(""); z.b:SetText(""); z.c:SetText(""); z.d:SetText(""); z.e:SetText("")
@@ -602,6 +711,7 @@ local function zeigeListe(H)
         if z.unentBtn then z.unentBtn:Hide() end
         if z.vergessenBtn then z.vergessenBtn:Hide() end
         if z.abmeldBtn then z.abmeldBtn:Hide() end
+        if z.teilBtn then z.teilBtn:Hide() end
         z.hover:SetShown(false)
         z.markiert:SetShown(wuerfelt and true or false)
 
@@ -716,6 +826,7 @@ local function zeigeSpieler(H)
         if z.unentBtn then z.unentBtn:Hide() end
         if z.vergessenBtn then z.vergessenBtn:Hide() end
         if z.abmeldBtn then z.abmeldBtn:Hide() end
+        if z.teilBtn then z.teilBtn:Hide() end
 
         z.a:SetText(date(L["%d.%m.%Y"], e.zeit))
 
@@ -833,6 +944,7 @@ local function zeigeVerlauf(H)
         if z.unentBtn then z.unentBtn:Hide() end
         if z.vergessenBtn then z.vergessenBtn:Hide() end
         if z.abmeldBtn then z.abmeldBtn:Hide() end
+        if z.teilBtn then z.teilBtn:Hide() end
         z.a:SetText(GRAU .. date(L["%d.%m. %H:%M"], e.zeit) .. "|r")
         z.b:SetText(e.name)
         z.c:SetText(e.zweit and (GRAU .. L["Zweit"] .. "|r") or L["Haupt"])
@@ -885,10 +997,13 @@ local function zeigeBank(H)
         z.hover:SetShown(false)
         z.markiert:SetShown(false)
         z.undo:Hide()
+        if z.teilBtn then z.teilBtn:Hide() end        -- ⭐ die Zeilen werden von allen Ansichten mitbenutzt
 
         z.a:SetText(HELL .. Kern.Anzeigename(e.name) .. "|r")
         if e.imRaid then
             z.b:SetText(AKZENT .. L["Im Raid"] .. "|r")
+        elseif e.benchEinteilung then
+            z.b:SetText(AKZENT .. L["Bench"] .. "|r")      -- ⭐ die Bench fällt sofort auf
         else
             z.b:SetText(e.online and (GRUEN .. L["Online"] .. "|r") or (GRAU .. L["Offline"] .. "|r"))
         end
@@ -898,9 +1013,16 @@ local function zeigeBank(H)
         z.bankBtn:SetPoint("CENTER", z.c, "CENTER", 0, 0)
         z.bankBtn:Show()
         z.bankBtn:SetArt(e.bank and "primary" or "secondary")
-        z.bankBtn:SetLabel(e.bank and L["✓ Bank"] or L["Bank"])
+        z.bankBtn:SetLabel(e.benchEinteilung and L["✓ Bench"] or (e.bank and L["✓ Bank"] or L["Bank"]))
         z.bankBtn:SetAktiv(darfBank)
         z.bankBtn:SetScript("OnClick", function()
+            if e.benchEinteilung and not zustand.beispiel then
+                -- ⭐ Bench laut Einteilung: Klick holt ihn in die aktive Gruppe (er springt ein)
+                local ok, grund = ns.Anwesenheit.BenchEinspringen(e.name)
+                if not ok then print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(grund) .. "|r") end
+                Fenster.Aktualisieren()
+                return
+            end
             if zustand.beispiel then
                 if ns.Anwesenheit and ns.Anwesenheit.BeispielBankToggle then
                     ns.Anwesenheit.BeispielBankToggle(e.name)
@@ -984,7 +1106,139 @@ local function zeigeBank(H)
         else
             unterzeile:SetText(GRAU .. L["Offene verhindern den Abschluss · Bank: Faktor 0 · Abgemeldet: Staffel · Keine Meldung: ab dem 3. Mal in 8 Abenden wie unentschuldigt · Unentschuldigt: Faktor 1,5, mindestens 2"] .. "|r")
         end
+        -- ⭐ Woher kommt die Liste? Hinweise, wenn die Einteilung von heute fehlt oder leer ist
+        if not zustand.beispiel then
+            local G = ns.Gruppen
+            local heute = G.EinteilungTag(0)
+            local aktiv = G.AktivName()
+            if G.EinteilungVorhanden(heute) and not aktiv then
+                unterzeile:SetText(GELB .. L["Für heute gibt es eine Einteilung: oben rechts die Gruppe wählen, deren Abwesenheit du führst."] .. "|r")
+            elseif aktiv and not G.EinteilungVorhanden(heute) then
+                unterzeile:SetText(GELB .. L["Für heute gibt es keine Einteilung: es gilt der ganze Kader der Gruppe. Unter „Einteilung“ den Tag „Heute“ einteilen."] .. "|r")
+            elseif aktiv and #G.EinteilungListe(heute, aktiv) == 0 then
+                unterzeile:SetText(GELB .. L["In dieser Gruppe ist heute niemand eingeteilt."] .. "|r")
+            end
+        end
     end
+end
+
+--- ⭐ Ansicht „Einteilung“: der Raidkader als anklickbare Liste. Ein Klick setzt den Spieler in die oben gewählte
+--  Gruppe (für den gewählten Tag) oder nimmt ihn wieder heraus. Wer nirgends eingeteilt ist, steht oben.
+local function zeigeEinteilung()
+    local G = ns.Gruppen
+    local datum, tagLabel = einteilungsTag()
+    zustand.einteilungDatum = datum
+    local ziel = zustand.gruppe
+    local darf = not zustand.beispiel and G.EinteilungDarf()
+
+    setzeKopf(L["Spieler"], L["Rang"], L["Eingeteilt in"], "", L["Hinweis"])
+
+    -- Pool: der Raidkader, dazu alle, die an diesem Tag eingeteilt sind, aber nicht im Raidkader stehen
+    local pool, gesehen = {}, {}
+    local kader, stand = G.Raidkader()
+    for _, m in ipairs(kader) do
+        local k = Kern.Schluessel(m.name)
+        if k and not gesehen[k] then
+            gesehen[k] = true
+            pool[#pool + 1] = { name = m.name, rang = m.rang }
+        end
+    end
+    local alleZiele = {}
+    for _, gn in ipairs(G.Namen()) do alleZiele[#alleZiele + 1] = gn end
+    alleZiele[#alleZiele + 1] = G.BENCH
+    for _, gn in ipairs(alleZiele) do
+        for _, n in ipairs(G.EinteilungListe(datum, gn)) do
+            local k = Kern.Schluessel(n)
+            if k and not gesehen[k] then
+                gesehen[k] = true
+                pool[#pool + 1] = { name = n, rang = "—" }
+            end
+        end
+    end
+    for _, e in ipairs(pool) do
+        e.gruppe = G.EinteilungVon(datum, e.name)
+    end
+    table.sort(pool, function(a, b)
+        if (a.gruppe == nil) ~= (b.gruppe == nil) then return a.gruppe == nil end
+        return a.name:lower() < b.name:lower()
+    end)
+
+    zustand.maxVersatz = math.max(0, #pool - zeilenSicht)
+    if zustand.versatz > zustand.maxVersatz then zustand.versatz = zustand.maxVersatz end
+
+    local gezeigt = 0
+    for i = 1, zeilenSicht do
+        local z = zeilen[i]
+        local e = pool[i + zustand.versatz]
+        if not e then break end
+        gezeigt = i
+
+        z.spielername = e.name
+        z.hover:SetShown(false)
+        z.markiert:SetShown(false)
+        z.undo:Hide()
+        -- ⭐ die Zeilen werden von allen Ansichten mitbenutzt: Knöpfe der Abwesenheit dürfen nicht stehen bleiben
+        if z.bankBtn then z.bankBtn:Hide() end
+        if z.unentBtn then z.unentBtn:Hide() end
+        if z.vergessenBtn then z.vergessenBtn:Hide() end
+        if z.abmeldBtn then z.abmeldBtn:Hide() end
+        z.a:SetText(HELL .. Kern.Anzeigename(e.name) .. "|r")
+        z.b:SetText(GRAU .. tostring(e.rang or "") .. "|r")
+        if e.gruppe == nil then
+            z.c:SetText(GRAU .. "—|r")
+        elseif e.gruppe == G.BENCH then
+            z.c:SetText(AKZENT .. L["Bench"] .. "|r")        -- die Bench fällt auf
+        elseif e.gruppe == ziel then
+            z.c:SetText(GRUEN .. e.gruppe .. "|r")
+        else
+            z.c:SetText(GELB .. e.gruppe .. "|r")
+        end
+        z.d:SetText("")
+        z.e:SetText("")
+
+        local drin = (ziel ~= nil and e.gruppe == ziel)
+        z.teilBtn:ClearAllPoints()
+        z.teilBtn:SetPoint("CENTER", z.d, "CENTER", 0, 0)
+        z.teilBtn:Show()
+        z.teilBtn:SetArt(drin and "primary" or "secondary")
+        z.teilBtn:SetLabel(drin and L["Entfernen"] or ((e.gruppe ~= nil) and L["Verschieben"] or L["Hinzufügen"]))
+        z.teilBtn:SetAktiv(darf and ziel ~= nil)
+        z.teilBtn:SetScript("OnClick", function()
+            local ok, grund = G.EinteilungSetzen(datum, e.name, drin and "" or ziel)
+            if not ok then print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(grund) .. "|r") end
+            Fenster.Aktualisieren()
+        end)
+    end
+    leereZeilen(gezeigt + 1)
+
+    -- Kopfzeile der Werkzeugleiste dieser Ansicht
+    local R = G.Raenge()
+    local rangName = "—"
+    for _, r in ipairs(R or {}) do
+        if r.index == G.RaidkaderRang() then rangName = r.name end
+    end
+    rangBtn:SetLabel(string.format(L["Bis Rang: %s"], rangName))
+    tagBtn:SetLabel(tagLabel)
+    syncBtn:SetAktiv(G.RaidkaderRang() ~= nil and not zustand.beispiel)
+
+    local inZiel, inAnderen = 0, 0
+    for _, e in ipairs(pool) do
+        if e.gruppe ~= nil then
+            if e.gruppe == ziel then inZiel = inZiel + 1 else inAnderen = inAnderen + 1 end
+        end
+    end
+    fuss:SetText(string.format(L["%d im Raidkader · %d in der gewählten Gruppe · %d in anderen Gruppen"], #kader, inZiel, inAnderen))
+    local hinweis
+    if #kader == 0 then
+        hinweis = L["Erst oben den Rang wählen und den Raidkader synchronisieren."]
+    elseif not ziel then
+        hinweis = L["Oben rechts eine Gruppe wählen, dann Spieler anklicken."]
+    elseif not darf then
+        hinweis = L["Einteilen dürfen nur Gildenränge mit Schreibrecht (Einstellungen → Würfeln & Abgleich → Einstellungen teilen)."]
+    else
+        hinweis = string.format(L["Einteilung für %s, Gruppe %s. Rechtsklick auf einen Namen nimmt ihn aus seiner Gruppe."], datum, ziel)
+    end
+    unterzeile:SetText(GRAU .. hinweis .. "|r")
 end
 
 function Fenster.Aktualisieren()
@@ -1003,15 +1257,21 @@ function Fenster.Aktualisieren()
     -- Werkzeugleiste
     ansichtSeg:SetWahl(zustand.spieler and "liste" or zustand.ansicht)
     zeitSeg:SetWahl(zustand.wochen)
-    zeitSeg:SetShown(zustand.ansicht ~= "bank")
     beispielBtn:SetLabel(zustand.beispiel and L["Beispiel aus"] or L["Beispiel"])
 
     local Namen = ns.Gruppen and ns.Gruppen.Namen() or {}
-    if zustand.gruppe and not (ns.Gruppen and ns.Gruppen.Holen(zustand.gruppe)) then
+    if zustand.gruppe == ns.Gruppen.BENCH then
+        -- die Bench ist nur in der Einteilung ein Ziel; sonst gilt „Alle“
+        if zustand.ansicht ~= "einteilung" then zustand.gruppe = nil end
+    elseif zustand.gruppe and not (ns.Gruppen and ns.Gruppen.Holen(zustand.gruppe)) then
         zustand.gruppe = nil     -- die Gruppe wurde inzwischen geloescht
     end
-    gruppeBtn:SetLabel(string.format(L["Gruppe: %s"],
-        zustand.gruppe or (#Namen > 0 and L["Alle"] or L["keine"])))
+    -- ⭐ In der Abwesenheit wählt der Knopf die Gruppe, deren Abend du führst (die aktive Gruppe), sonst filtert er
+    local gruppenName = (zustand.ansicht == "bank" and not zustand.beispiel)
+        and (ns.Gruppen.AktivName() or L["keine"])
+        or (zustand.gruppe or (#Namen > 0 and L["Alle"] or L["keine"]))
+    if gruppenName == ns.Gruppen.BENCH then gruppenName = L["Bench"] end
+    gruppeBtn:SetLabel(string.format(L["Gruppe: %s"], gruppenName))
     gruppeBtn:SetAktiv(#Namen > 0 and not zustand.beispiel)
 
     -- Abgleich: auffaellig, wenn Mitspieler abweichen
@@ -1028,6 +1288,17 @@ function Fenster.Aktualisieren()
     zustand.darfUndo = not zustand.beispiel and ns.Erfassung.DarfZuruecknehmen()
     local imGruppe = IsInGroup and IsInGroup() and true or false
     wurfBtn:SetShown(not zustand.beispiel and ns.Wurf ~= nil and ns.Wurf.DarfStarten())
+    -- ⭐ Platz in Zeile 1: Passt die Zeitraum-Auswahl neben die Knöpfe rechts? Sonst entfällt sie (bei schmalem
+    -- Fenster wuchsen Auswahl und Knöpfe ineinander, Nutzerfund 17.10.2026).
+    do
+        local breite = rahmen:GetWidth() or BREITE
+        local links = 16 + (ansichtSeg:GetWidth() or 0)
+        local rechts = 16 + (einstellBtn:GetWidth() or 0) + 8 + (abgleichBtn:GetWidth() or 0)
+                       + (wurfBtn:IsShown() and (8 + (wurfBtn:GetWidth() or 0)) or 0)
+        local zeigen = zustand.ansicht ~= "bank" and zustand.ansicht ~= "einteilung"
+        if links + 10 + (zeitSeg:GetWidth() or 0) + rechts + 16 > breite then zeigen = false end
+        zeitSeg:SetShown(zeigen)
+    end
     nurBtn:SetShown((imGruppe and not zustand.beispiel and zustand.ansicht == "liste" and zustand.spieler == nil)
                     or (not zustand.beispiel and zustand.ansicht == "bank" and zustand.spieler == nil))
     if zustand.ansicht == "bank" then
@@ -1044,7 +1315,14 @@ function Fenster.Aktualisieren()
         unterzeile:SetPoint("LEFT", rahmen, "TOPLEFT", 16, -(KOPF + 61))
     end
 
-    if zustand.ansicht == "bank" and not zustand.spieler then
+    for _, b in ipairs({ rangBtn, syncBtn, tagBtn, sendenBtn }) do b:Hide() end
+    if zustand.ansicht == "einteilung" and not zustand.spieler then
+        zustand.abschlussBestaetigung = nil
+        abschlussBtn:Hide()
+        offeneBtn:Hide()
+        for _, b in ipairs({ rangBtn, syncBtn, tagBtn, sendenBtn }) do b:Show() end
+        unterzeile:SetPoint("RIGHT", sendenBtn, "LEFT", -10, 0)
+    elseif zustand.ansicht == "bank" and not zustand.spieler then
         abschlussBtn:Show()
         local istGeschlossen = false
         if zustand.beispiel then
@@ -1146,6 +1424,9 @@ function Fenster.Aktualisieren()
     elseif zustand.ansicht == "bank" then
         ordneSpalten("bank")
         zeigeBank(H)
+    elseif zustand.ansicht == "einteilung" then
+        ordneSpalten("einteilung")
+        zeigeEinteilung()
     else
         ordneSpalten("liste")
         zeigeListe(H)
@@ -1174,10 +1455,10 @@ function Fenster.Zeigen(beispiel)
     Fenster.Aktualisieren()
 end
 
---- Fenster in einer bestimmten Ansicht oeffnen ("liste", "verlauf" oder "bank").
+--- Fenster in einer bestimmten Ansicht oeffnen ("liste", "verlauf", "bank" oder "einteilung").
 function Fenster.ZeigenAnsicht(ansicht)
     Fenster.Zeigen(false)
-    zustand.ansicht = (ansicht == "verlauf" or ansicht == "bank") and ansicht or "liste"
+    zustand.ansicht = (ansicht == "verlauf" or ansicht == "bank" or ansicht == "einteilung") and ansicht or "liste"
     Fenster.Aktualisieren()
 end
 
@@ -1195,6 +1476,35 @@ end
 
 function Fenster.Sichtbar()
     return rahmen and rahmen:IsShown() and true or false
+end
+
+--- Prüfstand: Klick auf die Zeile dieses Spielers ("LeftButton" oder "RightButton").
+function Fenster.ZeileKlick(name, taste)
+    for i = 1, zeilenSicht or 0 do
+        local r = zeilen[i]
+        if r and r.spielername == name then
+            local f = r:GetScript("OnClick")
+            if f then f(r, taste or "LeftButton") end
+            return true
+        end
+    end
+    return false
+end
+
+--- Diagnose/Prüfstand: Wie viele Zeilenknöpfe jeder Art sind in den sichtbaren Zeilen gerade da? Die Zeilen werden
+--  von allen Ansichten mitbenutzt; ein Knopf einer anderen Ansicht darf nicht stehen bleiben.
+function Fenster.ZeilenKnoepfe()
+    local z = { bank = 0, unent = 0, vergessen = 0, abmeld = 0, teil = 0 }
+    local feld = { bank = "bankBtn", unent = "unentBtn", vergessen = "vergessenBtn", abmeld = "abmeldBtn", teil = "teilBtn" }
+    for i = 1, zeilenSicht or 0 do
+        local r = zeilen[i]
+        if r and r:IsShown() then
+            for k, f in pairs(feld) do
+                if r[f] and r[f]:IsShown() then z[k] = z[k] + 1 end
+            end
+        end
+    end
+    return z
 end
 
 -- =====================================================================

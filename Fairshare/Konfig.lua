@@ -74,9 +74,14 @@ end
 -- =====================================================================
 
 --- Die Stufe, bis zu der Absender gelten (1 = nur der Gildenleiter).
+--- ⭐ Wurzel des Vertrauens (Entscheid 17.10.2026): Stufe 1 (Gildenmeister) und Stufe 2 (Offiziere) dürfen
+--  immer senden und einteilen, auf jedem Client, egal was dort eingestellt ist. Sonst käme eine Meldung nie an,
+--  solange der Empfänger noch auf einer alten Grenze steht. Die Grenze erweitert das nur nach unten.
+Konfig.WURZEL = 2
+
 function Konfig.RangGrenze()
-    local r = tonumber(db().konfigRang) or 1
-    return math.max(1, math.min(6, math.floor(r)))
+    local r = tonumber(db().konfigRang) or Konfig.WURZEL
+    return math.max(Konfig.WURZEL, math.min(6, math.floor(r)))
 end
 
 --- Stufe eines Spielers in der Gilde: 1 = hoechster Rang.
@@ -99,6 +104,22 @@ function Konfig.RangStufe(name)
         if i <= gefunden then stufe = stufe + 1 end
     end
     return stufe
+end
+
+--- Gehört dieser Spieler zur Wurzel (Stufe 1 oder 2)? Nur sie ändern, wer überhaupt senden darf.
+function Konfig.DarfWurzel(name)
+    local stufe = Konfig.RangStufe(name or ichName())
+    return stufe ~= nil and stufe <= Konfig.WURZEL
+end
+
+--- ⭐ Ist die Bedienung der geteilten Einstellungen für DIESEN Spieler gesperrt? Nur wenn sein Rang bekannt ist
+--  und nicht reicht (ohne Gilde oder bei noch nicht geladener Gildenliste bleibt es offen — die Sicherheit liegt
+--  bei den Empfängern, das hier ist Bequemlichkeit).
+--  @param wurzel  true: gesperrt, wenn er nicht zur Wurzel gehört (die Rangstufe selbst)
+function Konfig.Gesperrt(wurzel)
+    local stufe = Konfig.RangStufe(ichName())
+    if not stufe then return false end
+    return stufe > (wurzel and Konfig.WURZEL or Konfig.RangGrenze())
 end
 
 --- Darf dieser Spieler Einstellungen senden?
@@ -139,8 +160,12 @@ function Konfig.Sammeln()
         ort = d.ort or "raid",
         konfigRang = Konfig.RangGrenze(),
         verzauberer = kopie(ns.Wurf.Verzauberer()),
+        raidtage = {},
         gruppen = {},
     }
+    for wd = 1, 7 do
+        if ns.Gruppen.RaidtagGewaehlt(wd) then s.raidtage[wd] = true end
+    end
     for _, name in ipairs(ns.Gruppen.Namen()) do
         local G = ns.Gruppen.Holen(name)
         if G and gueltigerName(name) then
@@ -178,6 +203,9 @@ function Konfig.Kodieren(s)
     z[#z + 1] = "Q|" .. s.mindestQualitaet
     z[#z + 1] = "O|" .. s.ort
     z[#z + 1] = "R|" .. s.konfigRang
+    local tage = {}
+    for wd = 1, 7 do tage[wd] = (s.raidtage and s.raidtage[wd]) and "1" or "0" end
+    z[#z + 1] = "D|" .. table.concat(tage)
 
     local v = {}
     for _, n in ipairs(s.verzauberer) do
@@ -230,7 +258,15 @@ function Konfig.Dekodieren(zeilen)
             if rest == "raid" or rest == "instanz" or rest == "ueberall" then s.ort = rest end
         elseif typ == "R" then
             local r = tonumber(rest)
-            if r and r >= 1 and r <= 6 then s.konfigRang = math.floor(r) end
+            if r and r >= 1 and r <= 6 then s.konfigRang = math.max(Konfig.WURZEL, math.floor(r)) end
+        elseif typ == "D" then
+            -- Raidtage: sieben Zeichen 0/1, Sonntag bis Samstag
+            if #rest == 7 and rest:match("^[01]+$") then
+                s.raidtage = {}
+                for wd = 1, 7 do
+                    if rest:sub(wd, wd) == "1" then s.raidtage[wd] = true end
+                end
+            end
         elseif typ == "V" then
             for n in rest:gmatch("[^,]+") do
                 if gueltigerName(n) and #s.verzauberer < 8 then s.verzauberer[#s.verzauberer + 1] = n end
@@ -268,7 +304,6 @@ function Konfig.Dekodieren(zeilen)
     if s.ansagen == nil then s.ansagen, s.pmEingesteckt, s.nurGewuerfelt, s.autoAbgleich = true, true, false, true end
     s.mindestQualitaet = s.mindestQualitaet or 3
     s.ort = s.ort or "raid"
-    s.konfigRang = s.konfigRang or 1
     return s
 end
 
@@ -277,17 +312,25 @@ end
 -- =====================================================================
 
 --- Schreibt geprueftes in die eigenen Einstellungen (und sichert vorher den alten Stand).
-function Konfig.Anwenden(s)
+--  @param ohneSicherung  true: den alten Stand nicht merken (beim Zurücksetzen eigener Abweichungen)
+function Konfig.Anwenden(s, ohneSicherung)
     local d = db()
-    d.konfigAlt = Konfig.Sammeln()
+    if not ohneSicherung then d.konfigAlt = Konfig.Sammeln() end
 
     local B = s.bereiche
     ns.Erfassung.BereicheSetzen(B.haupt[1], B.haupt[2], B.zweit[1], B.zweit[2])
     d.wurfDauer = s.wurfDauer
     d.ansagen, d.pmEingesteckt = s.ansagen, s.pmEingesteckt
     d.nurGewuerfelt, d.autoAbgleich = s.nurGewuerfelt, s.autoAbgleich
-    d.mindestQualitaet, d.ort, d.konfigRang = s.mindestQualitaet, s.ort, s.konfigRang
+    d.mindestQualitaet, d.ort = s.mindestQualitaet, s.ort
+    if s.konfigRang then d.konfigRang = s.konfigRang end      -- nur, wenn ein berechtigter Absender sie mitgeschickt hat
     d.verzauberer = kopie(s.verzauberer)
+    if s.raidtage then          -- ältere Absender kennen keine Raidtage: dann bleiben die eigenen
+        d.raidtage = {}
+        for wd, an in pairs(s.raidtage) do
+            if an then d.raidtage[wd] = true end
+        end
+    end
 
     -- Gruppen: die der Gildenleitung. Den verwalteten Kader behaelt jeder selbst
     -- (er wird gleich aus den Gildenraengen neu gebildet).
@@ -316,6 +359,32 @@ function Konfig.Anwenden(s)
             end
         end)
     end
+end
+
+local function zeilenGleich(a, b)
+    local x, y = {}, {}
+    for _, z in ipairs(a or {}) do x[#x + 1] = z end
+    for _, z in ipairs(b or {}) do y[#y + 1] = z end
+    table.sort(x)
+    table.sort(y)
+    return table.concat(x, "\n") == table.concat(y, "\n")
+end
+
+--- ⭐ Selbstheilung: Wer nicht schreiben darf, bekommt die geteilten Einstellungen beim Anmelden und beim
+--  Gruppenbeitritt auf den letzten offiziellen Stand zurückgesetzt (der steht in `konfigRoh`). Eine heimliche
+--  Änderung der Datei hält so nur bis dahin. Bei unbekanntem Rang (Gildenliste noch nicht geladen) passiert nichts.
+--  @return true, wenn etwas zurückgesetzt wurde
+function Konfig.Heilen()
+    local d = db()
+    if type(d.konfigRoh) ~= "table" or not d.konfigVon then return false end
+    local stufe = Konfig.RangStufe(ichName())
+    if not stufe or stufe <= Konfig.RangGrenze() then return false end
+    local s = Konfig.Dekodieren(d.konfigRoh)
+    if not s then return false end
+    if zeilenGleich(Konfig.Kodieren(Konfig.Sammeln()), d.konfigRoh) then return false end
+    Konfig.Anwenden(s, true)
+    merke(L["Eigene Abweichungen bei den geteilten Einstellungen zurückgesetzt"])
+    return true
 end
 
 --- Den Stand vor der letzten Uebernahme wiederherstellen.
@@ -418,6 +487,12 @@ local function sitzungAbschliessen(S)
         merke(string.format(L["Einstellungen von %s abgelehnt: %s"], tostring(S.von), tostring(grund)))
         return
     end
+    -- ⭐ Wer überhaupt senden darf, bestimmt nur die Wurzel (Stufe 1 und 2). Von anderen Rängen wird die
+    -- Angabe ignoriert, alles andere gilt.
+    if vStufe > Konfig.WURZEL and s.konfigRang then
+        s.konfigRang = nil
+        merke(string.format(L["Rangstufe von %s ignoriert: nur Stufe 1 und 2 dürfen sie ändern"], tostring(S.von)))
+    end
 
     Konfig.Anwenden(s)
     d.konfigStand, d.konfigVon, d.konfigRoh = S.stand, S.von, zeilen
@@ -518,19 +593,20 @@ pcall(function() rahmen:RegisterEvent("PARTY_LOOT_METHOD_CHANGED") end)
 rahmen:SetScript("OnEvent", function(_, ereignis)
     local ok, fehler = pcall(function()
         if not C_Timer then return end
-        -- ⭐ Nur mit Plündermeister als Beutemethode im Dienst (Entscheid 15.10.2026).
-        if not ns.Rolle.Aktiv() then return end
+        -- ⭐ Die geteilten Einstellungen sind Sache der Gilde, nicht der Beutemethode: Sie werden auch von einem
+        -- Addon abgeglichen, das gerade schläft (Entscheid 17.10.2026; sonst kamen Einstellungen nie an).
         if ereignis == "PLAYER_ENTERING_WORLD" then
             if not angefragtGilde then
                 angefragtGilde = true
                 -- Die Gildenliste und der Chat brauchen einen Moment.
-                C_Timer.After(25, function()
-                    if ns.Rolle.Aktiv() then pcall(Konfig.Anfragen, "GUILD") end
-                end)
+                C_Timer.After(25, function() pcall(Konfig.Anfragen, "GUILD") end)
+                C_Timer.After(45, function() pcall(Konfig.Heilen) end)
             end
-        elseif IsInGroup and IsInGroup() and (jetzt() - letzteGruppenfrage) > 300 then
+        elseif ns.Rolle.Aktiv() and IsInGroup and IsInGroup() and (jetzt() - letzteGruppenfrage) > 300 then
+            -- (im Gruppenkanal fragt nur ein Addon, das gerade im Dienst ist; die Gilde fragt beim Anmelden jeder)
             letzteGruppenfrage = jetzt()
             C_Timer.After(10, function() pcall(Konfig.Anfragen, nil) end)
+            C_Timer.After(20, function() pcall(Konfig.Heilen) end)
         end
     end)
     if not ok then
