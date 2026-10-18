@@ -54,6 +54,7 @@ local function migriere(G)
     if G then
         G.kader = G.kader or {}
         G.raenge = G.raenge or {}
+        G.raidtage = G.raidtage or {}
     end
     return G
 end
@@ -86,10 +87,19 @@ end
 --  in keiner Gruppe erwartet, erscheint aber in der Abwesenheit jeder Gruppe, falls er einspringen muss.
 Gruppen.BENCH = "Bench"
 
+--- ⭐ Zweites reserviertes Ziel in der Einteilung: Spieler, die sich weder an- noch abgemeldet haben („No notice“).
+Gruppen.KEINEMELDUNG = "Keine Meldung"
+
+--- Ist das ein reservierter Name (Bench oder Keine Meldung)?
+function Gruppen.Reserviert(name)
+    local n = tostring(name or ""):lower()
+    return n == Gruppen.BENCH:lower() or n == Gruppen.KEINEMELDUNG:lower()
+end
+
 function Gruppen.Anlegen(name)
     name = type(name) == "string" and name:match("^%s*(.-)%s*$") or ""
     if name == "" then return false, L["kein Name"] end
-    if name:lower() == Gruppen.BENCH:lower() then return false, L["Dieser Name ist reserviert."] end
+    if Gruppen.Reserviert(name) then return false, L["Dieser Name ist reserviert."] end
     if #name > 40 then return false, L["Name zu lang (höchstens 40 Zeichen)"] end
     -- ⚠️ Kein Semikolon und keine Steuerzeichen: Der Name geht beim Abgleich
     -- mit auf die Reise. Kodieren schuetzt zwar, aber Ruhe ist besser.
@@ -487,7 +497,9 @@ function Gruppen.EinteilungVon(datum, name)
 end
 
 -- ---------------------------------------------------------------------
---  ⭐ Raidtage: an welchen Wochentagen raidet die Gilde (Einstellungen → Gruppen)
+--  ⭐ Raidtage JE GRUPPE (Entscheid 18.10.2026): Jede Gruppe hat ihre eigenen Raidtage, das ist ihre Raid-ID.
+--  Die Gruppen raiden an verschiedenen oder an denselben Tagen; die Einteilung eines Tages gibt es für jeden Tag,
+--  an dem irgendeine Gruppe raidet.
 -- ---------------------------------------------------------------------
 
 -- Lua-Wochentag (date("*t").wday): 1 = Sonntag … 7 = Samstag. Angezeigt wird Montag bis Sonntag.
@@ -503,47 +515,67 @@ function Gruppen.RaidtagName(wday)
     return N[wday] or "?"
 end
 
-function Gruppen.RaidtagGewaehlt(wday)
-    local r = db().raidtage
-    return (r and r[wday]) and true or false
+--- Raidet diese Gruppe an diesem Wochentag?
+function Gruppen.RaidtagGewaehlt(gruppe, wday)
+    local G = Gruppen.Holen(gruppe)
+    return (G and G.raidtage and G.raidtage[wday]) and true or false
 end
 
-function Gruppen.RaidtagSetzen(wday, an)
+function Gruppen.RaidtagSetzen(gruppe, wday, an)
     wday = tonumber(wday)
-    if not wday or wday < 1 or wday > 7 then return false end
-    local d = db()
-    d.raidtage = d.raidtage or {}
-    d.raidtage[wday] = an and true or nil
+    local G = Gruppen.Holen(gruppe)
+    if not G or not wday or wday < 1 or wday > 7 then return false end
+    G.raidtage = G.raidtage or {}
+    G.raidtage[wday] = an and true or nil
     return true
 end
 
---- ⭐ Die Tage, für die es eine Einteilung gibt: das nächste Vorkommen (ab heute) jedes Raidtags, nach
---  Datum sortiert. Sind keine Raidtage gewählt: heute und morgen.
+--- Die Raidtage einer Gruppe als Text (z. B. „Mo, Do“), leer ohne Raidtage.
+function Gruppen.RaidtageText(gruppe)
+    local teile = {}
+    for _, wd in ipairs(WOCHENFOLGE) do
+        if Gruppen.RaidtagGewaehlt(gruppe, wd) then teile[#teile + 1] = Gruppen.RaidtagName(wd) end
+    end
+    return table.concat(teile, ", ")
+end
+
+--- ⭐ Die Tage, für die es eine Einteilung gibt: das nächste Vorkommen (ab heute) jedes Raidtags irgendeiner Gruppe,
+--  nach Datum sortiert, mit den Gruppen, die an dem Tag raiden. Hat keine Gruppe Raidtage: heute und morgen.
+--  „Heute“ steht immer vorn.
 --  @return Liste aus { datum, label }
 function Gruppen.EinteilungTage()
-    local r = db().raidtage or {}
-    local gewaehlt = false
-    for _ in pairs(r) do gewaehlt = true break end
     local jetzt = time()
-    if not gewaehlt then
-        return {
-            { datum = date("%Y-%m-%d", jetzt),       label = L["Heute"] },
-            { datum = date("%Y-%m-%d", jetzt + TAG), label = L["Morgen"] },
-        }
-    end
-    local liste = {}
-    for tage = 0, 6 do
-        local t = jetzt + tage * TAG
-        local wd = date("*t", t).wday
-        if r[wd] then
-            liste[#liste + 1] = { datum = date("%Y-%m-%d", t), label = Gruppen.RaidtagName(wd) .. " " .. date(L["%d.%m."], t) }
+    local heute = date("%Y-%m-%d", jetzt)
+    local tage = {}
+    local irgendeiner = false
+    for _, gn in ipairs(Gruppen.Namen()) do
+        for tag = 0, 6 do
+            local t = jetzt + tag * TAG
+            local wd = date("*t", t).wday
+            if Gruppen.RaidtagGewaehlt(gn, wd) then
+                irgendeiner = true
+                local datum = date("%Y-%m-%d", t)
+                tage[datum] = tage[datum] or { t = t, wd = wd, gruppen = {} }
+                table.insert(tage[datum].gruppen, gn)
+            end
         end
     end
-    -- ⭐ Heute lässt sich immer einteilen (auch an einem Tag, der kein Raidtag ist): Die Abwesenheit des Abends
-    -- richtet sich nach der Einteilung von heute.
-    local heute = date("%Y-%m-%d", jetzt)
-    if liste[1] == nil or liste[1].datum ~= heute then
-        table.insert(liste, 1, { datum = heute, label = L["Heute"] })
+    local liste = {}
+    if irgendeiner then
+        for datum, e in pairs(tage) do
+            local name = Gruppen.RaidtagName(e.wd) .. " " .. date(L["%d.%m."], e.t)
+            if #e.gruppen <= 2 then name = name .. " · " .. table.concat(e.gruppen, "/") end
+            liste[#liste + 1] = { datum = datum, label = name }
+        end
+        table.sort(liste, function(a, b) return a.datum < b.datum end)
+        if liste[1].datum ~= heute then
+            table.insert(liste, 1, { datum = heute, label = L["Heute"] })
+        end
+    else
+        liste = {
+            { datum = heute,                          label = L["Heute"] },
+            { datum = date("%Y-%m-%d", jetzt + TAG), label = L["Morgen"] },
+        }
     end
     return liste
 end
@@ -652,7 +684,7 @@ function Gruppen.EinteilungSetzen(datum, name, gruppe, von)
     if not tagOk(datum) then return nil, L["Ungültiges Datum."] end
     if not nameOk(name) then return nil, L["Ungültiger Spielername."] end
     gruppe = gruppe or ""
-    if gruppe ~= "" and not (gruppeOk(gruppe) and (gruppe == Gruppen.BENCH or Gruppen.Holen(gruppe))) then
+    if gruppe ~= "" and not (gruppeOk(gruppe) and (gruppe == Gruppen.BENCH or gruppe == Gruppen.KEINEMELDUNG or Gruppen.Holen(gruppe))) then
         return nil, L["Diese Gruppe gibt es nicht."]
     end
 

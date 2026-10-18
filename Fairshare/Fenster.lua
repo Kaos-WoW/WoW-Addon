@@ -62,8 +62,9 @@ local function layout(name, w)
                  { dx, math.max(80, w - dx - 96), "LEFT" }, { 0, 1, "LEFT" } }
     elseif name == "bank" then
         local a, b, c, d = 140, 80, 84, 96
-        -- Rechts neben „Unentschuldigt" sitzen die Knöpfe „Keine Meldung" (112) und „Abgemeldet" (100), danach das Protokoll
-        local dx = a + L6 + b + L6 + c + L6 + d + L6 + 112 + L6 + 100 + L6
+        -- Abwesenheit (Entscheid 18.10.2026): nur noch Bank/Bench und Unentschuldigt; Abgemeldet und Keine Meldung
+        -- werden in der Einteilung gesetzt. Danach das Protokoll.
+        local dx = a + L6 + b + L6 + c + L6 + d + L6
         return { { 0, a, "LEFT" }, { a + L6, b, "LEFT" }, { a + L6 + b + L6, c, "CENTER" },
                  { a + L6 + b + L6 + c + L6, d, "CENTER" }, { dx, math.max(100, w - dx - 10), "LEFT" } }
     elseif name == "einteilung" then
@@ -373,7 +374,10 @@ local function baueFenster()
         local Namen = ns.Gruppen and ns.Gruppen.Namen() or {}
         if #Namen == 0 then return end
         -- ⭐ In der Einteilung ist auch die Bench ein Ziel
-        if zustand.ansicht == "einteilung" then Namen[#Namen + 1] = ns.Gruppen.BENCH end
+        if zustand.ansicht == "einteilung" then
+            Namen[#Namen + 1] = ns.Gruppen.BENCH
+            Namen[#Namen + 1] = ns.Gruppen.KEINEMELDUNG
+        end
         -- ⭐ Abwesenheit: die Gruppe wählen (= aktivieren), deren Abend du führst; ein Wechsel ist ein anderer Abend
         if zustand.ansicht == "bank" and not zustand.beispiel then
             local aktuell, nach = ns.Gruppen.AktivName(), Namen[1]
@@ -403,15 +407,15 @@ local function baueFenster()
     abschlussBtn:SetPoint("RIGHT", gruppeBtn, "LEFT", -8, 0)
     abschlussBtn:Hide()
 
-    -- Alle offenen Spieler auf einmal als abgemeldet setzen (Abwesenheit-Ansicht)
-    offeneBtn = S.Knopf(rahmen, L["Alle Offenen: abgemeldet"], "secondary", 24)
+    -- ⭐ Neuen Abend beginnen: den abgeschlossenen Abend verlassen, ohne ihn zurückzunehmen (die Wertungen bleiben)
+    offeneBtn = S.Knopf(rahmen, L["Neuen Abend beginnen"], "secondary", 24)
     offeneBtn:SetPoint("RIGHT", abschlussBtn, "LEFT", -8, 0)
     offeneBtn:Hide()
     offeneBtn:SetScript("OnClick", function()
-        if zustand.beispiel or not (ns.Anwesenheit and ns.Anwesenheit.AlleOffenenAbmelden) then return end
-        local zahl, grund = ns.Anwesenheit.AlleOffenenAbmelden()
-        if zahl then
-            print("|cff1B6B57Fairshare|r: " .. string.format(L["%d offene Spieler als abgemeldet eingetragen."], zahl))
+        if zustand.beispiel or not (ns.Anwesenheit and ns.Anwesenheit.AbendNeuBeginnen) then return end
+        local ok, grund = ns.Anwesenheit.AbendNeuBeginnen()
+        if ok then
+            print("|cff1B6B57Fairshare|r: " .. L["Neuer Abend begonnen. Die Wertungen des abgeschlossenen Abends bleiben bestehen."])
         else
             print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(grund) .. "|r")
         end
@@ -512,6 +516,31 @@ local function baueFenster()
     nurBtn = S.Knopf(f, L["Alle Spieler zeigen"], "link", 22)
     nurBtn:SetPoint("RIGHT", beispielBtn, "LEFT", -16, 0)
     nurBtn:SetScript("OnClick", function()
+        if zustand.ansicht == "einteilung" then
+            -- ⭐ Wochenabschluss: erster Klick zeigt die Vorschau im Chat, zweiter (binnen 8 s) bucht
+            local datum = einteilungsTag()
+            local jetzt = time()
+            if zustand.wocheBestaetigung and (jetzt - zustand.wocheBestaetigung) <= 8 then
+                zustand.wocheBestaetigung = nil
+                local v, grund = ns.Anwesenheit.WocheBuchen(datum)
+                if v then
+                    print("|cff1B6B57Fairshare|r: " .. string.format(L["Woche gebucht: %d Zuschläge."], v.gebucht or 0))
+                else
+                    print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(grund) .. "|r")
+                end
+            else
+                local v, grund = ns.Anwesenheit.WocheVorschau(datum)
+                if v then
+                    zustand.wocheBestaetigung = jetzt
+                    print("|cff1B6B57Fairshare|r: " .. string.format(L["Woche ab %s: %d Abende je Spieler, %d abgemeldet, %d Keine Meldung. Nochmal klicken zum Buchen."],
+                        v.montag, v.n, #v.abgemeldet, #v.keineMeldung))
+                else
+                    print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(grund) .. "|r")
+                end
+            end
+            Fenster.Aktualisieren()
+            return
+        end
         if zustand.ansicht == "bank" then
             zustand.bankMitRaid = not zustand.bankMitRaid     -- Abwesenheit: Spieler im Raid mitzeigen
         else
@@ -980,6 +1009,8 @@ local function zeigeBank(H)
         liste = {}
     end
 
+    -- ⭐ Ist der Abend abgeschlossen, zeigt die Liste nichts mehr (nur der Hinweis); „Neuen Abend beginnen“ macht sie frei
+    if istGeschlossen and not zustand.beispiel then liste = {} end
     zustand.maxVersatz = math.max(0, #liste - zeilenSicht)
     if zustand.versatz > zustand.maxVersatz then zustand.versatz = zustand.maxVersatz end
 
@@ -1051,31 +1082,9 @@ local function zeigeBank(H)
             Fenster.Aktualisieren()
         end)
 
-        z.vergessenBtn:ClearAllPoints()
-        z.vergessenBtn:SetPoint("LEFT", z.d, "RIGHT", 6, 0)
-        z.vergessenBtn:Show()
-        z.vergessenBtn:SetArt(e.vergessen and "primary" or "secondary")
-        z.vergessenBtn:SetLabel(e.vergessen and L["✓ Keine Meldung"] or L["Keine Meldung"])
-        z.vergessenBtn:SetAktiv(darfUnent and not zustand.beispiel)
-        z.vergessenBtn:SetScript("OnClick", function()
-            if not zustand.beispiel and ns.Anwesenheit and ns.Anwesenheit.VergessenSetzen then
-                ns.Anwesenheit.VergessenSetzen(e.name, not (e.vergessen ~= nil))
-            end
-            Fenster.Aktualisieren()
-        end)
-
-        z.abmeldBtn:ClearAllPoints()
-        z.abmeldBtn:SetPoint("LEFT", z.vergessenBtn, "RIGHT", 6, 0)
-        z.abmeldBtn:Show()
-        z.abmeldBtn:SetArt(e.abgemeldet and "primary" or "secondary")
-        z.abmeldBtn:SetLabel(e.abgemeldet and L["✓ Abgemeldet"] or L["Abgemeldet"])
-        z.abmeldBtn:SetAktiv(darfBank and not zustand.beispiel)
-        z.abmeldBtn:SetScript("OnClick", function()
-            if not zustand.beispiel and ns.Anwesenheit and ns.Anwesenheit.AbmeldungSetzen then
-                ns.Anwesenheit.AbmeldungSetzen(e.name, not (e.abgemeldet ~= nil))
-            end
-            Fenster.Aktualisieren()
-        end)
+        -- ⭐ „Keine Meldung“ und „Abgemeldet“ gibt es hier nicht mehr (Einteilung, Entscheid 18.10.2026)
+        z.vergessenBtn:Hide()
+        z.abmeldBtn:Hide()
 
         if e.offen then
             z.e:SetText(GELB .. L["Offen: noch nicht zugeordnet"] .. "|r")
@@ -1097,14 +1106,14 @@ local function zeigeBank(H)
 
     if istGeschlossen then
         fuss:SetText(L["Raidabend abgeschlossen · Bereit für nächsten Raid"])
-        unterzeile:SetText(GRUEN .. L["Raidabend abgeschlossen — Liste für den nächsten Raid zurückgesetzt."] .. "|r")
+        unterzeile:SetText(GRUEN .. L["Raidabend abgeschlossen. Die Wertungen sind gebucht; „Neuen Abend beginnen“ macht die Liste frei."] .. "|r")
     else
-        fuss:SetText(string.format(L["%d offen, %d abgemeldet, %d Bank, %d unentschuldigt, %d keine Meldung · %d online"],
-            anzahlOffen, anzahlAbgem, anzahlBank, anzahlUnent, anzahlVerg, anzahlOnline))
+        fuss:SetText(string.format(L["%d offen, %d Bench, %d unentschuldigt · %d online"],
+            anzahlOffen, anzahlBank, anzahlUnent, anzahlOnline))
         if zustand.bankMitRaid then
             unterzeile:SetText(GRAU .. L["Wer am Abendende im Raid steht, gilt als anwesend. Eine Markierung zählt nur für Spieler, die dann nicht mehr im Raid sind."] .. "|r")
         else
-            unterzeile:SetText(GRAU .. L["Offene verhindern den Abschluss · Bank: Faktor 0 · Abgemeldet: Staffel · Keine Meldung: ab dem 3. Mal in 8 Abenden wie unentschuldigt · Unentschuldigt: Faktor 1,5, mindestens 2"] .. "|r")
+            unterzeile:SetText(GRAU .. L["Offene verhindern den Abschluss · Bench: Faktor 0 · Unentschuldigt: Faktor 1,5, mindestens 2 · Abgemeldete und „Keine Meldung“ stellst du in der Einteilung ein."] .. "|r")
         end
         -- ⭐ Woher kommt die Liste? Hinweise, wenn die Einteilung von heute fehlt oder leer ist
         if not zustand.beispiel then
@@ -1120,6 +1129,16 @@ local function zeigeBank(H)
             end
         end
     end
+end
+
+-- ⭐ Jede Gruppe hat in der Einteilung ihre eigene Farbe (nach ihrer Stelle in der Liste der Gruppen).
+local GRUPPENFARBEN = { "|cff6cb4ff", "|cffffa94d", "|cffc792ff", "|cff6fdc6f", "|cffff7fb0", "|cfff0e060" }
+
+local function gruppenFarbe(G, gruppe)
+    for i, n in ipairs(G.Namen()) do
+        if n == gruppe then return GRUPPENFARBEN[((i - 1) % #GRUPPENFARBEN) + 1] end
+    end
+    return GELB
 end
 
 --- ⭐ Ansicht „Einteilung“: der Raidkader als anklickbare Liste. Ein Klick setzt den Spieler in die oben gewählte
@@ -1146,6 +1165,7 @@ local function zeigeEinteilung()
     local alleZiele = {}
     for _, gn in ipairs(G.Namen()) do alleZiele[#alleZiele + 1] = gn end
     alleZiele[#alleZiele + 1] = G.BENCH
+    alleZiele[#alleZiele + 1] = G.KEINEMELDUNG
     for _, gn in ipairs(alleZiele) do
         for _, n in ipairs(G.EinteilungListe(datum, gn)) do
             local k = Kern.Schluessel(n)
@@ -1158,18 +1178,34 @@ local function zeigeEinteilung()
     for _, e in ipairs(pool) do
         e.gruppe = G.EinteilungVon(datum, e.name)
     end
+    -- ⭐ Wer eingeteilt ist, steht OBEN, nach Gruppen sortiert (erst Gruppe 1 ganz, dann Gruppe 2 …, dann Bench,
+    -- dann Keine Meldung); wer nirgends steht, folgt unten. Innerhalb einer Gruppe alphabetisch.
+    local rang = {}
+    for i, gn in ipairs(alleZiele) do rang[gn] = i end
+    local function sortRang(e) return e.gruppe and (rang[e.gruppe] or (#alleZiele + 1)) or (#alleZiele + 2) end
     table.sort(pool, function(a, b)
-        if (a.gruppe == nil) ~= (b.gruppe == nil) then return a.gruppe == nil end
+        local ra, rb = sortRang(a), sortRang(b)
+        if ra ~= rb then return ra < rb end
         return a.name:lower() < b.name:lower()
     end)
 
-    zustand.maxVersatz = math.max(0, #pool - zeilenSicht)
+    -- ⭐ Ist eine Gruppe als Ziel gewählt, stehen Spieler, die schon in einer ANDEREN Gruppe sind, nicht zur Wahl
+    -- (Entscheid 18.10.2026); wer sie umziehen will, wählt die alte Gruppe und nimmt sie dort heraus.
+    local zielIstGruppe = ziel ~= nil and ziel ~= G.BENCH and ziel ~= G.KEINEMELDUNG
+    local anzeige, versteckt = {}, 0
+    for _, e in ipairs(pool) do
+        local andere = zielIstGruppe and e.gruppe ~= nil and e.gruppe ~= ziel
+                       and e.gruppe ~= G.BENCH and e.gruppe ~= G.KEINEMELDUNG
+        if andere then versteckt = versteckt + 1 else anzeige[#anzeige + 1] = e end
+    end
+    zustand.einteilungListe = anzeige
+    zustand.maxVersatz = math.max(0, #anzeige - zeilenSicht)
     if zustand.versatz > zustand.maxVersatz then zustand.versatz = zustand.maxVersatz end
 
     local gezeigt = 0
     for i = 1, zeilenSicht do
         local z = zeilen[i]
-        local e = pool[i + zustand.versatz]
+        local e = anzeige[i + zustand.versatz]
         if not e then break end
         gezeigt = i
 
@@ -1182,16 +1218,20 @@ local function zeigeEinteilung()
         if z.unentBtn then z.unentBtn:Hide() end
         if z.vergessenBtn then z.vergessenBtn:Hide() end
         if z.abmeldBtn then z.abmeldBtn:Hide() end
-        z.a:SetText(HELL .. Kern.Anzeigename(e.name) .. "|r")
         z.b:SetText(GRAU .. tostring(e.rang or "") .. "|r")
         if e.gruppe == nil then
+            z.a:SetText(HELL .. Kern.Anzeigename(e.name) .. "|r")
             z.c:SetText(GRAU .. "—|r")
         elseif e.gruppe == G.BENCH then
+            z.a:SetText(AKZENT .. Kern.Anzeigename(e.name) .. "|r")
             z.c:SetText(AKZENT .. L["Bench"] .. "|r")        -- die Bench fällt auf
-        elseif e.gruppe == ziel then
-            z.c:SetText(GRUEN .. e.gruppe .. "|r")
+        elseif e.gruppe == G.KEINEMELDUNG then
+            z.a:SetText(ROT .. Kern.Anzeigename(e.name) .. "|r")
+            z.c:SetText(ROT .. L["Keine Meldung"] .. "|r")
         else
-            z.c:SetText(GELB .. e.gruppe .. "|r")
+            local farbe = gruppenFarbe(G, e.gruppe)          -- jede Gruppe in ihrer Farbe
+            z.a:SetText(farbe .. Kern.Anzeigename(e.name) .. "|r")
+            z.c:SetText(farbe .. e.gruppe .. "|r")
         end
         z.d:SetText("")
         z.e:SetText("")
@@ -1237,6 +1277,9 @@ local function zeigeEinteilung()
         hinweis = L["Einteilen dürfen nur Gildenränge mit Schreibrecht (Einstellungen → Würfeln & Abgleich → Einstellungen teilen)."]
     else
         hinweis = string.format(L["Einteilung für %s, Gruppe %s. Rechtsklick auf einen Namen nimmt ihn aus seiner Gruppe."], datum, ziel)
+        if versteckt > 0 then
+            hinweis = hinweis .. " " .. string.format(L["%d Spieler anderer Gruppen sind ausgeblendet."], versteckt)
+        end
     end
     unterzeile:SetText(GRAU .. hinweis .. "|r")
 end
@@ -1260,8 +1303,8 @@ function Fenster.Aktualisieren()
     beispielBtn:SetLabel(zustand.beispiel and L["Beispiel aus"] or L["Beispiel"])
 
     local Namen = ns.Gruppen and ns.Gruppen.Namen() or {}
-    if zustand.gruppe == ns.Gruppen.BENCH then
-        -- die Bench ist nur in der Einteilung ein Ziel; sonst gilt „Alle“
+    if zustand.gruppe == ns.Gruppen.BENCH or zustand.gruppe == ns.Gruppen.KEINEMELDUNG then
+        -- Bench und „Keine Meldung“ sind nur in der Einteilung ein Ziel; sonst gilt „Alle“
         if zustand.ansicht ~= "einteilung" then zustand.gruppe = nil end
     elseif zustand.gruppe and not (ns.Gruppen and ns.Gruppen.Holen(zustand.gruppe)) then
         zustand.gruppe = nil     -- die Gruppe wurde inzwischen geloescht
@@ -1271,6 +1314,7 @@ function Fenster.Aktualisieren()
         and (ns.Gruppen.AktivName() or L["keine"])
         or (zustand.gruppe or (#Namen > 0 and L["Alle"] or L["keine"]))
     if gruppenName == ns.Gruppen.BENCH then gruppenName = L["Bench"] end
+    if gruppenName == ns.Gruppen.KEINEMELDUNG then gruppenName = L["Keine Meldung"] end
     gruppeBtn:SetLabel(string.format(L["Gruppe: %s"], gruppenName))
     gruppeBtn:SetAktiv(#Namen > 0 and not zustand.beispiel)
 
@@ -1300,8 +1344,13 @@ function Fenster.Aktualisieren()
         zeitSeg:SetShown(zeigen)
     end
     nurBtn:SetShown((imGruppe and not zustand.beispiel and zustand.ansicht == "liste" and zustand.spieler == nil)
-                    or (not zustand.beispiel and zustand.ansicht == "bank" and zustand.spieler == nil))
-    if zustand.ansicht == "bank" then
+                    or (not zustand.beispiel and zustand.ansicht == "bank" and zustand.spieler == nil)
+                    or (not zustand.beispiel and zustand.ansicht == "einteilung" and zustand.spieler == nil))
+    if zustand.ansicht == "einteilung" then
+        local bestaetigen = zustand.wocheBestaetigung and (time() - zustand.wocheBestaetigung) <= 8
+        nurBtn:SetLabel(bestaetigen and (GELB .. L["Wirklich buchen?"] .. "|r") or L["Woche abschließen"])
+        nurBtn:SetAktiv(ns.Gruppen.EinteilungDarf())
+    elseif zustand.ansicht == "bank" then
         nurBtn:SetLabel(zustand.bankMitRaid and L["Raid ausblenden"] or L["Raid mitzeigen"])
     else
         nurBtn:SetLabel(zustand.alleSpieler and L["Nur Gruppe zeigen"] or L["Alle Spieler zeigen"])
@@ -1385,9 +1434,12 @@ function Fenster.Aktualisieren()
                 Fenster.Aktualisieren()
             end
         end)
-        offeneBtn:Show()
-        offeneBtn:SetAktiv(not zustand.beispiel and not istGeschlossen and darfSchliessen and true or false)
-        unterzeile:SetPoint("RIGHT", offeneBtn, "LEFT", -10, 0)
+        offeneBtn:SetShown(istGeschlossen and not zustand.beispiel and darfSchliessen and true or false)
+        if offeneBtn:IsShown() then
+            unterzeile:SetPoint("RIGHT", offeneBtn, "LEFT", -10, 0)
+        else
+            unterzeile:SetPoint("RIGHT", abschlussBtn, "LEFT", -10, 0)
+        end
     else
         zustand.abschlussBestaetigung = nil
         abschlussBtn:Hide()
@@ -1476,6 +1528,13 @@ end
 
 function Fenster.Sichtbar()
     return rahmen and rahmen:IsShown() and true or false
+end
+
+--- Prüfstand: Die Reihenfolge der Liste in der Ansicht „Einteilung“ (Name, Gruppe) nach dem letzten Zeichnen.
+function Fenster.EinteilungReihenfolge()
+    local liste = {}
+    for _, e in ipairs(zustand.einteilungListe or {}) do liste[#liste + 1] = { name = e.name, gruppe = e.gruppe } end
+    return liste
 end
 
 --- Prüfstand: Klick auf die Zeile dieses Spielers ("LeftButton" oder "RightButton").

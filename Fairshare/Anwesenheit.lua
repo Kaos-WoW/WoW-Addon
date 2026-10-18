@@ -68,6 +68,13 @@ function Anwesenheit.AbendId(datum, gruppe)
     return g and (tostring(datum) .. "_" .. g) or tostring(datum)
 end
 
+--- ⭐ Die Gruppenkennung eines Abends: aus seinem Feld `gruppe`, sonst aus der Kennung (`Datum_Gruppe`; so sehen
+--  Abende aus, die per Datenbuch von anderen kamen). nil = Abend ohne Gruppe.
+local function abendGruppenKennung(ab)
+    if ab.gruppe and ab.gruppe ~= "" then return Anwesenheit.GruppenKennung(ab.gruppe) end
+    return tostring(ab.id or ""):match("^%d%d%d%d%-%d%d%-%d%d_(.+)$")
+end
+
 --- Liefert den aktiven Raidabend oder erstellt einen frischen.
 --  Alte Abende (älter als 14 Stunden oder von einem anderen Kalendertag)
 --  werden automatisch in die Historie (FairshareDB.abende) archiviert.
@@ -954,7 +961,10 @@ function Anwesenheit.Fehlhistorie(spielerName, maxAbende)
     local archiv = {}
     for _, ab in pairs(d.abende or {}) do
         if ab.abgeschlossen or ab.abschluss then
-            archiv[#archiv + 1] = ab
+            -- ⭐ Nur die EIGENEN Abende des Spielers zählen (Entscheid 18.10.2026: mehrere Gruppen): Ein Abend einer
+            -- anderen Gruppe, in dem er nicht vorkommt, schiebt sein Fenster nicht weiter.
+            local sp = ab.abschluss and ab.abschluss.spieler
+            if sp == nil or sp[k] ~= nil then archiv[#archiv + 1] = ab end
         end
     end
 
@@ -1001,7 +1011,10 @@ function Anwesenheit.VergessenHistorie(spielerName, maxAbende)
 
     local archiv = {}
     for _, ab in pairs(db().abende or {}) do
-        if ab.abgeschlossen and ab.abschluss then archiv[#archiv + 1] = ab end
+        if ab.abgeschlossen and ab.abschluss then
+            local sp = ab.abschluss.spieler
+            if sp == nil or sp[k] ~= nil then archiv[#archiv + 1] = ab end      -- nur eigene Abende
+        end
     end
     table.sort(archiv, function(a, b)
         return ((a.abschluss and a.abschluss.zeit) or 0) > ((b.abschluss and b.abschluss.zeit) or 0)
@@ -1314,10 +1327,12 @@ function Anwesenheit.AbendWiedereroeffnen(abendId, autorName)
     if abendId then
         abend = d.abende[abendId]
     else
+        -- ⭐ der jüngste Abend der AKTIVEN Gruppe (nicht irgendeiner)
+        local kennung = Anwesenheit.GruppenKennung(ns.Gruppen and ns.Gruppen.AktivName and ns.Gruppen.AktivName())
         local neuesteZeit = 0
         for _, ab in pairs(d.abende or {}) do
             local tz = (ab.abschluss and ab.abschluss.zeit) or ab.start or 0
-            if tz > neuesteZeit then
+            if tz > neuesteZeit and abendGruppenKennung(ab) == kennung then
                 neuesteZeit = tz
                 abend = ab
             end
@@ -1342,6 +1357,7 @@ function Anwesenheit.AbendWiedereroeffnen(abendId, autorName)
     abend.buchRev = Kern.BuchRev(abend) + 1
     abend.abgeschlossen = nil
     abend.abschluss = nil
+    abend.ausgeblendet = nil
     d.aktiverAbend = abend
 
     Anwesenheit.BuchVerteilen({ "a:" .. tostring(abend.id) .. "@" .. abend.buchRev })
@@ -1349,25 +1365,258 @@ function Anwesenheit.AbendWiedereroeffnen(abendId, autorName)
     return true, abend
 end
 
+-- =====================================================================
+--  ⭐ Wochenabschluss: Abgemeldete und „Keine Meldung“ (Entscheid 18.10.2026)
+--
+--  Wer in einer Woche (Montag bis Sonntag) an keinem Tag in einer Gruppe, auf der Bench oder bei „Keine Meldung“
+--  eingeteilt war (und auch an keinem Gruppenabend dabei), gilt als ABGEMELDET; wer nur bei „Keine Meldung“ stand,
+--  als „Keine Meldung“. Beide bekommen einen Zuschlag **für zwei Abende** (so viele Abende hat eine Raid-ID): je Abend
+--  Staffel × Schnitt, und der Schnitt ist das **Mittel der Schnitte der Gruppen** für diese Abend-Nummer. Gebucht wird
+--  bewusst mit einem Knopf, nachdem alle Gruppenabende der Woche abgeschlossen sind (`/fs woche`).
+-- =====================================================================
+
+--- Die sieben Tage (JJJJ-MM-TT) der Woche, in der `datum` liegt, Montag bis Sonntag.
+function Anwesenheit.WochenTage(datum)
+    local y, m, d = tostring(datum):match("^(%d+)-(%d+)-(%d+)$")
+    if not y then return {} end
+    local t = time({ year = tonumber(y), month = tonumber(m), day = tonumber(d), hour = 12 })
+    local wd = date("*t", t).wday                 -- 1 = Sonntag
+    local seitMontag = (wd + 5) % 7
+    local tage = {}
+    for i = 0, 6 do tage[#tage + 1] = date("%Y-%m-%d", t + (i - seitMontag) * 86400) end
+    return tage
+end
+
+local function wochenId(montag, k) return string.format("%s_wb%d", montag, k) end
+
+--- Ist das eine Wochenbuchung (und kein Gruppenabend)? Auch bei Abenden, die per Datenbuch von anderen kamen.
+local function istWochenbuchung(ab)
+    return (ab.woche or tostring(ab.id or ""):match("_wb%d+$") ~= nil) and true or false
+end
+
+--- Die Vorschau der Woche: wer wird gebucht, mit welchem Schnitt. Nichts wird verändert.
+--  @return Tabelle { montag, n, schnitte = {…}, abgemeldet = { Namen }, keineMeldung = { Namen } } oder nil und ein Grund
+function Anwesenheit.WocheVorschau(datum)
+    if not (ns.Gruppen and ns.Gruppen.Raidkader) then return nil, L["Erst den Raidkader synchronisieren."] end
+    local kader = ns.Gruppen.Raidkader()
+    if #kader == 0 then return nil, L["Erst den Raidkader synchronisieren."] end
+
+    local tage = Anwesenheit.WochenTage(datum)
+    if #tage == 0 then return nil, L["Ungültiges Datum."] end
+    local imTag = {}
+    for _, tg in ipairs(tage) do imTag[tg] = true end
+
+    -- Die abgeschlossenen Gruppenabende der Woche (ohne die Wochenbuchungen selbst), je Gruppe nach Datum
+    local gruppen = {}
+    local raus = {}                              -- Spieler, die an einem Gruppenabend der Woche dabei waren
+    for _, ab in pairs(db().abende or {}) do
+        if ab.abgeschlossen and ab.abschluss and not istWochenbuchung(ab) and imTag[ab.datum or ""] then
+            local g = abendGruppenKennung(ab) or "-"
+            gruppen[g] = gruppen[g] or {}
+            table.insert(gruppen[g], ab)
+            for k, sp in pairs(ab.abschluss.spieler or {}) do
+                if sp.status == "imRaid" then raus[k] = true end
+            end
+        end
+    end
+    local n = 0
+    for _, liste in pairs(gruppen) do
+        table.sort(liste, function(a, b) return (a.datum or "") < (b.datum or "") end)
+        if #liste > n then n = #liste end
+    end
+    if n == 0 then return nil, L["In dieser Woche ist noch kein Gruppenabend abgeschlossen."] end
+    local schnitte = {}
+    for i = 1, n do
+        local summe, anzahl = 0, 0
+        for _, liste in pairs(gruppen) do
+            if liste[i] then
+                summe = summe + (tonumber(liste[i].abschluss.schnitt) or 0)
+                anzahl = anzahl + 1
+            end
+        end
+        schnitte[i] = Kern.Runde3(anzahl > 0 and (summe / anzahl) or 0)
+    end
+
+    local v = { montag = tage[1], n = n, schnitte = schnitte, abgemeldet = {}, keineMeldung = {} }
+    for _, m in ipairs(kader) do
+        local k = Kern.Schluessel(m.name)
+        if k and not raus[k] then
+            local untergebracht, keine = false, false
+            for _, tg in ipairs(tage) do
+                local g = ns.Gruppen.EinteilungVon(tg, m.name)
+                if g == ns.Gruppen.KEINEMELDUNG then
+                    keine = true
+                elseif g ~= nil then
+                    untergebracht = true             -- Gruppe oder Bench
+                end
+            end
+            if not untergebracht then
+                if keine then v.keineMeldung[#v.keineMeldung + 1] = m.name
+                else v.abgemeldet[#v.abgemeldet + 1] = m.name end
+            end
+        end
+    end
+    table.sort(v.abgemeldet, function(a, b) return a:lower() < b:lower() end)
+    table.sort(v.keineMeldung, function(a, b) return a:lower() < b:lower() end)
+    return v
+end
+
+--- Nimmt die Wochenbuchung zurück (Zuschläge weg, bei allen). @return Zahl der zurückgenommenen Abende
+function Anwesenheit.WocheZuruecknehmen(datum, autorName)
+    local autor = autorName or ichName()
+    if not (ns.Gruppen and ns.Gruppen.EinteilungDarf(autor)) then
+        return nil, L["Keine Berechtigung (nur Gildenränge mit Schreibrecht)."]
+    end
+    local d = db()
+    local montag = Anwesenheit.WochenTage(datum)[1]
+    if not montag then return nil, L["Ungültiges Datum."] end
+    local zahl, liste = 0, {}
+    for k = 1, 7 do
+        local id = wochenId(montag, k)
+        local ab = d.abende and d.abende[id]
+        if ab and istWochenbuchung(ab) then
+            for zId, z in pairs(d.zuschlaege or {}) do
+                if z.abendId == id then d.zuschlaege[zId] = nil end
+            end
+            ab.buchRev = Kern.BuchRev(ab) + 1
+            ab.abgeschlossen = nil
+            ab.abschluss = nil
+            liste[#liste + 1] = "a:" .. id .. "@" .. ab.buchRev
+            zahl = zahl + 1
+        end
+    end
+    if #liste > 0 then Anwesenheit.BuchVerteilen(liste) end
+    return zahl
+end
+
+--- ⭐ Bucht die Abmeldungen und „Keine Meldung“ der Woche (für zwei Abende je Spieler, siehe oben) und verteilt sie.
+--  Eine frühere Buchung derselben Woche wird zuerst zurückgenommen (so lässt sich neu buchen).
+--  @return Vorschau-Tabelle (mit `gebucht`), oder nil und ein Grund
+function Anwesenheit.WocheBuchen(datum, autorName)
+    local autor = autorName or ichName()
+    if not (ns.Gruppen and ns.Gruppen.EinteilungDarf(autor)) then
+        return nil, L["Keine Berechtigung (nur Gildenränge mit Schreibrecht)."]
+    end
+    Anwesenheit.WocheZuruecknehmen(datum, autor)
+    local v, grund = Anwesenheit.WocheVorschau(datum)
+    if not v then return nil, grund end
+
+    local d = db()
+    d.zuschlaege = d.zuschlaege or {}
+    local jetzt = time()
+
+    -- Die Vorgeschichte der Spieler (ohne diese Woche, die eben zurückgenommen wurde)
+    local namen = {}
+    for _, n in ipairs(v.abgemeldet) do namen[#namen + 1] = { name = n, keine = false } end
+    for _, n in ipairs(v.keineMeldung) do namen[#namen + 1] = { name = n, keine = true } end
+    local fehl0, verg0 = {}, {}
+    for _, e in ipairs(namen) do
+        fehl0[e.name] = Anwesenheit.Fehlhistorie(e.name, 5)
+        verg0[e.name] = Anwesenheit.VergessenHistorie(e.name, Kern.VERGESSEN_FENSTER - 1)
+    end
+
+    local ids, gebucht = {}, 0
+    for i = 1, v.n do
+        local id = wochenId(v.montag, i)
+        local ab = d.abende[id] or {
+            id = id, datum = v.montag, start = jetzt, bosse = 0, gesehen = {}, bossListe = {}, anwesenheit = {},
+            teilnehmer = {}, bank = {}, unentschuldigt = {}, vergessen = {}, abgemeldet = {}, protokoll = {},
+            woche = true,
+        }
+        ab.woche = true
+        ab.buchRev = Kern.BuchRev(ab) + 1
+        ab.abgeschlossen = true
+        ab.ende = jetzt
+        ab.abschluss = {
+            zeit = jetzt, datum = v.montag, autor = autor, schnitt = v.schnitte[i], mainItems = 0,
+            raidSpieler = 0, gesamtBosse = 0, spieler = {},
+        }
+        for _, e in ipairs(namen) do
+            local k = Kern.Schluessel(e.name)
+            local status, faktor, zuschlag, fehlAnzahl
+            if e.keine then
+                local anzahl = verg0[e.name] + i
+                if anzahl > Kern.VERGESSEN_SCHWELLE then
+                    status, fehlAnzahl = "vergessenStrafe", anzahl
+                    faktor = Kern.FAKTOR_UNENTSCHULDIGT
+                    zuschlag = Kern.ZuschlagUnentschuldigt(v.schnitte[i])
+                else
+                    status, fehlAnzahl = "vergessen", fehl0[e.name] + i
+                    faktor = Kern.FehlFaktor(fehlAnzahl, "abgemeldet")
+                    zuschlag = Kern.Zuschlag(faktor, v.schnitte[i])
+                end
+            else
+                status, fehlAnzahl = "abgemeldet", fehl0[e.name] + i
+                faktor = Kern.FehlFaktor(fehlAnzahl, "abgemeldet")
+                zuschlag = Kern.Zuschlag(faktor, v.schnitte[i])
+            end
+            ab.abschluss.spieler[k] = {
+                name = Kern.Anzeigename(e.name), status = status, faktor = faktor, schnitt = v.schnitte[i],
+                zuschlag = zuschlag, fehlAnzahl = fehlAnzahl, bosse = 0, gesamt = 0, zeit = jetzt, von = autor,
+            }
+            if zuschlag > 0 then
+                local zId = string.format("z_%s_%s", id, k)
+                d.zuschlaege[zId] = {
+                    id = zId, abendId = id, datum = v.montag, zeit = jetzt, spieler = Kern.Anzeigename(e.name),
+                    schluessel = k, status = status, faktor = faktor, schnitt = v.schnitte[i], zuschlag = zuschlag,
+                    fehlAnzahl = fehlAnzahl, autor = autor,
+                }
+                gebucht = gebucht + 1
+            end
+        end
+        d.abende[id] = ab
+        ids[#ids + 1] = "a:" .. id .. "@" .. ab.buchRev
+    end
+    Anwesenheit.BuchVerteilen(ids)
+    v.gebucht = gebucht
+    return v
+end
+
 --- Prüft, ob der heutige (oder ein angegebener) Raidabend bereits abgeschlossen ist.
+--- ⭐ Ist der Abend der AKTIVEN Gruppe abgeschlossen? Ein Abschluss einer anderen Gruppe zählt nicht (Fund
+--  17.10.2026 beim Durchdenken: Nach dem Abschluss von Gruppe 1 hätte die Abwesenheit von Gruppe 2 „abgeschlossen“
+--  gezeigt und nichts mehr zugelassen).
 function Anwesenheit.AbendIstAbgeschlossen(datum)
     local d = db()
-    local heute = datum or date("%Y-%m-%d")
+    local jetzt = time()
+    local heute = datum or date("%Y-%m-%d", jetzt)
+    local kennung = Anwesenheit.GruppenKennung(ns.Gruppen and ns.Gruppen.AktivName and ns.Gruppen.AktivName())
     local akt = d.aktiverAbend
-    if akt and (akt.datum == heute or akt.id == heute) and akt.abgeschlossen then
+    if akt and akt.abgeschlossen and not akt.ausgeblendet and (akt.datum == heute or akt.id == heute)
+       and abendGruppenKennung(akt) == kennung then
         return true, akt
     end
-    local abend = d.abende and (d.abende[heute] or d.abende[date("%Y-%m-%d")])
-    if abend and abend.abgeschlossen then
+    local abend = d.abende and d.abende[Anwesenheit.AbendId(heute, ns.Gruppen and ns.Gruppen.AktivName and ns.Gruppen.AktivName())]
+    if abend and abend.abgeschlossen and not abend.ausgeblendet then
         return true, abend
     end
-    local jetzt = time()
     for _, ab in pairs(d.abende or {}) do
-        if ab.abgeschlossen and ab.abschluss and (jetzt - (ab.abschluss.zeit or 0) < 14 * 3600) then
+        if ab.abgeschlossen and ab.abschluss and not ab.ausgeblendet and (jetzt - (ab.abschluss.zeit or 0) < 14 * 3600)
+           and abendGruppenKennung(ab) == kennung then
             return true, ab
         end
     end
     return false, nil
+end
+
+--- ⭐ Beginnt einen neuen Abend, ohne den abgeschlossenen zurückzunehmen: Die Liste der Abwesenheit ist wieder
+--  frei, die gebuchten Zuschläge und Wertungen bleiben (Wunsch 18.10.2026). Nur lokal ausgeblendet; der Abschluss
+--  bleibt bei allen bestehen. „Abend wiedereröffnen“ hebt das auf.
+--  @return true und der Abend, oder nil und ein Grund
+function Anwesenheit.AbendNeuBeginnen(vonName)
+    local autor = vonName or ichName()
+    if autor ~= "System" and not Anwesenheit.DarfBankVerwalten(autor) and not Anwesenheit.DarfUnentschuldigtVerwalten(autor) then
+        return nil, L["Keine Berechtigung (nur Raidleiter oder Gildenleitung)."]
+    end
+    local ok, ab = Anwesenheit.AbendIstAbgeschlossen()
+    if not ok or not ab then return nil, L["Es gibt keinen abgeschlossenen Abend."] end
+    ab.ausgeblendet = true
+    local d = db()
+    if d.aktiverAbend == ab then
+        d.abende[ab.id] = ab
+        d.aktiverAbend = nil
+    end
+    return true, ab
 end
 
 --- Liefert aggregierte Zuschlags- und Anhebungssummen je Spieler für Kern.Bilanz.

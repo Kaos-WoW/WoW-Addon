@@ -160,19 +160,19 @@ function Konfig.Sammeln()
         ort = d.ort or "raid",
         konfigRang = Konfig.RangGrenze(),
         verzauberer = kopie(ns.Wurf.Verzauberer()),
-        raidtage = {},
         gruppen = {},
     }
-    for wd = 1, 7 do
-        if ns.Gruppen.RaidtagGewaehlt(wd) then s.raidtage[wd] = true end
-    end
     for _, name in ipairs(ns.Gruppen.Namen()) do
         local G = ns.Gruppen.Holen(name)
         if G and gueltigerName(name) then
             local raenge = {}
             for idx in pairs(G.raenge or {}) do raenge[#raenge + 1] = idx end
             table.sort(raenge)
-            s.gruppen[name] = { auto = G.auto ~= false, raenge = raenge, extra = kopie(G.extra) }
+            local tage = {}
+            for wd = 1, 7 do
+                if ns.Gruppen.RaidtagGewaehlt(name, wd) then tage[wd] = true end
+            end
+            s.gruppen[name] = { auto = G.auto ~= false, raenge = raenge, extra = kopie(G.extra), raidtage = tage }
         end
     end
     return s
@@ -203,9 +203,6 @@ function Konfig.Kodieren(s)
     z[#z + 1] = "Q|" .. s.mindestQualitaet
     z[#z + 1] = "O|" .. s.ort
     z[#z + 1] = "R|" .. s.konfigRang
-    local tage = {}
-    for wd = 1, 7 do tage[wd] = (s.raidtage and s.raidtage[wd]) and "1" or "0" end
-    z[#z + 1] = "D|" .. table.concat(tage)
 
     local v = {}
     for _, n in ipairs(s.verzauberer) do
@@ -224,6 +221,10 @@ function Konfig.Kodieren(s)
             if gueltigerName(n) then extra[#extra + 1] = n end
         end
         listeZeilen("X|" .. name, extra, z)
+        -- Raidtage der Gruppe: sieben Zeichen 0/1, Sonntag bis Samstag
+        local tage = {}
+        for wd = 1, 7 do tage[wd] = (g.raidtage and g.raidtage[wd]) and "1" or "0" end
+        z[#z + 1] = string.format("Y|%s|%s", name, table.concat(tage))
     end
     return z
 end
@@ -259,12 +260,14 @@ function Konfig.Dekodieren(zeilen)
         elseif typ == "R" then
             local r = tonumber(rest)
             if r and r >= 1 and r <= 6 then s.konfigRang = math.max(Konfig.WURZEL, math.floor(r)) end
-        elseif typ == "D" then
-            -- Raidtage: sieben Zeichen 0/1, Sonntag bis Samstag
-            if #rest == 7 and rest:match("^[01]+$") then
-                s.raidtage = {}
+        elseif typ == "Y" then
+            -- Raidtage einer Gruppe (die Gruppe muss vorher gelesen worden sein)
+            local name, tage = rest:match("^([^|]*)|([01]+)$")
+            local g = name and s.gruppen[name]
+            if g and #tage == 7 then
+                g.raidtage = {}
                 for wd = 1, 7 do
-                    if rest:sub(wd, wd) == "1" then s.raidtage[wd] = true end
+                    if tage:sub(wd, wd) == "1" then g.raidtage[wd] = true end
                 end
             end
         elseif typ == "V" then
@@ -325,12 +328,6 @@ function Konfig.Anwenden(s, ohneSicherung)
     d.mindestQualitaet, d.ort = s.mindestQualitaet, s.ort
     if s.konfigRang then d.konfigRang = s.konfigRang end      -- nur, wenn ein berechtigter Absender sie mitgeschickt hat
     d.verzauberer = kopie(s.verzauberer)
-    if s.raidtage then          -- ältere Absender kennen keine Raidtage: dann bleiben die eigenen
-        d.raidtage = {}
-        for wd, an in pairs(s.raidtage) do
-            if an then d.raidtage[wd] = true end
-        end
-    end
 
     -- Gruppen: die der Gildenleitung. Den verwalteten Kader behaelt jeder selbst
     -- (er wird gleich aus den Gildenraengen neu gebildet).
@@ -340,8 +337,17 @@ function Konfig.Anwenden(s, ohneSicherung)
         local vorher = alt[name]
         local raenge = {}
         for _, idx in ipairs(g.raenge) do raenge[idx] = true end
+        -- Raidtage: die der Gildenleitung; ältere Absender kennen sie nicht, dann bleiben die eigenen
+        local tage = {}
+        if g.raidtage then
+            for wd, an in pairs(g.raidtage) do
+                if an then tage[wd] = true end
+            end
+        elseif vorher and vorher.raidtage then
+            tage = vorher.raidtage
+        end
         neu[name] = { name = name, kader = vorher and vorher.kader or {}, extra = kopie(g.extra),
-                      raenge = raenge, auto = g.auto }
+                      raenge = raenge, auto = g.auto, raidtage = tage }
     end
     d.gruppen = neu
     if d.aktiveGruppe and not neu[d.aktiveGruppe] then d.aktiveGruppe = nil end

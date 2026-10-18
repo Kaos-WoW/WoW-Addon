@@ -386,6 +386,44 @@ befehle["einteilung"] = function(rest)
 end
 befehle["assignment"] = befehle["einteilung"]
 
+--- ⭐ Wochenabschluss: `/fs woche` zeigt, wer als abgemeldet oder „Keine Meldung“ gebucht würde, `/fs woche ja` bucht,
+--  `/fs woche zurueck` nimmt zurück.
+local function wocheAusgeben(v)
+    sag(string.format(L["Woche ab %s: %d Abende je Spieler, Schnitt je Abend %s"], v.montag, v.n,
+        (function()
+            local t = {}
+            for i, s in ipairs(v.schnitte) do t[i] = string.format("%.2f", s) end
+            return table.concat(t, " / ")
+        end)()))
+    print(string.format(L["  %d abgemeldet: %s"], #v.abgemeldet, #v.abgemeldet > 0 and table.concat(v.abgemeldet, ", ") or "—"))
+    print(string.format(L["  %d Keine Meldung: %s"], #v.keineMeldung, #v.keineMeldung > 0 and table.concat(v.keineMeldung, ", ") or "—"))
+end
+
+befehle["woche"] = function(rest)
+    rest = rest and rest:match("^%s*(.-)%s*$") or ""
+    local datum = ns.Gruppen.EinteilungTag(0)
+    local unter = rest:lower()
+    if unter == "zurueck" or unter == "zurück" or unter == "undo" then
+        local n, grund = ns.Anwesenheit.WocheZuruecknehmen(datum)
+        if n then sag(string.format(L["%d Wochenbuchungen zurückgenommen."], n)) else sag(ROT .. tostring(grund) .. "|r") end
+        if Fenster.Sichtbar() then Fenster.Aktualisieren() end
+        return
+    end
+    if unter == "ja" or unter == "yes" then
+        local v, grund = ns.Anwesenheit.WocheBuchen(datum)
+        if not v then sag(ROT .. tostring(grund) .. "|r") return end
+        wocheAusgeben(v)
+        sag(GRUEN .. string.format(L["Woche gebucht: %d Zuschläge."], v.gebucht or 0) .. "|r")
+        if Fenster.Sichtbar() then Fenster.Aktualisieren() end
+        return
+    end
+    local v, grund = ns.Anwesenheit.WocheVorschau(datum)
+    if not v then sag(ROT .. tostring(grund) .. "|r") return end
+    wocheAusgeben(v)
+    print(GRAU .. L["Zum Buchen: /fs woche ja"] .. "|r")
+end
+befehle["week"] = befehle["woche"]
+
 befehle["raidkader"] = function(rest)
     rest = rest and rest:match("^%s*(.-)%s*$") or ""
     local rang = tonumber(rest)

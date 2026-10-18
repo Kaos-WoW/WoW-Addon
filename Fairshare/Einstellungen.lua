@@ -607,7 +607,7 @@ local function seiteWuerfeln(P)
 
     -- ⭐ Einstellungen teilen (Konfig.lua): nur einer stellt ein, alle bekommen es
     local ks = karte(P, L["Einstellungen teilen"],
-        L["Gildenmeister und Offiziere (Stufe 1 und 2) stellen das Addon ein und schicken es an alle: Würfelbereiche, Würfelzeit, Verzauberer, Gruppen, Raidtage und die Erfassungs-Einstellungen. Wer nicht schreiben darf, bekommt sie nur zum Lesen und beim Anmelden wieder auf den offiziellen Stand gesetzt. Persönliches (Fenster, wer aufzeichnet) bleibt unberührt."])
+        L["Gildenmeister und Offiziere (Stufe 1 und 2) stellen das Addon ein und schicken es an alle: Würfelbereiche, Würfelzeit, Verzauberer, Gruppen samt ihren Raidtagen und die Erfassungs-Einstellungen. Wer nicht schreiben darf, bekommt sie nur zum Lesen und beim Anmelden wieder auf den offiziellen Stand gesetzt. Persönliches (Fenster, wer aufzeichnet) bleibt unberührt."])
     zeile(ks, { art = "info",
         label = function() return ns.Konfig.Status()[1] end,
         beschr = function() return ns.Konfig.Status()[2] end })
@@ -801,14 +801,15 @@ local function seiteGruppen(P)
             end })
     end
 
-    -- ⭐ Raidtage: an diesen Wochentagen gibt es eine eigene Einteilung (Ansicht „Einteilung“)
-    local kr = karte(P, L["Raidtage"],
-        L["An welchen Wochentagen raidet ihr? Für jeden gewählten Tag gibt es eine eigene Einteilung. Ohne Auswahl zeigt die Einteilung heute und morgen."])
+    -- ⭐ Raidtage der aktiven Gruppe: das ist ihre Raid-ID; an diesen Tagen gibt es eine Einteilung
+    local kr = karte(P, function() return string.format(L["Raidtage der Gruppe: %s"], tostring(G.AktivName() or "")) end,
+        L["An welchen Wochentagen raidet diese Gruppe? Jede Gruppe hat ihre eigenen Tage (ihre Raid-ID). Für jeden Tag, an dem irgendeine Gruppe raidet, gibt es eine Einteilung."],
+        aktiv)
     for i = 1, 7 do
         local wd = G.RaidtageFolge()[i]
         zeile(kr, { geteilt = true, art = "schalter", label = G.RaidtagName(wd),
-            get = function() return G.RaidtagGewaehlt(wd) end,
-            set = function(v) G.RaidtagSetzen(wd, v) end })
+            get = function() return G.RaidtagGewaehlt(G.AktivName(), wd) end,
+            set = function(v) G.RaidtagSetzen(G.AktivName(), wd, v) end })
     end
 
     local k4 = karte(P, L["Neue Gruppe"])
