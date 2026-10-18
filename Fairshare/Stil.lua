@@ -416,7 +416,17 @@ end
 function Stil.Dropdown(eltern, hoehe)
     local b = Stil.Knopf(eltern, "", "secondary", hoehe or 24)
     local rohLabel = b.SetLabel
-    b.SetLabel = function(self, text) rohLabel(self, (text or "") .. "  ▾") end
+    -- Das Pfeilzeichen ▾ fehlt in Inter (im Spiel ein Kästchen): ein kleines „v“ aus zwei gedrehten Strichen zeichnen
+    -- und im Text Platz dafür lassen.
+    b.SetLabel = function(self, text) rohLabel(self, (text or "") .. "      ") end
+    b.pfeil = {}
+    for i, grad in ipairs({ -45, 45 }) do
+        local arm = Tex(b, "OVERLAY", C.mu)
+        arm:SetSize(7, 2)
+        arm:SetPoint("RIGHT", b, "RIGHT", i == 1 and -15 or -10, -1)
+        if arm.SetRotation then arm:SetRotation(math.rad(grad)) end
+        b.pfeil[i] = arm
+    end
     b.optionen = {}
 
     local fang = CreateFrame("Button", nil, UIParent)
