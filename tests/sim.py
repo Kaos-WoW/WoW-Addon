@@ -283,7 +283,7 @@ GetLocale = function() return __locale or "deDE" end
 C_Timer = { After = function(d, fn) __nachher(d, fn) end }
 C_ChatInfo = {
     RegisterAddonMessagePrefix = function() return true end,
-    SendAddonMessage = function(praefix, text, kanal) return __senden(praefix, text, kanal) end,
+    SendAddonMessage = function(praefix, text, kanal, ziel) return __senden(praefix, text, kanal, ziel) end,
 }
 
 __pump = function(dt)
@@ -355,7 +355,7 @@ class Welt:
 
         g["__jetzt"] = lambda: int(self.t)
         g["__nachher"] = lambda d, fn, c=idx: self._nachher(c, d, fn)
-        g["__senden"] = lambda praefix, text, kanal, c=idx: self._senden(c, praefix, text, kanal)
+        g["__senden"] = lambda praefix, text, kanal, ziel=None, c=idx: self._senden(c, praefix, text, kanal, ziel)
 
         lua.execute(STUBS)
 
@@ -374,7 +374,7 @@ class Welt:
         self.nr += 1
         self.zeitgeber.append((self.t + float(d), self.nr, c, fn))
 
-    def _senden(self, c, praefix, text, kanal):
+    def _senden(self, c, praefix, text, kanal, ziel=None):
         if len(text) > 255:
             raise RuntimeError("Nachricht zu lang: %d" % len(text))
         absender = self.mitglieder[c]["name"] + self.sender_suffix
@@ -383,6 +383,8 @@ class Welt:
             if k == c:
                 # auch die eigene Nachricht kommt zurueck, wie im Spiel
                 pass
+            if kanal == "WHISPER" and (ziel is None or not str(ziel).startswith(self.mitglieder[k]["name"])):
+                continue                    # ein Flüstern kommt nur beim Empfänger an
             if self.mitglieder[k].get("addon", True):
                 cl["g"]["__liefern"](praefix, text, kanal, absender)
         return 0

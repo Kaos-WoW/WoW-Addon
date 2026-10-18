@@ -101,6 +101,9 @@ fest(len(abw) >= 1, "Leiter bekommt den Hinweis (%d Spieler)" % len(abw))
 ok, grund = tup(w.clients[0]["ns"].Abgleich.Starten())
 fest(ok is True, "Leiter startet den Abgleich")
 w.weiter(60)
+aus1 = [str(x) for x in w.clients[1]["g"]["__ausgabe"].values()]
+fest(any("gleicht die Daten in der Gruppe ab" in x or "is syncing the data" in x for x in aus1), "ein Mitspieler sieht eine Meldung, dass abgeglichen wird")
+fest(any("Abgleich beendet" in x or "Sync finished" in x or "sync finished" in x.lower() for x in aus1), "und eine, wenn es fertig ist (%s)" % (aus1[-3:],))
 fest(w.stand(0) == w.stand(1) == w.stand(2), "nach dem Abgleich gleich: %s / %s / %s" % (w.stand(0), w.stand(1), w.stand(2)))
 fest(anz(w, 1) == 30 and anz(w, 2) == 30, "beide haben alle 30 (%d, %d)" % (anz(w, 1), anz(w, 2)))
 
@@ -3459,6 +3462,72 @@ fest(c2["ns"].Fenster.ReiterSichtbar("liste") is True and c2["ns"].Fenster.Reite
 fest(str(c2["ns"].Fenster.AktuelleAnsicht()) == "liste", "und /fs einteilung landet bei ihm in der Spielerliste")
 n0.Fenster.Verstecken()
 c2["ns"].Fenster.Verstecken()
+
+print("== 58. Geteilte Einstellungen gehen nach einer Aenderung von selbst an alle (Wunsch 22.10.2026) ==")
+w = welt36()
+n0, n1, n2 = w.clients[0]["ns"], w.clients[1]["ns"], w.clients[2]["ns"]
+for c_ in w.clients:
+    c_["lua"].execute("""
+__gilde = {
+  [1] = { name = "Leiter Kaos", guildRank = "Gildenleiter", guildRankOrder = 1 },
+  [2] = { name = "Timo", guildRank = "Offizier", guildRankOrder = 2 },
+  [3] = { name = "Lina", guildRank = "Raider", guildRankOrder = 3 },
+  [4] = { name = "Protti", guildRank = "Rekrut", guildRankOrder = 5 },
+}
+C_Club = {
+  GetGuildClubId = function() return 1 end,
+  GetClubMembers = function() local t = {} for id in pairs(__gilde) do t[#t + 1] = id end table.sort(t) return t end,
+  GetMemberInfo = function(club, id) return __gilde[id] end,
+}
+""")
+fest(tup(n0.Gruppen.Anlegen("20er"))[0] is True, "Leiter legt eine Gruppe an")
+fest(n0.Konfig.AutoSenden() is True, "die Aenderung loest das automatische Senden aus")
+w.weiter(12)
+fest("20er" in [str(x) for x in n1.Gruppen.Namen().values()], "Timo hat die Gruppe ohne Zutun bekommen")
+fest(tup(n0.Gruppen.Loeschen("20er"))[0] is True, "Leiter loescht sie wieder")
+n0.Konfig.AutoSenden()
+w.weiter(12)
+fest("20er" not in [str(x) for x in n1.Gruppen.Namen().values()], "und sie ist bei Timo wieder weg")
+fest(n2.Konfig.AutoSenden() is False, "ein Spieler ohne Schreibrecht sendet nichts automatisch")
+
+print("== 59. Leitungs-Abgleich: Spieler mit Schreibrecht gleichen gildenweit ab, auch ohne Gruppe und ohne Plündermeister (Wunsch 22.10.2026) ==")
+w = gruppe(3, nutzung=None)                 # niemand ist im Dienst: nur der Leitungs-Abgleich kann etwas tun
+for c_ in w.clients:
+    c_["lua"].execute("""
+__gilde = {
+  [1] = { name = "Leiter Kaos", guildRank = "Gildenleiter", guildRankOrder = 1 },
+  [2] = { name = "Timo", guildRank = "Offizier", guildRankOrder = 2 },
+  [3] = { name = "Lina", guildRank = "Rekrut", guildRankOrder = 5 },
+}
+C_Club = {
+  GetGuildClubId = function() return 1 end,
+  GetClubMembers = function() local t = {} for id in pairs(__gilde) do t[#t + 1] = id end table.sort(t) return t end,
+  GetMemberInfo = function(club, id) return __gilde[id] end,
+}
+""")
+fest(tup(w.clients[0]["ns"].Rolle.Aktiv())[0] is False, "Ausgangslage: das Addon ist nicht im Dienst")
+z0 = int(w.t)
+for i in range(6):
+    w.setze(0, "kaos%d" % i, {"awardedTo": "Timo", "itemID": 7000 + i, "timestamp": z0 - i * 5000})
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(150)
+fest(w.stand(0) == w.stand(1), "Timo (Offizier) hat die Historie von Kaos bekommen: %s / %s" % (w.stand(0), w.stand(1)))
+fest(anz(w, 1) == 6, "alle sechs Eintraege (%d)" % anz(w, 1))
+fest(anz(w, 2) == 0, "Lina (ohne Schreibrecht) bekommt nichts (%d)" % anz(w, 2))
+aus1 = [str(x) for x in w.clients[1]["g"]["__ausgabe"].values()]
+fest(any("Mit der Leitung abgeglichen" in x or "Synced with the leadership" in x for x in aus1), "Timo sieht eine Meldung (%s)" % (aus1[-2:],))
+# Die andere Richtung
+w.setze(1, "timo1", {"awardedTo": "Lina", "itemID": 7100, "timestamp": z0 - 100})
+w.clients[1]["ns"].Abgleich.LeitungBeaconSpaeter(1)
+w.weiter(400)
+fest(w.stand(0) == w.stand(1) and anz(w, 0) == 7, "ein Eintrag von Timo kommt bei Kaos an (%d)" % anz(w, 0))
+fest(anz(w, 2) == 0, "und weiterhin nicht bei Lina")
+# Ausgeschaltet: Timo nimmt nichts mehr an
+w.clients[1]["ns"].Erfassung.Einstellungen()["leitungSync"] = False
+w.setze(0, "kaos9", {"awardedTo": "Moe", "itemID": 7200, "timestamp": z0 - 50})
+w.clients[0]["ns"].Abgleich.LeitungBeaconSpaeter(1)
+w.weiter(400)
+fest(anz(w, 1) == 7, "mit ausgeschaltetem Schalter bleibt Timo unveraendert (%d)" % anz(w, 1))
 
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")

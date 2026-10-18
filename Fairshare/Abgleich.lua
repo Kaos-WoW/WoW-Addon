@@ -112,10 +112,13 @@ local function senden(text, kanalName)
 
     local f = C_ChatInfo and C_ChatInfo.SendAddonMessage or rawget(_G, "SendAddonMessage")
     local k = kanalName or kanal()
+    -- "WHISPER:<Name>": eine Nachricht nur an diesen Spieler (Leitungs-Abgleich)
+    local ziel
+    if type(k) == "string" and k:sub(1, 8) == "WHISPER:" then ziel, k = k:sub(9), "WHISPER" end
     if kanalName == "GUILD" and not (IsInGuild and IsInGuild()) then return false end
     if not f or not k then return false end
 
-    local ok, ergebnis = pcall(f, PRAEFIX, text, k)
+    local ok, ergebnis = pcall(f, PRAEFIX, text, k, ziel)
     if not ok then return false end
 
     -- Neuere Clients liefern einen Ergebniscode, aeltere nichts oder true.
@@ -364,6 +367,7 @@ end
 --- Hallo in ein paar Sekunden — mehrere Ausloeser ergeben eines.
 function Abgleich.HalloSpaeter(sekunden)
     if not C_Timer then return end
+    if Abgleich.LeitungBeaconSpaeter then Abgleich.LeitungBeaconSpaeter((sekunden or 6) + 10) end
     hallo.token = hallo.token + 1
     local mein = hallo.token
     C_Timer.After(sekunden or 6, function()
@@ -379,6 +383,7 @@ end
 --  ⚠️ Mit Verzoegerung: Gargul oder die Beutemeldung koennen den Eintrag
 --  in den ersten Sekunden noch berichtigen. Gesendet wird der Stand danach.
 function Abgleich.Verteilen(id)
+    if Abgleich.LeitungBeaconSpaeter then Abgleich.LeitungBeaconSpaeter(20) end
     if not kanal() or not C_Timer then return end
     C_Timer.After(4, function()
         local e = hist()[id]
@@ -392,6 +397,7 @@ end
 --  Gruppe. Wer nicht dabei war, bekommt sie beim naechsten Abgleich.
 --  @param items  z. B. { "a:2026-10-16@2", "h:h_kaos_123" }
 function Abgleich.BuchVerteilen(items)
+    if Abgleich.LeitungBeaconSpaeter then Abgleich.LeitungBeaconSpaeter(15) end     -- auch ohne Gruppe: die Leitung erfährt es
     if not kanal() or not ns.Rolle.Aktiv() or type(items) ~= "table" then return end
     local d = buchDaten()
     if not d then return end
@@ -434,30 +440,25 @@ local function eintraegeSenden(sid, tage)
     for _, id in ipairs(ids) do zeilen[#zeilen + 1] = Kern.Kodieren(id, H[id]) end
 
     for _, paket in ipairs(Kern.Pakete(zeilen, PAKETLAENGE)) do
-        einreihen("E;" .. sid .. ";" .. paket)
+        einreihen("E;" .. sid .. ";" .. paket, S and S.kanal)
     end
     return #ids
 end
 
---- Startet einen Abgleich. Nur Leiter, Assistenten und Pluendermeister.
---  @return true, oder false und ein Grund
-function Abgleich.Starten()
-    if not kanal() then return false, L["Du bist in keiner Gruppe."] end
-    if not ns.Rolle.Berechtigt(eigenerName()) then
-        return false, L["Nur Leiter, Assistenten und der Plündermeister dürfen abgleichen."]
-    end
-
+--- Legt eine Sitzung an und sendet Tagesstand (Q) und Liste des Datenbuchs (Y).
+--  @param kanalName  nil = die Gruppe, "WHISPER:<Name>" = Leitungs-Abgleich mit diesem Spieler
+local function sitzungStarten(kanalName)
     local sid = neueSitzung()
     local tage = Kern.Tagesstand(hist(), alias(), utcTag)
     Sitzungen[sid] = {
-        von = "ich", zeit = time(), gemeldet = {}, gesehen = {}, tage = tage, eigene = true,
+        von = "ich", zeit = time(), gemeldet = {}, gesehen = {}, tage = tage, eigene = true, kanal = kanalName,
     }
     Zaehler = { neu = 0, doppelt = 0, vorhanden = 0, abgelehnt = 0 }
 
     local stuecke = teilen(Kern.TageKodieren(tage), 190)
     if #stuecke == 0 then stuecke = { "" } end
     for i, st in ipairs(stuecke) do
-        einreihen(string.format("Q;%s;%d;%d;%s", sid, i, #stuecke, st))
+        einreihen(string.format("Q;%s;%d;%d;%s", sid, i, #stuecke, st), kanalName)
     end
 
     -- Das Datenbuch (Abschluesse, Anhebungen) gleicht in derselben Sitzung ab:
@@ -467,26 +468,42 @@ function Abgleich.Starten()
         local buchStuecke = teilen(table.concat(Kern.BuchListe(d), ","), 190)
         if #buchStuecke == 0 then buchStuecke = { "" } end
         for i, st in ipairs(buchStuecke) do
-            einreihen(string.format("Y;%s;%d;%d;%s", sid, i, #buchStuecke, st))
+            einreihen(string.format("Y;%s;%d;%d;%s", sid, i, #buchStuecke, st), kanalName)
         end
     end
+    return sid
+end
 
+--- Startet einen Abgleich. Nur Leiter, Assistenten und Pluendermeister.
+--  @return true, oder false und ein Grund
+function Abgleich.Starten()
+    if not kanal() then return false, L["Du bist in keiner Gruppe."] end
+    if not ns.Rolle.Berechtigt(eigenerName()) then
+        return false, L["Nur Leiter, Assistenten und der Plündermeister dürfen abgleichen."]
+    end
+    sitzungStarten(nil)
     print(MELDUNG .. L["Abgleich gestartet – ich warte auf die Antworten der Gruppe."])
     Abgleich.AbschlussMelden()
     return true
 end
 
-local abschluss = { token = 0 }
+local abschluss = { token = 0, tokenLeise = 0 }
 
 --- Nach einer Ruhepause sagen, was dabei herauskam.
-function Abgleich.AbschlussMelden()
+--  @param leise  Leitungs-Abgleich: nur melden, wenn etwas Neues ankam
+function Abgleich.AbschlussMelden(leise)
     if not C_Timer then return end
-    abschluss.token = abschluss.token + 1
-    local mein = abschluss.token
+    local feld = leise and "tokenLeise" or "token"
+    abschluss[feld] = abschluss[feld] + 1
+    local mein = abschluss[feld]
     C_Timer.After(25, function()
-        if mein ~= abschluss.token then return end
+        if mein ~= abschluss[feld] then return end
         local z = Zaehler
-        if z.neu + z.doppelt + z.vorhanden + z.abgelehnt + (z.buch or 0) == 0 then
+        if leise then
+            if z.neu + (z.buch or 0) > 0 then
+                print(MELDUNG .. string.format(L["Mit der Leitung abgeglichen: %d neue Einträge, %d Sätze im Datenbuch."], z.neu, z.buch or 0))
+            end
+        elseif z.neu + z.doppelt + z.vorhanden + z.abgelehnt + (z.buch or 0) == 0 then
             print(MELDUNG .. L["Abgleich beendet – es kam nichts Neues an."])
         else
             print(string.format(MELDUNG .. L["Abgleich beendet: |cff55ff55%d neu|r übernommen, %d schon vorhanden, %d als Doppelgänger erkannt%s."],
@@ -498,6 +515,7 @@ function Abgleich.AbschlussMelden()
         end
         fensterAktualisieren()
         Abgleich.HalloSpaeter(2)
+        if leise and Abgleich.LeitungBeaconSpaeter then Abgleich.LeitungBeaconSpaeter(10) end
     end)
 end
 
@@ -557,7 +575,7 @@ local function aufQReagieren(sid, S)
         if #noetig == 0 then return end
         for _, t in ipairs(noetig) do S.gemeldet[t] = true end
         for _, stueck in ipairs(teilen(table.concat(noetig, ","), 200)) do
-            einreihen("N;" .. sid .. ";" .. stueck)
+            einreihen("N;" .. sid .. ";" .. stueck, S.kanal)
         end
     end)
 
@@ -622,7 +640,7 @@ local function buchSenden(sid, items)
         if not (S and S.buchGesehen and S.buchGesehen[t]) then noetig[#noetig + 1] = t end
     end
     for _, paket in ipairs(Kern.Pakete(Kern.BuchZeilen(d, noetig), PAKETLAENGE)) do
-        einreihen("D;" .. sid .. ";" .. paket)
+        einreihen("D;" .. sid .. ";" .. paket, S and S.kanal)
     end
 end
 
@@ -646,7 +664,7 @@ local function aufYReagieren(sid, S)
         if #noetig == 0 then return end
         for _, t in ipairs(noetig) do S.buchGemeldet[t] = true end
         for _, stueck in ipairs(teilen(table.concat(noetig, ","), 200)) do
-            einreihen("M;" .. sid .. ";" .. stueck)
+            einreihen("M;" .. sid .. ";" .. stueck, S.kanal)
         end
     end)
 
@@ -676,14 +694,85 @@ local function aufMReagieren(sid, S, text)
 end
 
 --- Eine Sitzung des Leiters anlegen, falls sie noch nicht da ist (Q und Y koennen in beliebiger Reihenfolge kommen).
-local function sitzungAnlegen(sid, name)
+local function sitzungAnlegen(sid, name, kanalName)
     local S = Sitzungen[sid]
     if not S then
-        S = { von = name, zeit = time(), teile = {}, gemeldet = {}, gesehen = {}, erhalten = 0 }
+        S = { von = name, zeit = time(), teile = {}, gemeldet = {}, gesehen = {}, erhalten = 0, kanal = kanalName }
         Sitzungen[sid] = S
         Zaehler = { neu = 0, doppelt = 0, vorhanden = 0, abgelehnt = 0 }
     end
     return S
+end
+
+-- =====================================================================
+--  ⭐ Leitungs-Abgleich (Entscheid 22.10.2026): Spieler mit Schreibrecht gleichen Historie und Wertungen gildenweit
+--  untereinander ab, auch ohne gemeinsame Gruppe. Danach aktualisieren sie ihre Gruppen wie bisher (Hallo/Abgleich).
+--  * Jeder Berechtigte meldet seinen Stand in der Gilde (V, klein): beim Anmelden, nach Änderungen, alle 15 Minuten.
+--  * Wer einen anderen Stand eines Berechtigten hört, startet mit ihm einen Abgleich — als Flüstern (Q/Y/N/M/D/E wie
+--    in der Gruppe), nicht im Gildenkanal. Angenommen wird nur von Spielern mit Schreibrecht (`Konfig.Darf`).
+-- =====================================================================
+
+local Leitung = { partner = {}, beacon = { token = 0, zuletzt = 0 } }
+
+--- Ist der Leitungs-Abgleich für mich aktiv? (Schalter an, in einer Gilde, Schreibrecht)
+local function leitungAn()
+    if db().leitungSync == false then return false end
+    if not (IsInGuild and IsInGuild()) then return false end
+    return (ns.Konfig and ns.Konfig.Darf(eigenerName())) and true or false
+end
+function Abgleich.LeitungAn() return leitungAn() end
+
+local function leitungErlaubt(sender)
+    return leitungAn() and ns.Konfig.Darf(sender) and true or false
+end
+
+local function beaconSenden()
+    if not leitungAn() then return end
+    local n, summe = Abgleich.Stand()
+    local bn, bsumme = Abgleich.BuchStand()
+    local b = Leitung.beacon
+    if b.n == n and b.summe == summe and b.bn == bn and b.bsumme == bsumme and (time() - b.zuletzt) < 600 then return end
+    b.n, b.summe, b.bn, b.bsumme, b.zuletzt = n, summe, bn, bsumme, time()
+    einreihen(string.format("V;%d;%d;%.0f;%d;%.0f", VERSION, n, summe, bn, bsumme), "GUILD")
+end
+
+--- Den eigenen Stand in ein paar Sekunden in der Gilde melden (mehrere Auslöser ergeben eine Meldung).
+function Abgleich.LeitungBeaconSpaeter(sekunden)
+    if not C_Timer then return end
+    local b = Leitung.beacon
+    b.token = b.token + 1
+    local mein = b.token
+    C_Timer.After(sekunden or 15, function()
+        if mein == b.token then pcall(beaconSenden) end
+    end)
+end
+
+--- Der Stand eines anderen Berechtigten ist eingetroffen: weicht er ab, gleiche ich mit ihm ab.
+function Abgleich.LeitungBeaconEmpfangen(rest, sender)
+    if not leitungErlaubt(sender) or Kern.GleicherSpieler(sender, eigenerName()) then return end
+    local v, n, summe, bn, bsumme = tostring(rest):match("^(%d+);(%d+);(%d+);?(%d*);?(%d*)")
+    if not v or tonumber(v) ~= VERSION then return end
+    local mn, msumme = Abgleich.Stand()
+    local mbn, mbsumme = Abgleich.BuchStand()
+    if tonumber(n) == mn and tonumber(summe) == msumme and (tonumber(bn) or 0) == mbn and (tonumber(bsumme) or 0) == mbsumme then
+        return
+    end
+    -- Nicht noch einmal für denselben gemeldeten Stand innerhalb von 5 Minuten (ein Abgleich, der nicht alles
+    -- ausgleicht, soll nicht endlos laufen), und nicht, wenn er gerade selbst einen mit mir begonnen hat.
+    -- Meldet er einen neuen Stand, gleiche ich sofort ab.
+    local k = Kern.Schluessel(sender)
+    local fp = rest
+    local P = Leitung.partner[k] or {}
+    Leitung.partner[k] = P
+    if P.fp == fp and (time() - (P.zeit or 0)) < 300 then return end
+    if (time() - (P.ein or 0)) < 60 then return end
+    P.fp, P.zeit = fp, time()
+    if not C_Timer then return end
+    C_Timer.After(1 + math.random() * 4, function()
+        if not leitungAn() then return end
+        sitzungStarten("WHISPER:" .. sender)
+        Abgleich.AbschlussMelden(true)
+    end)
 end
 
 --- Eine Addon-Nachricht ist eingetroffen.
@@ -708,7 +797,21 @@ function Abgleich.Empfangen(text, sender, kanalName)
         return
     end
 
-    local gilde, unit = ns.Rolle.Absender(sender)
+    -- ⭐ Stand eines Berechtigten in der Gilde (Leitungs-Abgleich)
+    if typ == "V" then
+        Abgleich.LeitungBeaconEmpfangen(rest, sender)
+        return
+    end
+
+    -- ⭐ Flüstern gibt es nur im Leitungs-Abgleich: Q/Y/N/M/D/E von Berechtigten an Berechtigte, ohne Gruppe
+    local leitung = (kanalName == "WHISPER")
+    if leitung then
+        if not (typ == "Q" or typ == "Y" or typ == "N" or typ == "M" or typ == "D" or typ == "E") then return end
+        if not leitungErlaubt(sender) then return end
+    end
+
+    local gilde, unit
+    if not leitung then gilde, unit = ns.Rolle.Absender(sender) end
 
     -- ⭐ Wuerfelfenster (Wurf.lua): Beginn und Ende eines Wurfs. Bewusst VOR der
     -- Gildenpruefung: Wer im Raid in einer anderen Gilde ist, soll mitwuerfeln
@@ -726,10 +829,11 @@ function Abgleich.Empfangen(text, sender, kanalName)
         return
     end
 
-    if not unit then return end                         -- nicht in unserer Gruppe
-    if UnitIsUnit and UnitIsUnit(unit, "player") then return end   -- das waren wir
+    if not leitung and not unit then return end                         -- nicht in unserer Gruppe
+    if not leitung and UnitIsUnit and UnitIsUnit(unit, "player") then return end   -- das waren wir
 
-    local name = (GetUnitName and GetUnitName(unit, true)) or sender
+    local name = leitung and sender or ((GetUnitName and GetUnitName(unit, true)) or sender)
+    local wkanal = leitung and ("WHISPER:" .. sender) or nil
 
     if typ == "H" then
         local v, n, summe, bn, bsumme = rest:match("^(%d+);(%d+);(%d+);?(%d*);?(%d*)")
@@ -744,7 +848,7 @@ function Abgleich.Empfangen(text, sender, kanalName)
     end
 
     -- Alles Weitere nur von Gildenmitgliedern
-    if not gilde then return end
+    if not leitung and not gilde then return end
 
     if typ == "L" then
         -- Neue Vergabe vom Schreiber: nur von Leiter, Assistent, Pluendermeister
@@ -755,16 +859,24 @@ function Abgleich.Empfangen(text, sender, kanalName)
         Abgleich.HalloSpaeter(8)
 
     elseif typ == "Q" then
-        if not ns.Rolle.Berechtigt(name) then return end
+        if not leitung and not ns.Rolle.Berechtigt(name) then return end
         local sid, k, gesamt, stueck = rest:match("^([^;]*);(%d+);(%d+);(.*)$")
         k, gesamt = tonumber(k), tonumber(gesamt)
         if not sid or not k or not gesamt or gesamt < 1 or gesamt > 60 or k > gesamt then return end
 
         local S = Sitzungen[sid]
         if not S then
-            S = { von = name, zeit = time(), teile = {}, gemeldet = {}, gesehen = {}, erhalten = 0 }
+            S = { von = name, zeit = time(), teile = {}, gemeldet = {}, gesehen = {}, erhalten = 0, kanal = wkanal }
             Sitzungen[sid] = S
             Zaehler = { neu = 0, doppelt = 0, vorhanden = 0, abgelehnt = 0 }
+            if leitung then
+                local k = Kern.Schluessel(sender)
+                Leitung.partner[k] = Leitung.partner[k] or {}
+                Leitung.partner[k].ein = time()                       -- er hat begonnen: ich beginne nicht noch einmal
+            else
+                -- ⭐ Wer nicht selbst abgleicht, sieht, dass es läuft (das Ende meldet `AbschlussMelden`)
+                print(MELDUNG .. string.format(L["%s gleicht die Daten in der Gruppe ab – deine werden aktualisiert …"], Kern.Anzeigename(name)))
+            end
         end
         if S.teile and not S.teile[k] then
             S.teile[k] = stueck
@@ -775,7 +887,7 @@ function Abgleich.Empfangen(text, sender, kanalName)
                 for i = 1, gesamt do geordnet[i] = S.teile[i] or "" end
                 S.teile = geordnet
                 aufQReagieren(sid, S)
-                Abgleich.AbschlussMelden()
+                Abgleich.AbschlussMelden(leitung)
             end
         end
 
@@ -786,12 +898,12 @@ function Abgleich.Empfangen(text, sender, kanalName)
 
     elseif typ == "Y" then
         -- Die Liste des Datenbuchs vom Leiter (wie Q)
-        if not ns.Rolle.Berechtigt(name) then return end
+        if not leitung and not ns.Rolle.Berechtigt(name) then return end
         local sid, k, gesamt, stueck = rest:match("^([^;]*);(%d+);(%d+);(.*)$")
         k, gesamt = tonumber(k), tonumber(gesamt)
         if not sid or not k or not gesamt or gesamt < 1 or gesamt > 60 or k > gesamt then return end
 
-        local S = sitzungAnlegen(sid, name)
+        local S = sitzungAnlegen(sid, name, wkanal)
         S.buchTeile = S.buchTeile or {}
         S.buchErhalten = S.buchErhalten or 0
         if not S.buchTeile[k] then
@@ -802,7 +914,7 @@ function Abgleich.Empfangen(text, sender, kanalName)
                 for i = 1, gesamt do geordnet[i] = S.buchTeile[i] or "" end
                 S.buchTeile = geordnet
                 aufYReagieren(sid, S)
-                Abgleich.AbschlussMelden()
+                Abgleich.AbschlussMelden(leitung)
             end
         end
 
@@ -818,6 +930,7 @@ function Abgleich.Empfangen(text, sender, kanalName)
         if not sid or not paket then return end
         local S
         if sid == "0" then
+            if leitung then return end                       -- live nur über die Gruppe
             local darf = ns.Rolle.Berechtigt(name)
                       or (ns.Konfig and ns.Konfig.Darf and ns.Konfig.Darf(name))
             if not darf then return end
@@ -832,7 +945,7 @@ function Abgleich.Empfangen(text, sender, kanalName)
             fensterAktualisieren()
             Abgleich.HalloSpaeter(8)
         end
-        if S then Abgleich.AbschlussMelden() end
+        if S then Abgleich.AbschlussMelden(leitung) end
 
     elseif typ == "E" then
         local sid, paket = rest:match("^([^;]*);(.*)$")
@@ -843,7 +956,7 @@ function Abgleich.Empfangen(text, sender, kanalName)
         if #zeilen > 40 then return end
         local liste = einfuehren(zeilen, "abgleich")
         for _, X in ipairs(liste) do S.gesehen[gesehenSchluessel(X.id, X.e)] = true end
-        Abgleich.AbschlussMelden()
+        Abgleich.AbschlussMelden(leitung)
         fensterAktualisieren()
     end
 end
@@ -860,6 +973,7 @@ function Abgleich.Diagnose()
     local bn, bsumme = Abgleich.BuchStand()
     zeilen[#zeilen + 1] = string.format(L["Datenbuch: %d Sätze, Prüfsumme %s"], bn, string.format("%.0f", bsumme))
     zeilen[#zeilen + 1] = string.format(L["Kanal: %s"], tostring(kanal() or L["keiner (nicht in einer Gruppe)"]))
+    zeilen[#zeilen + 1] = string.format(L["Leitungs-Abgleich: %s"], leitungAn() and L["aktiv"] or L["aus"])
 
     local anz = 0
     for _, P in pairs(Bekannt) do
@@ -901,10 +1015,20 @@ rahmen:SetScript("OnEvent", function(_, ereignis, praefix, text, kanalName, send
     local ok, fehler = pcall(function()
         -- ⭐ Auch ein schlafendes Addon muss die Antwort des Plündermeisters („Fairshare nutzen?“, Nachricht `U`)
         -- hören können: Präfix anmelden und genau diese Nachricht durchlassen.
-        if ereignis == "PLAYER_ENTERING_WORLD" then praefixAnmelden() end
+        if ereignis == "PLAYER_ENTERING_WORLD" then
+            praefixAnmelden()
+            -- ⭐ Leitungs-Abgleich: den eigenen Stand melden, sobald die Gildenliste da ist, dann alle 15 Minuten
+            if C_Timer and not Leitung.laeuft then
+                Leitung.laeuft = true
+                C_Timer.After(45, function() pcall(beaconSenden) end)
+                if C_Timer.NewTicker then
+                    C_Timer.NewTicker(900, function() pcall(beaconSenden) end)
+                end
+            end
+        end
         -- Ebenso die Meldungen der Gilde: geteilte Einstellungen (K, A) und die Einteilung (T) hängen nicht an der
         -- Beutemethode (sonst kämen sie nie bei jemandem an, der gerade nicht im Raid ist).
-        if ereignis == "CHAT_MSG_ADDON" and praefix == PRAEFIX and type(text) == "string" and text:match("^[UKAT];") then
+        if ereignis == "CHAT_MSG_ADDON" and praefix == PRAEFIX and type(text) == "string" and (text:match("^[UKATV];") or kanalName == "WHISPER") then
             Abgleich.Empfangen(text, sender, kanalName)
             return
         end

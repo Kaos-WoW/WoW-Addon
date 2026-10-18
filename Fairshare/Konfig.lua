@@ -454,6 +454,26 @@ function Konfig.Senden()
     return n
 end
 
+--- ⭐ Automatisch senden (Entscheid 22.10.2026): Ändert jemand mit Schreibrecht eine geteilte Einstellung, geht sie
+--  nach wenigen Sekunden von selbst an alle (mehrere Änderungen hintereinander werden zu einer Sendung). Gesendet wird
+--  nur, wenn sich gegenüber dem zuletzt gesendeten oder übernommenen Stand etwas geändert hat.
+local autoWartet = false
+function Konfig.AutoSenden()
+    if autoWartet or not C_Timer or not Konfig.DarfSenden() then return false end
+    autoWartet = true
+    C_Timer.After(4, function()
+        autoWartet = false
+        if not Konfig.DarfSenden() then return end
+        local d = db()
+        if type(d.konfigRoh) == "table" and zeilenGleich(Konfig.Kodieren(Konfig.Sammeln()), d.konfigRoh) then return end
+        local n = Konfig.Senden()
+        if n then
+            print("|cff1B6B57Fairshare|r: " .. L["Geänderte Einstellungen wurden an alle gesendet."])
+        end
+    end)
+    return true
+end
+
 --- Beim Anmelden und beim Gruppenbeitritt: Hat jemand neuere Einstellungen?
 --  @param kanalName  "GUILD" oder nil (Gruppe)
 function Konfig.Anfragen(kanalName)

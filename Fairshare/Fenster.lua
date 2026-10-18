@@ -1145,7 +1145,11 @@ local function zeigeEinteilung()
             end
         end
     end
-    for _, e in ipairs(pool) do e.gruppe = G.EinteilungVon(datum, e.name) end
+    for _, e in ipairs(pool) do
+        e.gruppe = G.EinteilungVon(datum, e.name)
+        -- Eine Gruppe, die es nicht mehr gibt (gelöscht oder noch nicht geteilt): der Spieler zählt als nicht zugewiesen
+        if e.gruppe and e.gruppe ~= G.BENCH and e.gruppe ~= G.KEINEMELDUNG and not G.Holen(e.gruppe) then e.gruppe = nil end
+    end
 
     local rang = {}
     for i, gn in ipairs(alleZiele) do rang[gn] = i end

@@ -60,6 +60,11 @@ local function gesperrt(def)
     return ns.Konfig.Gesperrt(def.geteilt == "wurzel")
 end
 
+--- Eine geteilte Einstellung wurde geändert: mit Schreibrecht geht sie nach kurzer Zeit von selbst an alle.
+local function geaendert(def)
+    if def.geteilt and ns.Konfig and ns.Konfig.AutoSenden then ns.Konfig.AutoSenden() end
+end
+
 local function zeile(karte, def)
     local r = CreateFrame("Frame", nil, karte)
     r.def = def
@@ -78,6 +83,7 @@ local function zeile(karte, def)
         local function kippen()
             if gesperrt(def) then return end
             def.set(not sw.an)
+            geaendert(def)
             Einstellungen.Aktualisieren()
         end
         sw:SetScript("OnClick", kippen)
@@ -89,7 +95,7 @@ local function zeile(karte, def)
 
     elseif art == "segment" then
         local seg = S.Segment(r, function(wert)
-            if not gesperrt(def) then def.set(wert) end
+            if not gesperrt(def) then def.set(wert) geaendert(def) end
             Einstellungen.Aktualisieren()
         end)
         local b = seg:SetWerte(def.werte)
@@ -103,6 +109,7 @@ local function zeile(karte, def)
         b:SetScript("OnClick", function()
             if gesperrt(def) then return end
             k.klick()
+            geaendert(def)
             Einstellungen.Aktualisieren()
         end)
         r.ctrl, r.ctrlH = b, 24
@@ -131,7 +138,7 @@ local function zeile(karte, def)
             local a, z = e1:GetText(), e2:GetText()
             e1:ClearFocus()
             e2:ClearFocus()
-            if not gesperrt(def) then def.set(a, z) end
+            if not gesperrt(def) then def.set(a, z) geaendert(def) end
             Einstellungen.Aktualisieren()
         end
         e1:SetScript("OnEnterPressed", setzen)
@@ -157,6 +164,7 @@ local function zeile(karte, def)
             local t = eb:GetText()
             if gesperrt(def) then eb:SetText("") eb:ClearFocus() Einstellungen.Aktualisieren() return end
             k.klick(t)
+            geaendert(def)
             eb:SetText("")
             eb:ClearFocus()
             Einstellungen.Aktualisieren()
@@ -674,6 +682,10 @@ local function seiteWuerfeln(P)
         beschr = L["Weichen die Historien in der Gruppe ab, gleicht der Leiter oder Plündermeister von selbst ab. Aus: es erscheint nur ein Hinweis."],
         get = function() return d().autoAbgleich ~= false end,
         set = function(v) d().autoAbgleich = v end })
+    zeile(k3, { art = "schalter", label = L["Mit der Gildenleitung abgleichen"],
+        beschr = L["Wer Schreibrecht hat, gleicht Historie und Wertungen gildenweit mit anderen Spielern mit Schreibrecht ab, auch ohne gemeinsame Gruppe. Danach aktualisiert er seine Gruppe wie bisher."],
+        get = function() return d().leitungSync ~= false end,
+        set = function(v) d().leitungSync = v end })
     zeile(k3, { art = "knopf", label = L["Jetzt abgleichen"],
         beschr = function()
             return Meldung.abgleich or L["Nur Leiter, Assistenten und der Plündermeister dürfen abgleichen."]

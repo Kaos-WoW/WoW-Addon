@@ -228,6 +228,16 @@ vergleicht, meldet abweichende Tage (`N`) und schickt seine Einträge dazu
 (`E`); der Leiter schickt die gemeldeten Tage nach. Wer in seiner zufälligen
 Wartezeit hört, dass es schon da ist, schweigt.
 
+⭐ **Chat-Meldungen (22.10.2026):** Wer den Abgleich nicht selbst startet, sieht beim Eintreffen der ersten Q-Meldung „X gleicht die Daten in der Gruppe ab – deine werden aktualisiert …“; nach einer Ruhepause (25 s) folgt „Abgleich beendet: …“ (`Abgleich.AbschlussMelden`). Der Starter sieht „Abgleich gestartet …“.
+
+### ⭐ Leitungs-Abgleich (22.10.2026): Berechtigte gleichen gildenweit ab, auch ohne Gruppe
+
+Spieler mit Schreibrecht (`Konfig.Darf`, Gildenrang) gleichen Historie und Datenbuch (Wertungen) **gildenweit untereinander** ab; danach aktualisieren sie ihre Gruppen wie bisher (Hallo/automatischer Abgleich). Das Addon muss dafür **nicht im Dienst** sein (kein Plündermeister, keine Gruppe nötig); `V` und alle Flüsternachrichten passieren die Sperre in `Abgleich.lua`.
+* **`V;<Version>;<n>;<Summe>;<bn>;<bsumme>`** (Gildenkanal, klein): der eigene Stand, 45 s nach dem Anmelden, nach Änderungen (`LeitungBeaconSpaeter` aus `HalloSpaeter`, `Verteilen`, `BuchVerteilen`) und alle 15 Minuten. Nur Berechtigte senden und beachten ihn.
+* **Weicht der Stand eines Berechtigten ab,** startet der Empfänger mit ihm einen Abgleich (`sitzungStarten("WHISPER:<Name>")`): dieselben Nachrichten `Q/Y/N/M/D/E` wie in der Gruppe, aber **als Flüstern** (`senden` kennt `"WHISPER:<Name>"`, die Sitzung merkt ihren Kanal in `S.kanal`). Angenommen wird nur von Berechtigten an Berechtigte (`leitungErlaubt`); `D;0` (live) und alle anderen Typen sind per Flüstern nicht erlaubt. Je Partner nicht öfter als alle 5 Minuten für denselben gemeldeten Stand; meldet er einen neuen, gleicht man sofort ab.
+* **Meldung:** leise; nur wenn etwas Neues ankam („Mit der Leitung abgeglichen: …“, `AbschlussMelden(true)`). Schalter in den Einstellungen („Mit der Gildenleitung abgleichen“, `leitungSync`, Standard an), Zeile in `/fs abgleich status`. Szenario 59.
+* ⚠️ Das Protokoll hat keine neue Versionsnummer, aber alle Berechtigten sollten dieselbe Fassung haben (ältere ignorieren `V` einfach).
+
 ### Warum das konvergiert
 
 * **Einfügen ist idempotent** (`Kern.Zusammenfuehren`): Kennung bekannt →
@@ -330,6 +340,7 @@ Nur einer stellt ein (Würfelbereiche, Verzauberer, Gruppen …), alle bekommen 
   habe — sonst könnte sich jedes Gildenmitglied als Leiter ausgeben. Schalter *Einstellungen der Gildenleitung übernehmen*
   (`konfigAnnehmen`) schaltet es ab. `Konfig.Dekodieren` begrenzt alles Fremde (Zahlen auf ihren Bereich, Namen auf 40 Zeichen
   ohne `; ~ | ,`, höchstens 12 Gruppen/8 Verzauberer/60 Namen je Gruppe, Unbekanntes bleibt unbeachtet).
+* ⭐ **Automatisch senden (22.10.2026):** Ändert jemand mit Schreibrecht in den Einstellungen eine geteilte Zeile (`geteilt`), schickt `Konfig.AutoSenden` sie nach 4 s von selbst an alle (mehrere Änderungen = eine Sendung, nur bei echter Änderung gegenüber `konfigRoh`, Meldung im Chat). „An alle senden“ bleibt als Knopf. Szenario 58.
 * **Nachholen:** Beim Anmelden (25 s, Gilde) und beim Gruppenbeitritt (höchstens alle 5 min) fragt jeder `A;<mein Stand>`. Wer einen
   **neueren** Stand hat, schickt ihn zufällig verzögert nach (1–6 s; wer inzwischen hört, dass es jemand tat, schweigt) — und zwar
   den **unveränderten Text des Urhebers** (`konfigRoh`), nie die eigenen, vielleicht geänderten Werte.
