@@ -689,128 +689,37 @@ end
 local function seiteGruppen(P)
     local G = ns.Gruppen
 
+    -- ⭐ Seit dem 22.10.2026: Gruppen sind nur noch Namen; wer wann in welcher Gruppe spielt, steht in der Einteilung
+    -- (einmal je Raid-ID). Den Raidkader gibt es einmal, unabhängig von den Gruppen.
     local k1 = karte(P, L["Gruppen"],
-        L["Eine Gruppe ist eine Beschriftung (zum Beispiel 40er oder 10er) mit einem Kader. In einer Gruppe zeigt die Übersicht nur die Spieler, die bei dir sind; ohne Gruppe den Kader."])
+        L["Eine Gruppe ist ein Raid mit eigenem Namen, zum Beispiel 40er oder 10er. Wer in welcher Gruppe spielt, stellst du unter „Einteilung“ ein, einmal je Raid-ID."])
     for i = 1, 8 do
-        zeile(k1, { art = "knopf",
+        zeile(k1, { geteilt = true, art = "knopf",
             sichtbar = function() return G.Namen()[i] ~= nil end,
             label = function() return G.Namen()[i] or "" end,
             beschr = function()
-                local g = G.Holen(G.Namen()[i])
-                if not g then return "" end
-                return string.format(L["%d Namen im Kader"], #G.Namensliste(g))
+                local name = G.Namen()[i]
+                if not name then return "" end
+                if loeschenBereit == name then
+                    return farbig(C.warn, L["Nochmal klicken, um die Gruppe wirklich zu löschen."])
+                end
+                return string.format(L["%d in dieser Raid-ID eingeteilt"], #G.EinteilungListe(G.IdStart(G.EinteilungTag(0)), name))
             end,
-            knopf = { text = function() return G.Namen()[i] == G.AktivName() and L["Aktiv"] or L["Aktivieren"] end,
-                art = "primary",
-                aktiv = function() return G.Namen()[i] ~= G.AktivName() end,
+            knopf = { text = function() return loeschenBereit == G.Namen()[i] and L["Wirklich löschen"] or L["Löschen"] end,
                 klick = function()
-                    loeschenBereit = nil
-                    G.Aktivieren(G.Namen()[i])
+                    local name = G.Namen()[i]
+                    if not name then return end
+                    if loeschenBereit == name then
+                        G.Loeschen(name)
+                        loeschenBereit = nil
+                    else
+                        loeschenBereit = name
+                    end
                 end } })
     end
     zeile(k1, { art = "info", sichtbar = function() return #G.Namen() == 0 end,
         label = L["Noch keine Gruppe"],
         beschr = L["Unten eine anlegen, zum Beispiel „40er“ oder „10er“."] })
-    zeile(k1, { art = "knopf", sichtbar = function() return G.AktivName() ~= nil end,
-        label = L["Keine Gruppe verwenden"],
-        beschr = L["Neue Vergaben bekommen dann keine Gruppe, die Liste keine Pflichtnamen."],
-        knopf = { text = L["Abwählen"], klick = function() G.Aktivieren(nil) end } })
-
-    local aktiv = function() return G.AktivName() ~= nil end
-    local k2 = karte(P, function() return string.format(L["Aktive Gruppe: %s"], tostring(G.AktivName() or "")) end,
-        L["Der Kader steht ohne Gruppe in der Liste. In einer Gruppe zählen nur die, die dabei sind."], aktiv)
-    zeile(k2, { art = "knopf", label = L["Mitglieder synchronisieren"],
-        beschr = function()
-            return Meldung.kader or L["Mit gewählten Gildenrängen ist der Kader genau deren Mitglieder: Neue kommen dazu, Ausgetretene fallen weg. Von Hand ergänzte Namen bleiben. Ohne Ränge werden nur Spieler aus deiner Gruppe aufgenommen."]
-        end,
-        knopf = { text = L["Synchronisieren"], art = "primary",
-            klick = function()
-                local neu, weg = G.Synchronisieren(G.AktivName())
-                if neu then
-                    Meldung.kader = farbig(C.ok, string.format(L["%d neu, %d entfernt"], neu, weg or 0))
-                else
-                    Meldung.kader = farbig(C.bad, tostring(weg))
-                end
-            end } })
-    zeile(k2, { art = "schalter", label = L["Beim Anmelden automatisch synchronisieren"],
-        beschr = L["Nur wirksam, wenn unten Gildenränge gewählt sind."],
-        get = function() local g = G.Aktiv() return g and g.auto ~= false end,
-        set = function(v) local g = G.Aktiv() if g then g.auto = v end end })
-    zeile(k2, { geteilt = true, art = "eingabe", label = L["Namen hinzufügen"],
-        beschr = function()
-            return Meldung.namen or L["Mit Komma trennen – Nachnamen enthalten Leerzeichen. Diese Namen bleiben immer erhalten."]
-        end,
-        knopf = { text = L["Hinzufügen"],
-            klick = function(text)
-                local n = G.KaderErgaenzen(G.AktivName(), text)
-                Meldung.namen = farbig(C.ok, string.format(L["%d ergänzt"], n or 0))
-            end } })
-    zeile(k2, { geteilt = true, art = "eingabe", label = L["Name entfernen"],
-        beschr = function()
-            return Meldung.entfernt or L["Wer nur durch einen Rang im Kader steht, kommt beim nächsten Abgleich zurück – dafür den Rang abwählen."]
-        end,
-        knopf = { text = L["Entfernen"],
-            klick = function(text)
-                local ok = G.KaderEntfernen(G.AktivName(), text)
-                Meldung.entfernt = ok and farbig(C.ok, L["Entfernt."]) or farbig(C.bad, L["Den Namen gibt es nicht im Kader."])
-            end } })
-    zeile(k2, { art = "info", label = L["Kader"],
-        beschr = function()
-            local liste = G.Namensliste(G.Aktiv())
-            if #liste == 0 then return L["Noch leer."] end
-            local teile = {}
-            for i, n in ipairs(liste) do
-                if i > 16 then teile[#teile + 1] = "…" break end
-                teile[#teile + 1] = n
-            end
-            return string.format(L["%d Namen: %s"], #liste, table.concat(teile, ", "))
-        end })
-    zeile(k2, { geteilt = true, art = "knopf", label = L["Gruppe löschen"],
-        beschr = function()
-            return loeschenBereit and farbig(C.warn, L["Nochmal klicken, um die Gruppe wirklich zu löschen."])
-                   or L["Die Vergaben bleiben erhalten, sie verlieren nur ihre Gruppe nicht."]
-        end,
-        knopf = { text = function() return loeschenBereit and L["Wirklich löschen"] or L["Löschen"] end,
-            klick = function()
-                local name = G.AktivName()
-                if loeschenBereit == name then
-                    G.Loeschen(name)
-                    loeschenBereit = nil
-                else
-                    loeschenBereit = name
-                end
-            end } })
-
-    -- Gildenraenge: wer in diesen Raengen ist, kommt beim Auffuellen in den Kader
-    local k3 = karte(P, L["Gildenränge für den Kader"],
-        L["Wer in einem gewählten Rang ist, gehört zum Kader. Wer den Rang oder die Gilde verlässt, fällt beim Synchronisieren heraus."], aktiv)
-    zeile(k3, { art = "info", sichtbar = function() return not G.Raenge() end,
-        label = L["Gildenliste nicht geladen"],
-        beschr = function() local _, grund = G.Raenge() return tostring(grund or "") end })
-    for i = 1, 10 do
-        zeile(k3, { geteilt = true, art = "schalter",
-            sichtbar = function() local R = G.Raenge() return R ~= nil and R[i] ~= nil end,
-            label = function() local R = G.Raenge() return R and R[i] and R[i].name or "" end,
-            get = function()
-                local R = G.Raenge()
-                return R and R[i] and G.RangGewaehlt(G.AktivName(), R[i].index) or false
-            end,
-            set = function(v)
-                local R = G.Raenge()
-                if R and R[i] then G.RangSetzen(G.AktivName(), R[i].index, v) end
-            end })
-    end
-
-    -- ⭐ Raidtage der aktiven Gruppe: das ist ihre Raid-ID; an diesen Tagen gibt es eine Einteilung
-    local kr = karte(P, function() return string.format(L["Raidtage der Gruppe: %s"], tostring(G.AktivName() or "")) end,
-        L["An welchen Wochentagen raidet diese Gruppe? Jede Gruppe hat ihre eigenen Tage (ihre Raid-ID). Für jeden Tag, an dem irgendeine Gruppe raidet, gibt es eine Einteilung."],
-        aktiv)
-    for i = 1, 7 do
-        local wd = G.RaidtageFolge()[i]
-        zeile(kr, { geteilt = true, art = "schalter", label = G.RaidtagName(wd),
-            get = function() return G.RaidtagGewaehlt(G.AktivName(), wd) end,
-            set = function(v) G.RaidtagSetzen(G.AktivName(), wd, v) end })
-    end
 
     local k4 = karte(P, L["Neue Gruppe"])
     zeile(k4, { geteilt = true, art = "eingabe", label = L["Name"],
@@ -822,6 +731,57 @@ local function seiteGruppen(P)
                 local ok, grund = G.Anlegen(text)
                 Meldung.neu = ok and farbig(C.ok, L["Angelegt."]) or farbig(C.bad, tostring(grund))
             end } })
+
+    -- ⭐ Der Raidkader: alle Gildenmitglieder bis zum gewählten Rang; wird beim Anmelden von selbst eingelesen
+    local kk = karte(P, L["Raidkader"],
+        L["Alle Gildenmitglieder bis zum gewählten Rang bilden den Raidkader, aus dem du in der Einteilung die Gruppen zusammenstellst. Er wird beim Anmelden von selbst eingelesen; der Rang gilt für alle, sobald er geteilt wird."])
+    zeile(kk, { art = "info", sichtbar = function() return not G.Raenge() end,
+        label = L["Gildenliste nicht geladen"],
+        beschr = function() local _, grund = G.Raenge() return tostring(grund or "") end })
+    for i = 1, 10 do
+        zeile(kk, { geteilt = true, art = "schalter",
+            sichtbar = function() local R = G.Raenge() return R ~= nil and R[i] ~= nil end,
+            label = function() local R = G.Raenge() return R and R[i] and R[i].name or "" end,
+            get = function()
+                local R, bis = G.Raenge(), G.RaidkaderRang()
+                return R ~= nil and R[i] ~= nil and bis ~= nil and R[i].index <= bis
+            end,
+            set = function(v)
+                local R = G.Raenge()
+                if not (R and R[i]) then return end
+                if v then
+                    G.RaidkaderRangSetzen(R[i].index)
+                elseif R[i - 1] then
+                    G.RaidkaderRangSetzen(R[i - 1].index)
+                else
+                    d().raidkaderRang = nil
+                end
+                pcall(G.RaidkaderAuto)
+            end })
+    end
+    zeile(kk, { art = "knopf", label = function()
+            local liste = G.Raidkader()
+            return string.format(L["%d im Raidkader"], #liste)
+        end,
+        beschr = function()
+            return Meldung.kader or L["Liest die Gildenliste neu ein. Wer den Rang oder die Gilde verlassen hat, fällt heraus."]
+        end,
+        knopf = { text = L["Synchronisieren"], art = "primary",
+            aktiv = function() return G.RaidkaderRang() ~= nil end,
+            klick = function()
+                local n, grund = G.RaidkaderSync()
+                Meldung.kader = n and farbig(C.ok, string.format(L["Raidkader eingelesen: %d Mitglieder."], n))
+                                  or farbig(C.bad, tostring(grund))
+            end } })
+
+    -- ⭐ Die Raid-ID: eine Woche, beginnt an einem einstellbaren Wochentag
+    local kw = karte(P, L["Raid-ID"],
+        L["Eine Raid-ID umfasst eine Woche; die Einteilung gilt für die ganze ID. Hier steht, an welchem Wochentag eine neue beginnt (Standard Mittwoch). Gilt für alle, sobald es geteilt wird."])
+    local tage = {}
+    for _, wd in ipairs(G.RaidtageFolge()) do tage[#tage + 1] = { wert = wd, label = G.RaidtagName(wd) } end
+    zeile(kw, { geteilt = true, art = "segment", label = L["Neue Raid-ID beginnt am"], werte = tage,
+        get = function() return G.IdWechsel() end,
+        set = function(v) G.IdWechselSetzen(v) end })
 end
 
 local NAV = {
@@ -830,7 +790,7 @@ local NAV = {
     { id = "gargul",    label = L["Würfeln & Abgleich"], icon = "rotate.tga",
       titel = L["Würfeln & Abgleich"], beschr = L["Würfelbereiche, Würfelfenster, Gargul und der Abgleich zwischen den Spielern."], bauen = seiteWuerfeln },
     { id = "gruppen",   label = L["Gruppen"],           icon = "users-group.tga",
-      titel = L["Gruppen"], beschr = L["Kader und Raidgruppen für verschiedene Raidgrößen."], bauen = seiteGruppen },
+      titel = L["Gruppen"], beschr = L["Gruppen, Raidkader und Raid-ID für verschiedene Raidgrößen."], bauen = seiteGruppen },
 }
 
 -- =====================================================================
@@ -1045,6 +1005,7 @@ local function fensterBauen()
         if C_Timer then
             C_Timer.After(0.1, function() S.Auffrischen(); Einstellungen.Aktualisieren() end)
             C_Timer.After(0.6, function() S.Auffrischen() end)
+            S.AuffrischenBisFertig()
         end
     end)
 end

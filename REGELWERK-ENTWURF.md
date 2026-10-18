@@ -1,6 +1,6 @@
 # Fairshare – Regelwerk-Entwurf: Wertung und Vorrang
 
-Stand 18.10.2026 · **Alles umgesetzt** (Addon 0.2.0 auf der Forever-Beta). Seit dem 16.10. dazugekommen: mehrere Gruppen mit Einteilung, Bench und Wochenabschluss (§ 2 und § 6a).
+Stand 22.10.2026 (Bedienung der Gruppen vereinfacht: Raid-ID, zwei Listen) · **Alles umgesetzt** (Addon 0.2.0 auf der Forever-Beta). Seit dem 16.10. dazugekommen: mehrere Gruppen mit Einteilung, Bench und Wochenabschluss (§ 2 und § 6a).
 Wie beim Golf: **Wer die niedrigste Wertung hat, hat Vorrang.** Gleichstand wird gewürfelt (höchster Wurf gewinnt).
 
 ## 0. Die Begriffe in einem Blick
@@ -96,13 +96,13 @@ Der Plündermeister trägt nichts ein, was die Wertung verändert.
 
 Die Gruppen setzen sich Woche für Woche neu zusammen. Darum gibt es keine festen Kader je Gruppe, sondern eine **Einteilung**.
 
-- **Raidkader:** Ein Knopf liest die Gildenliste bis zu einem gewählten Rang ein. Daraus klickt man die Spieler in eine Gruppe.
-- **Raidtage je Gruppe:** Jede Gruppe hat ihre eigenen Wochentage (ihre Raid-ID, meist zwei Abende). Die Gruppen können an verschiedenen oder an denselben Tagen raiden. Für jeden Tag, an dem irgendeine Gruppe raidet, gibt es eine Einteilung.
-- **Einteilung:** Je Raidtag steht jeder Spieler in **höchstens einer** Gruppe, auf der **Bench** oder bei **Keine Meldung**. Die Raidleitung baut die Gruppen so, dass an beiden Tagen einer Gruppe dieselben Spieler stehen. Wer nur an einem Tag kann, kommt auf die Bench, wenn kein Platz ist. Die Einteilung geht an alle mit dem Addon. Wer einteilen darf, bestimmt die Rangprüfung der Einstellungen (§ 6).
-- **Bench:** Spieler auf der Bench haben **Faktor 0** und stehen in der Abwesenheit jeder Gruppe, damit man sie einspringen lassen kann. Ein Klick holt sie in die aktive Gruppe.
+- **Raidkader:** Alle Gildenmitglieder bis zu einem gewählten Gildenrang. Das Addon liest ihn beim Anmelden von selbst ein (und auf Knopfdruck); der Rang ist eine **geteilte Einstellung**. Die Gruppen selbst brauchen keinen eigenen Abgleich.
+- **Raid-ID:** Eine Raid-ID ist eine Woche und beginnt an einem einstellbaren Wochentag (Standard **Mittwoch**, geteilte Einstellung). Die Einteilung gilt **einmal je Raid-ID**, nicht je Tag.
+- **Einteilung:** Je Raid-ID steht jeder Spieler in **genau einer** Gruppe, auf der **Bench** oder bei **Keine Meldung**; er kann nie gleichzeitig in Gruppe 1 und Gruppe 2 stehen. In der Ansicht „Einteilung“ wählt man das Ziel in einer **Ausklappliste**; links stehen die Spieler, die noch nirgends zugewiesen sind, rechts die, die schon im Ziel stehen. Wer schon irgendwo zugewiesen ist (Gruppe, Bench, Keine Meldung), erscheint in den anderen Rubriken nicht mehr. Wer nur an einem Tag kann, kommt auf die Bench, wenn kein Platz ist. Die Einteilung geht an alle mit dem Addon. **Abwesenheit und Einteilung sehen nur Spieler mit Schreibrecht** (Gildenrang laut Einstellungen, § 6); alle anderen haben nur „Spieler“ und „Verlauf“.
+- **Bench:** Spieler auf der Bench haben **Faktor 0** und stehen in der Abwesenheit jeder Gruppe, damit man sie einspringen lassen kann. Ein Klick holt sie in die aktive Gruppe; in der Einteilung nimmt man sie bei der Bench heraus und weist sie dann einer Gruppe zu.
 - **Abgemeldet:** Wer in der Woche nirgends eingeteilt ist, braucht keinen Eintrag: Das Addon erkennt ihn als abgemeldet.
 - **Wochenabschluss:** Nach dem letzten Gruppenabend der Woche bucht die Gildenleitung mit **„Woche abschließen“** (zweimal klicken, die Vorschau steht im Chat) die Abmeldungen und die „Keine Meldung“ der Woche. **Jeder dieser Spieler bekommt Zuschläge für zwei Abende.** Der Schnitt je Abend ist das **Mittel der Schnitte der Gruppen** für diese Abend-Nummer: der erste Abend jeder Gruppe zusammen, dann der zweite. Wer an einem Gruppenabend dabei war oder irgendwo (Gruppe, Bench) eingeteilt war, bekommt nichts.
-- **Abwesenheit einer Gruppe:** Sie zeigt nur die eigenen Eingeteilten und die Bench. Wer eingeteilt war und ohne Info nicht kommt, wird mit **Unentschuldigt** markiert. Wer noch offen ist, verhindert den Abschluss.
+- **Abwesenheit einer Gruppe:** Man wählt die Gruppe in der Ausklappliste. Sie zeigt die Eingeteilten dieser Gruppe und die Bench, mit ihrem Status (im Raid, online, offen). Wer eingeteilt war und ohne Info nicht kommt, wird mit **Unentschuldigt** markiert. Wer noch offen ist, verhindert den Abschluss.
 - **Neuen Abend beginnen:** Nach dem Abschluss macht dieser Knopf die Liste frei, ohne die gebuchten Wertungen anzutasten. „Abend wiedereröffnen“ nimmt dagegen den Abschluss samt Zuschlägen zurück.
 
 ## 7. Einstellungen (setzt eine Person der Gildenleitung, werden an alle geteilt)

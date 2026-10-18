@@ -149,6 +149,41 @@ function Stil.Auffrischen()
     end
 end
 
+--- ⭐ Schriftdatei früh laden lassen: Ein unsichtbares Textfeld mit der Schrift in den gebräuchlichen Größen, sobald
+--  man angemeldet ist. Der Client lädt eine Schriftdatei erst beim ersten Gebrauch; öffnet man das Fenster zum
+--  ersten Mal, ist sie sonst noch nicht da und die Texte bleiben leer (Nutzerfund 18.10.2026: „alles leer, beim
+--  zweiten Öffnen kommen die Daten“).
+function Stil.SchriftVorladen()
+    if Stil.vorgeladen then return end
+    Stil.vorgeladen = true
+    local eltern = rawget(_G, "UIParent")
+    if not (eltern and eltern.CreateFontString) then return end
+    local f = CreateFrame("Frame", nil, eltern)
+    f:SetSize(1, 1)
+    f:SetPoint("BOTTOMLEFT", eltern, "BOTTOMLEFT", 0, 0)
+    f:SetAlpha(0.01)
+    for _, groesse in ipairs({ 11, 12, 13, 14, 16 }) do
+        local fs = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        pcall(function() fs:SetFont(SCHRIFT, groesse + GROESSE_PLUS, "") end)
+        fs:SetText("AaBbCc 0123")
+        fs:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 0, 0)
+    end
+    f:Show()
+    Stil.vorladeRahmen = f
+end
+
+--- ⭐ Frischt die Texte in einem festen Zeitplan auf (länger als zweimal): Die Schriftdatei lädt beim ersten Öffnen
+--  nach dem Anmelden manchmal erst nach Sekunden. Eine Prüfung „wird gezeichnet?“ gibt es nicht — die Breite
+--  eines Textes stimmt auch dann, wenn er nicht gezeichnet wird. Nur beim ersten Öffnen je Sitzung.
+function Stil.AuffrischenBisFertig()
+    if Stil.SchriftFertig then return end
+    Stil.SchriftFertig = true
+    if not C_Timer then return end
+    for _, s in ipairs({ 0.3, 0.8, 1.5, 2.5, 4, 6, 9 }) do
+        C_Timer.After(s, function() Stil.Auffrischen() end)
+    end
+end
+
 function Stil.AnzahlTexte()
     local n = 0
     for _ in pairs(Texte) do n = n + 1 end
@@ -375,6 +410,84 @@ function Stil.Segment(eltern, beiWahl)
     return f
 end
 
+--- ⭐ Ausklappliste (Entscheid 22.10.2026): ein Knopf zeigt die Wahl, ein Klick klappt die Liste darunter auf.
+--  `b:SetOptionen(liste, wahl, beiWahl)`: liste = { { wert, label, farbe }, … }; `b:SetLabel(text)` beschriftet den Knopf.
+--  Ein Klick neben die Liste schließt sie.
+function Stil.Dropdown(eltern, hoehe)
+    local b = Stil.Knopf(eltern, "", "secondary", hoehe or 24)
+    local rohLabel = b.SetLabel
+    b.SetLabel = function(self, text) rohLabel(self, (text or "") .. "  ▾") end
+    b.optionen = {}
+
+    local fang = CreateFrame("Button", nil, UIParent)
+    fang:SetFrameStrata("FULLSCREEN_DIALOG")
+    fang:SetFrameLevel(290)
+    fang:SetAllPoints(UIParent)
+    fang:Hide()
+
+    local menu = CreateFrame("Frame", nil, UIParent)
+    menu:SetFrameStrata("FULLSCREEN_DIALOG")
+    menu:SetFrameLevel(300)
+    menu:Hide()
+    menu.kasten = Kasten(menu, 6, C.p1, C.ln)
+    menu.eintraege = {}
+
+    local function zu()
+        menu:Hide()
+        fang:Hide()
+    end
+    fang:SetScript("OnClick", zu)
+    b:SetScript("OnHide", zu)
+
+    function b:SetOptionen(liste, wahl, beiWahl)
+        self.optionen = liste or {}
+        local breite = math.max(self:GetWidth() or 100, 120)
+        for i, o in ipairs(self.optionen) do
+            local e = menu.eintraege[i]
+            if not e then
+                e = CreateFrame("Button", nil, menu)
+                e:SetHeight(24)
+                e.bg = Form(e, 4, C.hover)
+                e.bg:SetShown(false)
+                e.text = Text(e, 13, C.tx, "LEFT")
+                e.text:SetPoint("LEFT", e, "LEFT", 10, 0)
+                e:SetScript("OnEnter", function(s) s.bg:SetShown(true) end)
+                e:SetScript("OnLeave", function(s) s.bg:SetShown(s.gewaehlt and true or false) end)
+                menu.eintraege[i] = e
+            end
+            e.wert = o.wert
+            e.gewaehlt = (o.wert == wahl)
+            e.bg:SetShown(e.gewaehlt)
+            e.text:SetText((o.farbe or "") .. (o.label or tostring(o.wert)) .. (o.farbe and "|r" or ""))
+            breite = math.max(breite, math.ceil(e.text:GetStringWidth()) + 28)
+            e:SetScript("OnClick", function(s)
+                zu()
+                if beiWahl then beiWahl(s.wert) end
+            end)
+        end
+        for i = #self.optionen + 1, #menu.eintraege do menu.eintraege[i]:Hide() end
+        for i = 1, #self.optionen do
+            local e = menu.eintraege[i]
+            e:SetWidth(breite - 8)
+            e:ClearAllPoints()
+            e:SetPoint("TOPLEFT", menu, "TOPLEFT", 4, -4 - (i - 1) * 24)
+            e:Show()
+        end
+        menu:SetSize(breite, 8 + #self.optionen * 24)
+    end
+
+    b:SetScript("OnClick", function(self)
+        if menu:IsShown() then zu() return end
+        if #self.optionen == 0 then return end
+        menu:ClearAllPoints()
+        menu:SetPoint("TOPRIGHT", self, "BOTTOMRIGHT", 0, -4)
+        fang:Show()
+        menu:Show()
+    end)
+    b.Schliessen = zu
+    return b
+end
+
 --- Schalter 32x18 (statt Kontrollkaestchen).
 function Stil.Schalter(eltern)
     local b = CreateFrame("Button", nil, eltern)
@@ -535,5 +648,13 @@ function Stil.Bildlauf(eltern, schritt)
     end
     return sf
 end
+
+-- Beim Anmelden die Schrift schon laden lassen (siehe Stil.SchriftVorladen)
+local vorlader = CreateFrame("Frame")
+vorlader:RegisterEvent("PLAYER_ENTERING_WORLD")
+vorlader:SetScript("OnEvent", function(self)
+    self:UnregisterEvent("PLAYER_ENTERING_WORLD")
+    pcall(Stil.SchriftVorladen)
+end)
 
 return ns

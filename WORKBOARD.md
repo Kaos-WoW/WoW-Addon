@@ -30,7 +30,14 @@ trägt sich hier ein.
 
 ## Erledigt, nicht committet
 
-Nichts. Alles bis zum 18.10.2026 ist committet. **Gepusht ist nur bis `7546594`**; die drei Commits danach (`0155fc7`, `e3de7ec`, Dokumentation) liegen nur lokal.
+Claude, 22.10.2026 (**ausgerollt, vom Nutzer im Spiel als „viel einfacher und sauberer“ bestätigt; committet, nicht gepusht**; die Punkte unten unter „Im Spiel prüfen lassen“ sind noch ohne Rückmeldung): **Bedienung der Gruppen vereinfacht** (Wertung und Zuteilung unverändert).
+- **Raid-ID:** Die Einteilung gilt einmal je Raid-ID (`Gruppen.IdStart(datum)` = letzter Wechseltag ≤ Datum, Standard Mittwoch, geteilte Einstellung `idWechsel`, Konfigzeile `I|`); die Schlüssel in `FairshareDB.einteilung` sind die Startdaten. `Anwesenheit.WochenTage` = die sieben Tage der Raid-ID (statt Mo–So). `tagOk` erlaubt 10 Tage zurück bis 35 voraus.
+- **Raidkader:** liest sich 25 s nach dem Anmelden von selbst ein (`Gruppen.RaidkaderAuto`); Rang geteilt (`raidkaderRang`, Konfigzeile `N|`); nach einer Übernahme geteilter Einstellungen wird neu eingelesen. Der Gruppen-Mitgliederabgleich (`AutoSynchronisieren`) läuft nicht mehr von selbst; seine Funktionen und die Raidtage je Gruppe bleiben im Code (Altdaten), sind aber nicht mehr in der Oberfläche.
+- **Fenster:** Reiter „Abwesenheit“ und „Einteilung“ nur mit Schreibrecht (`Gruppen.EinteilungDarf`; ist der eigene Rang noch unbekannt, bleiben sie offen); die Gruppen-Schaltfläche ist eine **Ausklappliste** (`Stil.Dropdown`): Spieler/Verlauf = Filter, Abwesenheit = aktive Gruppe, Einteilung = Ziel (Gruppen, Bench, Keine Meldung). Einteilung mit **zwei Listen** (links verfügbar = nur nirgends Zugewiesene, rechts in der Ziel-Rubrik; Knöpfe Hinzufügen/Verschieben/Entfernen; Rechtsklick entfällt); Raid-ID-Wahl statt Tagesliste; „Raid mitzeigen“ in der Abwesenheit entfällt (immer an). Prüfstand: `Fenster.GruppeWaehlen`, `EinteilungKlick`, `EinteilungReihenfolge` (zwei Listen), `ReiterSichtbar`, `AktuelleAnsicht`.
+- **Einstellungen → Gruppen:** nur noch Gruppen (anlegen/löschen), **Raidkader** (Ränge als kumulative Schalter, Knopf Synchronisieren) und **Raid-ID** (Wechsel-Wochentag). Die Karten „Aktive Gruppe“, „Gildenränge für den Kader“ und „Raidtage der Gruppe“ sind weg.
+- **Im Spiel prüfen lassen:** (1) das Zeichen ▾ im Ausklappknopf (fehlt die Glyph in Inter, erscheint ein Kästchen), (2) Zeilenaufteilung der zwei Listen bei 880 px Breite, (3) Werkzeugleiste der Einteilung (Einteilung senden · Raid-ID · Raidkader synchronisieren · Gruppe) auf Überlappung, (4) Reiter bei einem Spieler ohne Schreibrecht, (5) das Auto-Einlesen des Raidkaders nach dem Anmelden.
+- Frühere ungetestete Änderungen vom 18.10. (Schrift-Vorladen gegen das leere erste Öffnen; Spieler anderer Gruppen ausblenden) sind erledigt bzw. ersetzt; das Ausblenden über „Tage derselben ID“ ist durch die Raid-ID-Einteilung überflüssig.
+- **Gepusht ist nur bis `7546594`**; lokal liegen `0155fc7`, `e3de7ec`, `f2c45c6` und der Commit zum Umbau der Bedienung. Zusatzentscheid 22.10.2026: Wer irgendwo zugewiesen ist (Gruppe, Bench, Keine Meldung), erscheint in den anderen Rubriken nicht mehr.
 
 ## Übergabe (Stand 18.10.2026 abends)
 
@@ -44,8 +51,8 @@ Nichts. Alles bis zum 18.10.2026 ist committet. **Gepusht ist nur bis `7546594`*
 | (nächster) | Dokumentation (WORKBOARD, AGENTS, REGELWERK-ENTWURF) |
 
 **Tests (immer vor dem Commit laufen lassen):**
-`python luacheck.py Fairshare/*.lua` · `python tests/rechenkern.py` (447) · `python tests/szenarien.py` (56 Szenarien) ·
-`python tests/texte.py --streng` (740 Schlüssel) · danach `.\deploy.ps1` (rollt in `_classic_beta_` aus; Änderungen: `/reload`, neue Dateien: WoW-Neustart).
+`python luacheck.py Fairshare/*.lua` · `python tests/rechenkern.py` (447) · `python tests/szenarien.py` (57 Szenarien) ·
+`python tests/texte.py --streng` (720 Schlüssel) · danach `.\deploy.ps1` (rollt in `_classic_beta_` aus; Änderungen: `/reload`, neue Dateien: WoW-Neustart).
 Patches bisher als Python-Skripte im Scratchpad (CRLF erhalten, `python -X utf8 -I`); Lua-Text nie per Heredoc, sondern per Write-Werkzeug.
 
 **Im Spiel vom Nutzer bestätigt:** Regelwerk (Wertung, Zuschläge, Anhebung, Neuling, Gast, Rückgabe), Würfelfenster inkl. Passen und frühem
@@ -62,7 +69,8 @@ Einteilung, Abschluss je Gruppe, Gruppenwechsel = anderer Abend, schlanke Abwese
 - Im Raid = wer am **Abendende** in der Gruppe steht (nicht Boss-Quote); wer früher geht und kein Main-Item hatte, gilt als abwesend.
 - Abgemeldete werden **nirgends eingeteilt**: Wer im Raidkader steht und in der **Woche (Mo–So)** nirgends eingeteilt war, ist abgemeldet; Buchung per
   „Woche abschließen“, **zwei Zuschläge je Spieler**, Schnitt = Mittel der Gruppen-Schnitte je Abend-Nummer. „Keine Meldung“ ist ein Ziel der Einteilung.
-- Eine Gruppe hat **eigene Raidtage = eigene Raid-ID**; Raidleitung baut die Gruppen so, dass an beiden Tagen dieselben Spieler stehen, Teilzeit-Spieler kommen auf die Bank.
+- (seit 22.10.2026) Die Einteilung gilt **einmal je Raid-ID** (eine Woche ab einstellbarem Wechseltag, Standard Mittwoch); Raidleitung baut die Gruppen so, dass an beiden Tagen dieselben Spieler stehen, Teilzeit-Spieler kommen auf die Bank. Die Raidtage je Gruppe stehen nicht mehr in der Oberfläche.
+- Abwesenheit und Einteilung sieht nur, wer Schreibrecht hat (Gildenrang); alle anderen nur Spieler und Verlauf. Raidkader automatisch beim Anmelden, Rang geteilt.
 - **Stufe 1 und 2 sind die Wurzel des Vertrauens** (dürfen immer senden/einteilen/buchen); die Rangstufe ändern nur sie; andere sehen geteilte Einstellungen nur lesend.
 - Verworfen: automatische Umteilung/Warnung, wenn jemand in einer anderen Gruppe raidet als eingeteilt (Raidleitung organisiert vorher).
 - Fenster-Mindestbreite 880.

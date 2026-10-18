@@ -160,6 +160,8 @@ function Konfig.Sammeln()
         ort = d.ort or "raid",
         konfigRang = Konfig.RangGrenze(),
         verzauberer = kopie(ns.Wurf.Verzauberer()),
+        raidkaderRang = ns.Gruppen.RaidkaderRang(),
+        idWechsel = ns.Gruppen.IdWechsel(),
         gruppen = {},
     }
     for _, name in ipairs(ns.Gruppen.Namen()) do
@@ -203,6 +205,8 @@ function Konfig.Kodieren(s)
     z[#z + 1] = "Q|" .. s.mindestQualitaet
     z[#z + 1] = "O|" .. s.ort
     z[#z + 1] = "R|" .. s.konfigRang
+    if s.raidkaderRang then z[#z + 1] = "N|" .. s.raidkaderRang end         -- Raidkader bis zu diesem Rang
+    if s.idWechsel then z[#z + 1] = "I|" .. s.idWechsel end                  -- Wochentag, an dem die Raid-ID wechselt
 
     local v = {}
     for _, n in ipairs(s.verzauberer) do
@@ -270,6 +274,12 @@ function Konfig.Dekodieren(zeilen)
                     if tage:sub(wd, wd) == "1" then g.raidtage[wd] = true end
                 end
             end
+        elseif typ == "N" then
+            local r = tonumber(rest)
+            if r and r >= 0 and r <= 50 then s.raidkaderRang = math.floor(r) end
+        elseif typ == "I" then
+            local w = tonumber(rest)
+            if w and w >= 1 and w <= 7 then s.idWechsel = math.floor(w) end
         elseif typ == "V" then
             for n in rest:gmatch("[^,]+") do
                 if gueltigerName(n) and #s.verzauberer < 8 then s.verzauberer[#s.verzauberer + 1] = n end
@@ -328,6 +338,8 @@ function Konfig.Anwenden(s, ohneSicherung)
     d.mindestQualitaet, d.ort = s.mindestQualitaet, s.ort
     if s.konfigRang then d.konfigRang = s.konfigRang end      -- nur, wenn ein berechtigter Absender sie mitgeschickt hat
     d.verzauberer = kopie(s.verzauberer)
+    if s.raidkaderRang then d.raidkaderRang = s.raidkaderRang end           -- ältere Absender kennen beides nicht
+    if s.idWechsel then d.idWechsel = s.idWechsel end
 
     -- Gruppen: die der Gildenleitung. Den verwalteten Kader behaelt jeder selbst
     -- (er wird gleich aus den Gildenraengen neu gebildet).
@@ -353,6 +365,7 @@ function Konfig.Anwenden(s, ohneSicherung)
     if d.aktiveGruppe and not neu[d.aktiveGruppe] then d.aktiveGruppe = nil end
 
     if C_Timer then
+        C_Timer.After(3, function() pcall(ns.Gruppen.RaidkaderAuto) end)     -- Raidkader mit dem neuen Rang einlesen
         C_Timer.After(2, function()
             for name, G in pairs(db().gruppen or {}) do
                 local hat = false

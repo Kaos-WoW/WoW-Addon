@@ -458,6 +458,14 @@ function Gruppen.RaidkaderSync(bisRang)
     return #liste
 end
 
+--- Liest den Raidkader still ein, wenn ein Rang gewaehlt ist (beim Anmelden und nach neuen geteilten Einstellungen).
+function Gruppen.RaidkaderAuto()
+    if db().raidkaderRang == nil then return false end
+    local n = Gruppen.RaidkaderSync()
+    if n and ns.Fenster and ns.Fenster.Sichtbar and ns.Fenster.Sichtbar() then ns.Fenster.Aktualisieren() end
+    return n and true or false
+end
+
 --- Der eingelesene Raidkader: Liste aus { name, rang, rangIndex } (leer, wenn noch nicht eingelesen).
 function Gruppen.Raidkader()
     local r = db().raidkader
@@ -465,6 +473,51 @@ function Gruppen.Raidkader()
 end
 
 local TAG = 86400
+
+-- ---------------------------------------------------------------------
+--  ⭐ Raid-ID (Entscheid 22.10.2026): Die Einteilung gilt einmal je Raid-ID statt je Tag. Die ID wechselt an einem
+--  einstellbaren Wochentag (Standard Mittwoch, geteilte Einstellung); ihr Schlüssel ist das Datum ihres ersten Tages.
+-- ---------------------------------------------------------------------
+
+--- Der Wochentag (Lua: 1 = Sonntag … 7 = Samstag), an dem eine neue Raid-ID beginnt. Standard: Mittwoch.
+function Gruppen.IdWechsel()
+    local w = tonumber(db().idWechsel)
+    return (w and w >= 1 and w <= 7) and math.floor(w) or 4
+end
+
+function Gruppen.IdWechselSetzen(wday)
+    wday = tonumber(wday)
+    if not wday or wday < 1 or wday > 7 then return false end
+    db().idWechsel = math.floor(wday)
+    return true
+end
+
+--- Das Datum (JJJJ-MM-TT) des ersten Tages der Raid-ID, in der `datum` liegt.
+function Gruppen.IdStart(datum)
+    local y, m, d = tostring(datum):match("^(%d+)-(%d+)-(%d+)$")
+    if not y then return datum end
+    local t = time({ year = tonumber(y), month = tonumber(m), day = tonumber(d), hour = 12 })
+    local wd = date("*t", t).wday
+    local zurueck = (wd - Gruppen.IdWechsel()) % 7
+    return date("%Y-%m-%d", t - zurueck * TAG)
+end
+
+--- Die Raid-IDs, an denen man arbeitet: diese und die nächste. @return Liste aus { datum (Schlüssel), label }
+function Gruppen.IdListe()
+    local jetzt = time()
+    local liste = {}
+    for i = 0, 1 do
+        local start = Gruppen.IdStart(date("%Y-%m-%d", jetzt + i * 7 * TAG))
+        local y, m, d = start:match("^(%d+)-(%d+)-(%d+)$")
+        local t = time({ year = tonumber(y), month = tonumber(m), day = tonumber(d), hour = 12 })
+        liste[#liste + 1] = {
+            datum = start,
+            label = string.format(i == 0 and L["Diese ID (ab %s)"] or L["Nächste ID (ab %s)"],
+                Gruppen.RaidtagName(date("*t", t).wday) .. " " .. date(L["%d.%m."], t)),
+        }
+    end
+    return liste
+end
 
 --- Das Datum (JJJJ-MM-TT) von heute plus `tage`.
 function Gruppen.EinteilungTag(tage)
@@ -489,7 +542,7 @@ end
 --- In welcher Gruppe ist der Spieler an diesem Tag?
 --  @return Gruppenname, Eintrag  oder nil (nicht eingeteilt)
 function Gruppen.EinteilungVon(datum, name)
-    local T = einteilungen()[datum]
+    local T = einteilungen()[Gruppen.IdStart(datum)]
     local k = Kern.Schluessel(name)
     local e = T and k and T[k]
     if e and e.gruppe and e.gruppe ~= "" then return e.gruppe, e end
@@ -583,7 +636,7 @@ end
 --- Die Namen, die an diesem Tag in dieser Gruppe eingeteilt sind (alphabetisch).
 function Gruppen.EinteilungListe(datum, gruppe)
     local liste = {}
-    for _, e in pairs(einteilungen()[datum] or {}) do
+    for _, e in pairs(einteilungen()[Gruppen.IdStart(datum)] or {}) do
         if e.gruppe == gruppe then liste[#liste + 1] = e.name end
     end
     table.sort(liste, function(a, b) return a:lower() < b:lower() end)
@@ -597,7 +650,7 @@ end
 
 --- Gibt es fuer diesen Tag ueberhaupt eine Einteilung (in irgendeiner Gruppe)?
 function Gruppen.EinteilungVorhanden(datum)
-    for _, e in pairs(einteilungen()[datum] or {}) do
+    for _, e in pairs(einteilungen()[Gruppen.IdStart(datum)] or {}) do
         if e.gruppe and e.gruppe ~= "" then return true end
     end
     return false
@@ -613,7 +666,7 @@ end
 
 local function tagOk(datum)
     if type(datum) ~= "string" or not datum:match("^%d%d%d%d%-%d%d%-%d%d$") then return false end
-    return datum >= date("%Y-%m-%d", time() - 3 * TAG) and datum <= date("%Y-%m-%d", time() + 21 * TAG)
+    return datum >= date("%Y-%m-%d", time() - 10 * TAG) and datum <= date("%Y-%m-%d", time() + 35 * TAG)
 end
 
 local function gruppeOk(g)
@@ -628,6 +681,7 @@ end
 local function einteilungEinsetzen(datum, name, gruppe, zeit, von)
     local k = Kern.Schluessel(name)
     if not k then return false end
+    datum = Gruppen.IdStart(datum)
     local T = einteilungen()
     T[datum] = T[datum] or {}
     local alt = T[datum][k]
@@ -641,6 +695,7 @@ end
 --- Eine Meldung `T;<Datum>;<Urheber>;<Name>|<Gruppe>|<Zeit>~<Name>|<Gruppe>|<Zeit>…` an die Gilde und die Gruppe.
 --  @param schluessel  Liste der Spielerschluessel dieses Tages (nil = alle)
 function Gruppen.EinteilungSenden(datum, schluessel)
+    datum = Gruppen.IdStart(datum)
     local T = einteilungen()[datum]
     if not T or not ns.Abgleich or not ns.Abgleich.Senden then return false end
     local von = ichName()
@@ -689,6 +744,7 @@ function Gruppen.EinteilungSetzen(datum, name, gruppe, von)
     end
 
     local k = Kern.Schluessel(name)
+    datum = Gruppen.IdStart(datum)
     local alt = einteilungen()[datum] and einteilungen()[datum][k]
     local zeit = time()
     if alt and (alt.zeit or 0) >= zeit then zeit = alt.zeit + 1 end     -- immer juenger als der eigene alte Eintrag
@@ -752,7 +808,8 @@ rahmen:SetScript("OnEvent", function(self)
     self:UnregisterEvent("PLAYER_ENTERING_WORLD")
     -- Die Gildenliste braucht einen Moment.
     if C_Timer then
-        C_Timer.After(20, function() pcall(Gruppen.AutoSynchronisieren) end)
+        -- ⭐ Der Raidkader wird beim Anmelden von selbst eingelesen (Rang als geteilte Einstellung, Entscheid 22.10.2026)
+        C_Timer.After(25, function() pcall(Gruppen.RaidkaderAuto) end)
     end
 end)
 

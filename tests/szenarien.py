@@ -345,8 +345,7 @@ g["__klick"]("Gruppen")
 ns.Gruppen.Anlegen("40er"); ns.Gruppen.Anlegen("10er")
 ns.Einstellungen.Aktualisieren()
 fest(len(list(g["__text"]("40er").values())) > 0, "Gruppenliste zeigt die neue Gruppe")
-fest(g["__klick"]("Aktivieren") is True, "Gruppe aktivieren")
-fest(len(list(g["__text"]("Aktive Gruppe: 10er").values())) > 0 or len(list(g["__text"]("Aktive Gruppe: 40er").values())) > 0, "Karte der aktiven Gruppe erscheint")
+fest(len(list(g["__text"]("Raidkader").values())) > 0 and len(list(g["__text"]("Neue Raid-ID beginnt am").values())) > 0, "Karten Raidkader und Raid-ID erscheinen")
 fest(g["__klick"]("Löschen") is True, "Loeschen: erster Klick fragt")
 fest(len(list(g["__text"]("Wirklich löschen").values())) > 0, "zweiter Klick loescht wirklich")
 g["__klick"]("Wirklich löschen")
@@ -358,11 +357,12 @@ keinFehler("Einstellungen")
 
 ns.Gruppen.Anlegen("40er"); ns.Gruppen.Anlegen("10er")
 ns.Fenster.Aktualisieren()
-fest(g["__klick"]("Gruppe: Alle") is True, "Gruppenfilter: Alle -> erste")
-fest(len(list(g["__text"]("Gruppe: 10er").values())) > 0, "Filter steht auf 10er (alphabetisch erste)")
-g["__klick"]("Gruppe: 10er")
+fest(len(list(g["__text"]("Gruppe: Alle").values())) > 0, "Ausklappliste steht auf Alle")
+ns.Fenster.GruppeWaehlen("10er")
+fest(len(list(g["__text"]("Gruppe: 10er").values())) > 0, "Filter steht auf 10er")
+ns.Fenster.GruppeWaehlen("40er")
 fest(len(list(g["__text"]("Gruppe: 40er").values())) > 0, "Filter steht auf 40er")
-g["__klick"]("Gruppe: 40er")
+ns.Fenster.GruppeWaehlen("")
 fest(len(list(g["__text"]("Gruppe: Alle").values())) > 0, "Filter wieder auf Alle")
 g["__klick"]("Abgleichen")
 g["__klick"]("Beispiel")
@@ -3015,7 +3015,11 @@ sl0("einteilung")
 w.weiter(1)
 fest(ns0.Fenster.Sichtbar() is True, "/fs einteilung oeffnet das Fenster")
 fest(g0["__klick"]("Raidkader synchronisieren") is True, "Knopf Raidkader synchronisieren laeuft")
-fest(g0["__klick"]("Heute") is True and g0["__klick"]("Morgen") is True, "Tag umschalten geht (Heute <-> Morgen)")
+ids_ = list(ns0.Gruppen.IdListe().values())
+fest(len(ids_) == 2 and len(list(g0["__text"]("Diese ID").values())) > 0, "die Einteilung zeigt die laufende Raid-ID")
+ns0.Fenster.TagWaehlen(str(ids_[1]["datum"]))
+fest(len(list(g0["__text"]("Nächste ID").values())) > 0, "und die nächste Raid-ID lässt sich wählen")
+ns0.Fenster.TagWaehlen(str(ids_[0]["datum"]))
 fest(g0["__klick"]("Einteilung senden") is True, "Knopf Einteilung senden laeuft")
 sl0("raidkader 3")
 sl0("einteilung status")
@@ -3031,7 +3035,7 @@ fest(sichtbar("vergessen") == 0 and sichtbar("abmeld") == 0, "und keine Knoepfe 
 sl0("einteilung")
 fest(sichtbar("teil") > 0 and sichtbar("unent") == 0 and sichtbar("abmeld") == 0, "und wieder zurueck")
 
-# Reihenfolge in der Einteilung: Eingeteilte oben, nach Gruppen sortiert, Nicht-Eingeteilte unten
+# Zwei Listen (Entscheid 22.10.2026): links verfuegbar, rechts in der Gruppe; ein Spieler steht nur in einer Gruppe
 w9 = welt36()
 m9 = w9.clients[0]["ns"]
 m9.Gruppen.Anlegen("20er")
@@ -3056,28 +3060,57 @@ tag9 = str(m9.Gruppen.EinteilungTag(0))
 for name, ziel in (("Zora", "40er"), ("Timo", "20er"), ("Lina", "40er"), ("Moe", "20er"), ("Protti", "Bench")):
     tup(m9.Gruppen.EinteilungSetzen(tag9, name, ziel, "System"))
 w9.clients[0]["g"]["SlashCmdList"]["FAIRSHARE"]("einteilung")
-reihe = m9.Fenster.EinteilungReihenfolge()
-namen9 = [str(x["name"]) + ":" + str(x["gruppe"]) for x in reihe.values()]
-fest(namen9 == ["Moe:20er", "Timo:20er", "Lina:40er", "Zora:40er", "Protti:Bench", "Leiter Kaos:None"],
-     "Eingeteilte oben, Gruppe fuer Gruppe, die Bench danach, wer nirgends steht ganz unten (%s)" % (namen9,))
+def zwei(reihe):
+    return ([str(x["name"]) + ":" + str(x["gruppe"]) for x in reihe["verfuegbar"].values()],
+            [str(x["name"]) + ":" + str(x["gruppe"]) for x in reihe["drin"].values()])
+m9.Fenster.GruppeWaehlen("20er")
+links, rechts = zwei(m9.Fenster.EinteilungReihenfolge())
+fest(rechts == ["Moe:20er", "Timo:20er"], "rechts steht, wer in 20er ist (%s)" % (rechts,))
+fest(links == ["Leiter Kaos:None"],
+     "links: nur wer nirgends zugewiesen ist; Gruppen-, Bench- und Keine-Meldung-Spieler fehlen (%s)" % (links,))
+m9.Fenster.GruppeWaehlen("40er")
+links, rechts = zwei(m9.Fenster.EinteilungReihenfolge())
+fest(rechts == ["Lina:40er", "Zora:40er"], "Ziel 40er: rechts Lina und Zora (%s)" % (rechts,))
+fest(links == ["Leiter Kaos:None"], "und links wieder nur die Freien (%s)" % (links,))
+m9.Fenster.GruppeWaehlen("Bench")
+links, rechts = zwei(m9.Fenster.EinteilungReihenfolge())
+fest(rechts == ["Protti:Bench"], "Ziel Bench: rechts Protti (%s)" % (rechts,))
+fest(links == ["Leiter Kaos:None"],
+     "links: wer in einer Gruppe steht, ist auch für die Bench nicht verfügbar (%s)" % (links,))
+m9.Fenster.GruppeWaehlen("Keine Meldung")
+links, rechts = zwei(m9.Fenster.EinteilungReihenfolge())
+fest(links == ["Leiter Kaos:None"] and rechts == [],
+     "und für Keine Meldung ebenso (%s / %s)" % (links, rechts))
 
-# Ist eine Gruppe als Ziel gewaehlt, stehen Spieler anderer Gruppen nicht zur Wahl (Wunsch 18.10.2026)
-fest(w9.clients[0]["g"]["__klick"]("Gruppe: Alle") is True, "Gruppen-Knopf in der Einteilung")       # erstes Ziel: 20er
-reihe = m9.Fenster.EinteilungReihenfolge()
-namen9 = [str(x["name"]) + ":" + str(x["gruppe"]) for x in reihe.values()]
-fest(namen9 == ["Moe:20er", "Timo:20er", "Protti:Bench", "Leiter Kaos:None"],
-     "Ziel 20er: die Spieler von 40er sind ausgeblendet, Bench und Nicht-Eingeteilte bleiben (%s)" % (namen9,))
+# Die Knoepfe: Hinzufuegen links, Entfernen rechts; die Bench-Spieler lassen sich einer Gruppe zuweisen
+m9.Fenster.GruppeWaehlen("20er")
+fest(m9.Fenster.EinteilungKlick("Protti") is None, "Protti (Bench) ist für 20er nicht verfügbar")
+m9.Fenster.GruppeWaehlen("Bench")
+fest(str(m9.Fenster.EinteilungKlick("Protti")) == "entf", "er wird rechts bei der Bench entfernt")
+m9.Fenster.GruppeWaehlen("20er")
+fest(str(m9.Fenster.EinteilungKlick("Protti")) == "hinzu", "und ist danach frei: ein Klick holt ihn in 20er")
+fest(ev(m9, tag9, "Protti") == "20er", "und er steht danach in 20er")
+links, rechts = zwei(m9.Fenster.EinteilungReihenfolge())
+fest("Protti:20er" in rechts and not any(x.startswith("Protti") for x in links), "Protti steht jetzt nur rechts (%s / %s)" % (links, rechts))
+fest(str(m9.Fenster.EinteilungKlick("Timo")) == "entf", "Entfernen rechts nimmt Timo wieder heraus")
+fest(ev(m9, tag9, "Timo") is None, "Timo ist nirgends eingeteilt")
+fest(str(m9.Fenster.EinteilungKlick("Timo")) == "hinzu", "und taucht links als frei wieder auf")
+# Ein Spieler kann nie in zwei Gruppen stehen: in 40er ist Moe (20er) gar nicht zu sehen
+m9.Fenster.GruppeWaehlen("40er")
+links, rechts = zwei(m9.Fenster.EinteilungReihenfolge())
+fest(not any(x.startswith("Moe") for x in links + rechts), "wer in 20er steht, ist fuer 40er nicht verfuegbar (%s / %s)" % (links, rechts))
+fest(m9.Fenster.EinteilungKlick("Moe") is None, "und laesst sich dort auch nicht anklicken")
 
-# Rechtsklick auf den Namen nimmt den Spieler aus der Gruppe (egal welche gewaehlt ist)
+# Der Klick auf einen Spieler in der Einteilung aendert die Einteilung der Raid-ID (auch bei den anderen)
 tup(ns0.Gruppen.EinteilungSetzen(heute, "Lina", "40er"))
-ns0.Fenster.Aktualisieren()
+ns0.Fenster.GruppeWaehlen("40er")
 fest(ev(ns0, heute, "Lina") == "40er", "Lina ist in 40er")
-ns0.Fenster.ZeileKlick("Lina", "LeftButton")
-fest(ev(ns0, heute, "Lina") == "40er", "ein Linksklick auf den Namen aendert nichts")
-fest(ns0.Fenster.ZeileKlick("Lina", "RightButton") is True, "Rechtsklick auf den Namen")
-fest(ev(ns0, heute, "Lina") is None, "Lina ist nicht mehr eingeteilt (Wunsch 18.10.2026)")
+fest(str(ns0.Fenster.EinteilungKlick("Lina")) == "entf", "Entfernen rechts")
+fest(ev(ns0, heute, "Lina") is None, "Lina ist nicht mehr eingeteilt")
 w.weiter(5)
 fest(ev(w.clients[1]["ns"], heute, "Lina") is None, "und das erfahren auch die anderen")
+# (Lina steht in diesem Szenario nicht im Raidkader: nach dem Entfernen ist sie aus beiden Listen verschwunden.)
+fest(ns0.Fenster.EinteilungKlick("Lina") is None, "wer nicht im Raidkader steht, ist nach dem Entfernen nicht mehr in den Listen")
 ns0.Fenster.Verstecken()
 
 print("== 49. „Fairshare nutzen?“: nur der Plündermeister wird gefragt, alle anderen uebernehmen (Wunsch 17.10.2026) ==")
@@ -3224,13 +3257,13 @@ tup(ns0.Gruppen.EinteilungSetzen(heute, "Moe", "Gruppe 1", "System"))
 liste = [str(e["name"]) for e in tup3(ns0.Anwesenheit.KandidatenListe(None, True))[0].values()]
 fest(len(liste) == 0, "ohne gewaehlte Gruppe wird niemand erwartet (%s)" % (liste,))
 g0["SlashCmdList"]["FAIRSHARE"]("bank")
-fest(g0["__klick"]("Gruppe: keine") is True, "der Gruppen-Knopf in der Abwesenheit klickt")
-fest(str(ns0.Gruppen.AktivName()) == "20er", "erster Klick aktiviert die erste Gruppe (%s)" % (ns0.Gruppen.AktivName(),))
+fest(len(list(g0["__text"]("Gruppe: keine").values())) > 0, "ohne aktive Gruppe steht „keine“ in der Ausklappliste")
+ns0.Fenster.GruppeWaehlen("20er")
+fest(str(ns0.Gruppen.AktivName()) == "20er", "die Wahl aktiviert die Gruppe (%s)" % (ns0.Gruppen.AktivName(),))
 liste = sorted(str(e["name"]).lower() for e in tup3(ns0.Anwesenheit.KandidatenListe(None, True))[0].values())
 fest(liste == ["protti"], "Gruppe 20er erwartet nur ihre Eingeteilten (%s)" % (liste,))
-g0["__klick"]("Gruppe: 20er")
-g0["__klick"]("Gruppe: 40er")
-fest(str(ns0.Gruppen.AktivName()) == "Gruppe 1", "weitere Klicks: naechste Gruppe (%s)" % (ns0.Gruppen.AktivName(),))
+ns0.Fenster.GruppeWaehlen("Gruppe 1")
+fest(str(ns0.Gruppen.AktivName()) == "Gruppe 1", "die andere Gruppe waehlen (%s)" % (ns0.Gruppen.AktivName(),))
 liste = sorted(str(e["name"]).lower() for e in tup3(ns0.Anwesenheit.KandidatenListe(None, True))[0].values())
 fest(liste == ["moe"], "Gruppe 1 erwartet nur ihre Eingeteilten (%s)" % (liste,))
 ns0.Fenster.Verstecken()
@@ -3369,6 +3402,63 @@ fest(abs(zuschlag_von(w, 0, "protti") - vorher) < 1e-9, "die gebuchte Wertung bl
 fest(abs(zuschlag_von(w, 1, "protti") - vorher) < 1e-9, "auch bei den Mitspielern")
 r = tup(n0.Anwesenheit.AbendNeuBeginnen("System"))
 fest(r[0] is None, "ohne abgeschlossenen Abend gibt es nichts zu verlassen (%s)" % (r[1],))
+
+print("== 57. Raid-ID: eine Einteilung je ID, der Wechseltag ist einstellbar, Reiter nur mit Schreibrecht (Entscheid 22.10.2026) ==")
+w = welt36()
+n0, l0, g0 = w.clients[0]["ns"], w.clients[0]["lua"], w.clients[0]["g"]
+n0.Gruppen.Anlegen("20er")
+for c_ in w.clients:
+    c_["lua"].execute("""
+__gilde = {
+  [1] = { name = "Leiter Kaos", guildRank = "Gildenleiter", guildRankOrder = 1 },
+  [2] = { name = "Timo", guildRank = "Raider", guildRankOrder = 3 },
+  [3] = { name = "Lina", guildRank = "Rekrut", guildRankOrder = 5 },
+  [4] = { name = "Protti", guildRank = "Raider", guildRankOrder = 3 },
+}
+C_Club = {
+  GetGuildClubId = function() return 1 end,
+  GetClubMembers = function() local t = {} for id in pairs(__gilde) do t[#t + 1] = id end table.sort(t) return t end,
+  GetMemberInfo = function(club, id) return __gilde[id] end,
+}
+""")
+# Wechseltag Mittwoch (Standard): 21.10.2026 ist ein Mittwoch
+fest(int(n0.Gruppen.IdWechsel()) == 4, "Standard-Wechseltag ist Mittwoch")
+fest(str(n0.Gruppen.IdStart("2026-10-21")) == "2026-10-21", "der Mittwoch beginnt eine Raid-ID")
+fest(str(n0.Gruppen.IdStart("2026-10-20")) == "2026-10-14", "der Dienstag davor gehoert zur alten ID")
+fest(str(n0.Gruppen.IdStart("2026-10-27")) == "2026-10-21", "der Dienstag danach gehoert noch zu ihr")
+fest(str(n0.Gruppen.IdStart("2026-10-28")) == "2026-10-28", "der naechste Mittwoch beginnt die naechste")
+fest(tup(n0.Gruppen.IdWechselSetzen(2))[0] is True and str(n0.Gruppen.IdStart("2026-10-20")) == "2026-10-19",
+     "Wechseltag Montag: der Dienstag gehoert zur ID ab Montag")
+n0.Gruppen.IdWechselSetzen(4)
+# Ein Eintrag gilt fuer die ganze ID, an welchem Tag man ihn auch setzt
+heute57 = str(n0.Gruppen.EinteilungTag(0))
+start57 = str(n0.Gruppen.IdStart(heute57))
+r57 = tup(n0.Gruppen.EinteilungSetzen(heute57, "Timo", "20er", "System"))
+fest(r57[0] is True, "Timo einteilen (%s)" % (r57,))
+fest(ev(n0, start57, "Timo") == "20er", "am ersten Tag der ID ist Timo in 20er")
+fest(ev(n0, heute57, "Timo") == "20er", "und heute ebenso")
+# Die Raid-ID-Tage haengen zusammen: die Woche der Abschluesse sind die sieben Tage ab dem Wechseltag
+tage57 = [str(x) for x in n0.Anwesenheit.WochenTage(heute57).values()]
+fest(len(tage57) == 7 and tage57[0] == start57, "die Tage der ID beginnen am Wechseltag (%s)" % (tage57,))
+# Geteilt: der Wechseltag und der Rang reisen mit den Einstellungen
+n0.Gruppen.IdWechselSetzen(5)
+n0.Gruppen.RaidkaderRangSetzen(3)
+n0.Konfig.Senden()
+w.weiter(8)
+fest(int(w.clients[1]["ns"].Gruppen.IdWechsel()) == 5, "der Wechseltag kommt bei den anderen an")
+fest(w.clients[1]["ns"].Gruppen.RaidkaderRang() is not None and int(w.clients[1]["ns"].Gruppen.RaidkaderRang()) == 3, "der Raidkader-Rang ebenso")
+n0.Gruppen.IdWechselSetzen(4)
+# Reiter: Abwesenheit und Einteilung nur mit Schreibrecht
+g0["SlashCmdList"]["FAIRSHARE"]("einteilung")
+fest(n0.Fenster.ReiterSichtbar("einteilung") is True and n0.Fenster.ReiterSichtbar("bank") is True, "die Gildenleitung sieht Einteilung und Abwesenheit")
+c2 = w.clients[2]
+c2["g"]["SlashCmdList"]["FAIRSHARE"]("einteilung")
+fest(c2["ns"].Fenster.ReiterSichtbar("einteilung") is False and c2["ns"].Fenster.ReiterSichtbar("bank") is False,
+     "ein Raider sieht nur Spieler und Verlauf")
+fest(c2["ns"].Fenster.ReiterSichtbar("liste") is True and c2["ns"].Fenster.ReiterSichtbar("verlauf") is True, "die beiden bleiben")
+fest(str(c2["ns"].Fenster.AktuelleAnsicht()) == "liste", "und /fs einteilung landet bei ihm in der Spielerliste")
+n0.Fenster.Verstecken()
+c2["ns"].Fenster.Verstecken()
 
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")

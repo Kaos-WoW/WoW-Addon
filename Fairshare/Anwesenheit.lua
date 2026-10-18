@@ -1375,15 +1375,14 @@ end
 --  bewusst mit einem Knopf, nachdem alle Gruppenabende der Woche abgeschlossen sind (`/fs woche`).
 -- =====================================================================
 
---- Die sieben Tage (JJJJ-MM-TT) der Woche, in der `datum` liegt, Montag bis Sonntag.
+--- Die sieben Tage (JJJJ-MM-TT) der **Raid-ID**, in der `datum` liegt (vom Wechseltag an, Entscheid 22.10.2026).
 function Anwesenheit.WochenTage(datum)
-    local y, m, d = tostring(datum):match("^(%d+)-(%d+)-(%d+)$")
+    local start = ns.Gruppen.IdStart(datum)
+    local y, m, d = tostring(start):match("^(%d+)-(%d+)-(%d+)$")
     if not y then return {} end
     local t = time({ year = tonumber(y), month = tonumber(m), day = tonumber(d), hour = 12 })
-    local wd = date("*t", t).wday                 -- 1 = Sonntag
-    local seitMontag = (wd + 5) % 7
     local tage = {}
-    for i = 0, 6 do tage[#tage + 1] = date("%Y-%m-%d", t + (i - seitMontag) * 86400) end
+    for i = 0, 6 do tage[#tage + 1] = date("%Y-%m-%d", t + i * 86400) end
     return tage
 end
 

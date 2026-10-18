@@ -151,7 +151,7 @@ tinsert = table.insert
 UNKNOWN = "Unbekannt"
 
 date = os.date
-time = function() return __jetzt() end
+time = function(tab) if tab then return os.time(tab) end return __jetzt() end   -- time({Tabelle}) rechnet wie im Spiel
 GetServerTime = time
 InCombatLockdown = function() return false end
 
