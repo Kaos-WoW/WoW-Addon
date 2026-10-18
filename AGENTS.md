@@ -62,7 +62,7 @@ das nur liest, weder Haupt/Zweit noch Gruppen noch Abgleich leisten kann.
 | `Einstellungen.lua` | das Einstellungsfenster (Karten und Zeilen, drei Seiten) | ja |
 | `Fenster.lua` | die Übersicht im KaosUI-Look: Liste, Verlauf, Abwesenheit, Spielerdetail, Wurf-Modus | ja |
 | `Befehle.lua` | `/fs` | ja |
-| `Tests.lua` | Prüfstand für `Kern.lua` und `Anwesenheit.lua` (447 Prüfungen); dazu `tests/szenarien.py` (57 Szenarien) | **nein** |
+| `Tests.lua` | Prüfstand für `Kern.lua` und `Anwesenheit.lua` (447 Prüfungen); dazu `tests/szenarien.py` (59 Szenarien) | **nein** |
 
 Alles Rechnerische steht in `Kern.lua` und wird dort getestet. Jede
 Auswertung nimmt die Historie **als Parameter**, dadurch laufen Beispieldaten
@@ -129,7 +129,7 @@ Speziell für die Gilde **Resurrected** (Thunderstrike EU) entwickeltes Regelwer
 
 ### Technischer Ablauf & UI-Architektur
 
-* **Reiter „Abwesenheit“ (Stand 18.10.2026):**
+* **Reiter „Abwesenheit“ (Stand 22.10.2026; nur mit Schreibrecht sichtbar):**
   - Zeigt **nur die Eingeteilten der aktiven Gruppe plus die Bench** des Tages (Einteilung von heute; ohne Einteilung der Gruppenkader), mit Online-Status, Knöpfen `[Bench]` (bei Bench-Spielern „✓ Bench“: Klick holt in die aktive Gruppe) und `[Unexc.]` sowie Protokollzeile. **Absent, No notice und „Alle Offenen“ gibt es hier nicht mehr** (Abgemeldete ergeben sich aus der Einteilung, „Keine Meldung“ ist ein Ziel der Einteilung; die Befehle `/fs abmeldung`, `/fs vergessen` bleiben).
   - Die Ausklappliste wählt die **aktive Gruppe**; ein Wechsel ist ein anderer Abend. Knopf **`[Abend abschließen]`** mit 8-sekündiger Bestätigung (`/fs abschluss [ja]`), **Offene** (eingeteilt, nicht im Raid, nichts eingetragen) **verhindern den Abschluss**.
   - Beim Abschluss: Zuschläge in `FairshareDB.zuschlaege`, Archivierung in `FairshareDB.abende`. **`[Neuen Abend beginnen]`** blendet den abgeschlossenen Abend lokal aus (Wertungen bleiben); **`[Abend wiedereröffnen]`** (`/fs abschluss wiedereröffnen`) macht den Abschluss samt Zuschlägen rückgängig.
@@ -214,6 +214,7 @@ Addon-Nachrichten, Präfix `FSHARE`, Takt 0,25 s (Blizzards Drosselung).
 | Typ | Inhalt | Wer darf senden |
 |---|---|---|
 | `H` | Hallo: Version, Anzahl, Prüfsumme der Einträge, **Anzahl und Prüfsumme des Datenbuchs** (`H;3;n;summe;bn;bsumme`) | jeder in der Gruppe |
+| `V` | **Leitungs-Abgleich:** derselbe Stand wie im Hallo, aber **über die Gilde**; nur Berechtigte senden und beachten ihn (siehe „Leitungs-Abgleich“ unten). `Q/Y/N/M/D/E` laufen dabei als **Flüstern** zwischen Berechtigten | Spieler mit Schreibrecht |
 | `Y` | **Datenbuch:** Liste des Leiters (`a:Abend@rev`, `h:Kennung`), wie `Q` | Plündermeister, Leiter, Assistent |
 | `M` | **Datenbuch:** „das fehlt mir" (Liste), wie `N` | jeder in Gruppe und Gilde |
 | `D` | **Datenbuch:** Sätze (Zeilen `a`/`s`/`h`). Sitzung `0` = live (nur Berechtigte: Leiter/Assistent/Plündermeister oder `Konfig.Darf`) | jeder in Gruppe und Gilde |
