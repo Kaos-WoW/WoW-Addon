@@ -142,7 +142,7 @@ end
 
 local function kopie(liste)
     local aus = {}
-    for i, x in ipairs(liste or {}) do aus[i] = x end
+    for k, x in pairs(liste or {}) do aus[k] = x end
     return aus
 end
 
@@ -161,6 +161,7 @@ function Konfig.Sammeln()
         konfigRang = Konfig.RangGrenze(),
         verzauberer = kopie(ns.Wurf.Verzauberer()),
         raidkaderRang = ns.Gruppen.RaidkaderRang(),
+        raidkaderRaenge = kopie(ns.Gruppen.RaidkaderRaenge()),
         idWechsel = ns.Gruppen.IdWechsel(),
         resetZeit = ns.Erfassung.ResetZeit(),
         gruppen = {},
@@ -175,7 +176,7 @@ function Konfig.Sammeln()
             for wd = 1, 7 do
                 if ns.Gruppen.RaidtagGewaehlt(name, wd) then tage[wd] = true end
             end
-            s.gruppen[name] = { auto = G.auto ~= false, raenge = raenge, extra = kopie(G.extra), raidtage = tage }
+            s.gruppen[name] = { auto = G.auto ~= false, raenge = raenge, extra = kopie(G.extra), raidtage = tage, groesse = ns.Gruppen.Groesse(name) }
         end
     end
     return s
@@ -206,7 +207,16 @@ function Konfig.Kodieren(s)
     z[#z + 1] = "Q|" .. s.mindestQualitaet
     z[#z + 1] = "O|" .. s.ort
     z[#z + 1] = "R|" .. s.konfigRang
-    if s.raidkaderRang then z[#z + 1] = "N|" .. s.raidkaderRang end         -- Raidkader bis zu diesem Rang
+    if s.raidkaderRaenge and next(s.raidkaderRaenge) then
+        local rliste = {}
+        for r in pairs(s.raidkaderRaenge) do
+            if tonumber(r) then rliste[#rliste + 1] = tonumber(r) end
+        end
+        table.sort(rliste)
+        z[#z + 1] = "N|" .. table.concat(rliste, ",")
+    elseif s.raidkaderRang then
+        z[#z + 1] = "N|" .. s.raidkaderRang
+    end
     if s.idWechsel then z[#z + 1] = "I|" .. s.idWechsel end                  -- Wochentag, an dem die Raid-ID wechselt
     if s.resetZeit and s.resetZeit > 0 then z[#z + 1] = string.format("Z|%.0f", s.resetZeit) end   -- gildenweiter Reset
 
@@ -222,6 +232,9 @@ function Konfig.Kodieren(s)
     for _, name in ipairs(namen) do
         local g = s.gruppen[name]
         z[#z + 1] = string.format("G|%s|%d|%s", name, g.auto and 1 or 0, table.concat(g.raenge, ","))
+        if g.groesse then
+            z[#z + 1] = string.format("S|%s|%d", name, g.groesse)
+        end
         local extra = {}
         for _, n in ipairs(g.extra) do
             if gueltigerName(n) then extra[#extra + 1] = n end
@@ -277,8 +290,21 @@ function Konfig.Dekodieren(zeilen)
                 end
             end
         elseif typ == "N" then
-            local r = tonumber(rest)
-            if r and r >= 0 and r <= 50 then s.raidkaderRang = math.floor(r) end
+            if rest == "none" or rest == "" then
+                s.raidkaderRaenge = {}
+                s.raidkaderRang = nil
+            else
+                s.raidkaderRaenge = {}
+                local maxR = nil
+                for r in rest:gmatch("%d+") do
+                    local zahl = tonumber(r)
+                    if zahl and zahl >= 0 and zahl <= 50 then
+                        s.raidkaderRaenge[zahl] = true
+                        if maxR == nil or zahl > maxR then maxR = zahl end
+                    end
+                end
+                s.raidkaderRang = maxR
+            end
         elseif typ == "I" then
             local w = tonumber(rest)
             if w and w >= 1 and w <= 7 then s.idWechsel = math.floor(w) end
@@ -308,6 +334,13 @@ function Konfig.Dekodieren(zeilen)
                 for n in liste:gmatch("[^,]+") do
                     if gueltigerName(n) and #g.extra < MAXNAMEN then g.extra[#g.extra + 1] = n end
                 end
+            end
+        elseif typ == "S" then
+            local name, gr = rest:match("^([^|]*)|(%d+)$")
+            local g = name and s.gruppen[name]
+            if g and gr then
+                local zahl = tonumber(gr)
+                if zahl == 10 or zahl == 20 or zahl == 40 then g.groesse = zahl end
             end
         end
     end
@@ -344,7 +377,14 @@ function Konfig.Anwenden(s, ohneSicherung)
     d.mindestQualitaet, d.ort = s.mindestQualitaet, s.ort
     if s.konfigRang then d.konfigRang = s.konfigRang end      -- nur, wenn ein berechtigter Absender sie mitgeschickt hat
     d.verzauberer = kopie(s.verzauberer)
-    if s.raidkaderRang then d.raidkaderRang = s.raidkaderRang end           -- ältere Absender kennen beides nicht
+    if s.raidkaderRaenge then
+        d.raidkaderRaenge = kopie(s.raidkaderRaenge)
+        d.raidkaderRang = s.raidkaderRang
+    elseif s.raidkaderRang then
+        d.raidkaderRang = s.raidkaderRang
+        d.raidkaderRaenge = {}
+        for i = 0, s.raidkaderRang do d.raidkaderRaenge[i] = true end
+    end
     if s.idWechsel then d.idWechsel = s.idWechsel end
 
     -- Gruppen: die der Gildenleitung. Den verwalteten Kader behaelt jeder selbst
@@ -365,7 +405,8 @@ function Konfig.Anwenden(s, ohneSicherung)
             tage = vorher.raidtage
         end
         neu[name] = { name = name, kader = vorher and vorher.kader or {}, extra = kopie(g.extra),
-                      raenge = raenge, auto = g.auto, raidtage = tage }
+                      raenge = raenge, auto = g.auto, raidtage = tage,
+                      groesse = g.groesse or (vorher and vorher.groesse) or ns.Gruppen.Groesse(name) }
     end
     d.gruppen = neu
     if d.aktiveGruppe and not neu[d.aktiveGruppe] then d.aktiveGruppe = nil end

@@ -90,13 +90,55 @@ Gruppen.BENCH = "Bench"
 --- ⭐ Zweites reserviertes Ziel in der Einteilung: Spieler, die sich weder an- noch abgemeldet haben („No notice“).
 Gruppen.KEINEMELDUNG = "Keine Meldung"
 
+--- Liefert den Namen der Bench für eine Raid-Größe (z. B. „Bench (10er)“).
+function Gruppen.BenchName(groesse)
+    groesse = tonumber(groesse) or 40
+    return string.format(L["Bench (%der)"], groesse)
+end
+
+--- Ist das eine Bench (allgemein oder für eine bestimmte Größe)?
+function Gruppen.IstBench(name)
+    local n = tostring(name or ""):lower()
+    return n == "bench" or n:find("^bench") ~= nil
+end
+
+--- Liefert die Raid-Größe einer Gruppe (10, 20 oder 40).
+function Gruppen.Groesse(name)
+    if not name or name == "" then return 40 end
+    local n = tostring(name):lower()
+    if n:find("10") then
+        local G = db().gruppen and db().gruppen[name]
+        if G and G.groesse then return tonumber(G.groesse) or 10 end
+        return 10
+    end
+    if n:find("20") then
+        local G = db().gruppen and db().gruppen[name]
+        if G and G.groesse then return tonumber(G.groesse) or 20 end
+        return 20
+    end
+    local G = db().gruppen and db().gruppen[name]
+    if G and G.groesse then return tonumber(G.groesse) or 40 end
+    if n:find("40") then return 40 end
+    return 40
+end
+
+--- Setzt die Raid-Größe einer Gruppe (10, 20 oder 40).
+function Gruppen.GroesseSetzen(name, groesse)
+    groesse = tonumber(groesse)
+    if not (groesse == 10 or groesse == 20 or groesse == 40) then return false end
+    local G = Gruppen.Holen(name)
+    if not G then return false end
+    G.groesse = groesse
+    return true
+end
+
 --- Ist das ein reservierter Name (Bench oder Keine Meldung)?
 function Gruppen.Reserviert(name)
     local n = tostring(name or ""):lower()
-    return n == Gruppen.BENCH:lower() or n == Gruppen.KEINEMELDUNG:lower()
+    return Gruppen.IstBench(n) or n == Gruppen.KEINEMELDUNG:lower()
 end
 
-function Gruppen.Anlegen(name)
+function Gruppen.Anlegen(name, groesse)
     name = type(name) == "string" and name:match("^%s*(.-)%s*$") or ""
     if name == "" then return false, L["kein Name"] end
     if Gruppen.Reserviert(name) then return false, L["Dieser Name ist reserviert."] end
@@ -107,7 +149,11 @@ function Gruppen.Anlegen(name)
 
     local d = db()
     if d.gruppen[name] then return false, L["gibt es schon"] end
-    d.gruppen[name] = { name = name, kader = {}, extra = {}, raenge = {}, auto = true }
+    groesse = tonumber(groesse)
+    if not (groesse == 10 or groesse == 20 or groesse == 40) then
+        groesse = Gruppen.Groesse(name)
+    end
+    d.gruppen[name] = { name = name, kader = {}, extra = {}, raenge = {}, auto = true, groesse = groesse }
     if not d.aktiveGruppe then d.aktiveGruppe = name end
     return true
 end
@@ -424,43 +470,150 @@ local function ichName()
     return (UnitName and UnitName("player")) or "Spieler"
 end
 
---- Der Gildenrang, bis zu dem der Raidkader eingelesen wird (Rangindex; kleiner = hoeher).
+local function tabelleKopie(t)
+    local k = {}
+    for a, b in pairs(t or {}) do k[a] = b end
+    return k
+end
+
+--- Die gewählten Ränge für den Raidkader als Set-Tabelle: { [rangIndex] = true }.
+function Gruppen.RaidkaderRaenge()
+    local d = db()
+    if d.raidkaderRaenge then
+        return d.raidkaderRaenge
+    end
+    if d.raidkaderRang ~= nil then
+        local t = {}
+        for i = 0, d.raidkaderRang do
+            t[i] = true
+        end
+        return t
+    end
+    return {}
+end
+
+--- Prüft, ob ein bestimmter Gildenrang (nach Index) im Raidkader gewählt ist.
+function Gruppen.RaidkaderRangGewaehlt(index)
+    index = tonumber(index)
+    if index == nil then return false end
+    local raenge = Gruppen.RaidkaderRaenge()
+    return raenge[index] and true or false
+end
+
+--- Setzt alle gewählten Ränge auf einmal aus einer Set- oder Array-Tabelle.
+function Gruppen.RaidkaderRaengeSetzen(tabelle)
+    local d = db()
+    d.raidkaderRaenge = {}
+    if type(tabelle) == "table" then
+        for k, v in pairs(tabelle) do
+            if type(k) == "number" and v then
+                d.raidkaderRaenge[k] = true
+            elseif tonumber(v) then
+                d.raidkaderRaenge[tonumber(v)] = true
+            end
+        end
+    end
+    local maxRang = nil
+    for idx in pairs(d.raidkaderRaenge) do
+        if maxRang == nil or idx > maxRang then maxRang = idx end
+    end
+    d.raidkaderRang = maxRang
+end
+
+--- Wählt einen Rang aus (an=true/false) oder setzt alle bis zu diesem Rang (wenn an==nil).
+function Gruppen.RaidkaderRangSetzen(index, an)
+    local d = db()
+    if not d.raidkaderRaenge then
+        d.raidkaderRaenge = {}
+        if d.raidkaderRang ~= nil then
+            for i = 0, d.raidkaderRang do d.raidkaderRaenge[i] = true end
+        end
+    end
+
+    if an ~= nil then
+        index = tonumber(index)
+        if index ~= nil then
+            d.raidkaderRaenge[index] = an and true or nil
+        end
+    else
+        -- 1 Parameter: "bis zu diesem Rang" (wie bisher) oder nil zum Leeren
+        if index == nil then
+            d.raidkaderRaenge = {}
+            d.raidkaderRang = nil
+            return
+        end
+        local bis = tonumber(index)
+        if bis ~= nil then
+            d.raidkaderRaenge = {}
+            for i = 0, bis do
+                d.raidkaderRaenge[i] = true
+            end
+        end
+    end
+
+    local maxRang = nil
+    for idx in pairs(d.raidkaderRaenge) do
+        if maxRang == nil or idx > maxRang then maxRang = idx end
+    end
+    d.raidkaderRang = maxRang
+end
+
+--- Gibt true zurück, wenn mindestens ein Gildenrang für den Raidkader gewählt ist.
+function Gruppen.RaidkaderHatRaenge()
+    local raenge = Gruppen.RaidkaderRaenge()
+    return next(raenge) ~= nil
+end
+
+--- Der Gildenrang, bis zu dem der Raidkader eingelesen wird (bzw. höchster gewählter Rang; kleiner = höher).
 function Gruppen.RaidkaderRang()
-    return db().raidkaderRang
+    local d = db()
+    if d.raidkaderRaenge and next(d.raidkaderRaenge) then
+        local maxRang = nil
+        for idx in pairs(d.raidkaderRaenge) do
+            if maxRang == nil or idx > maxRang then maxRang = idx end
+        end
+        return maxRang
+    end
+    return d.raidkaderRang
 end
 
-function Gruppen.RaidkaderRangSetzen(index)
-    db().raidkaderRang = tonumber(index)
-end
-
---- ⭐ Liest die Gildenliste bis zum gewaehlten Rang ein: das ist der Raidkader.
---  @param bisRang  Rangindex (alle bis einschliesslich diesem Rang); sonst der gemerkte
+--- ⭐ Liest die Gildenliste für die gewählten Ränge ein: das ist der Raidkader.
+--  @param param  Optional: Zahl (bis zu diesem Rang), Tabelle (Ränge), oder nil (die gemerkten)
 --  @return Zahl der Mitglieder, oder nil und ein Grund
-function Gruppen.RaidkaderSync(bisRang)
-    bisRang = tonumber(bisRang) or db().raidkaderRang
-    if bisRang == nil then return nil, L["Bitte erst einen Gildenrang wählen."] end
+function Gruppen.RaidkaderSync(param)
+    local d = db()
+    if type(param) == "number" or (type(param) == "string" and tonumber(param)) then
+        Gruppen.RaidkaderRangSetzen(tonumber(param))
+    elseif type(param) == "table" then
+        Gruppen.RaidkaderRaengeSetzen(param)
+    end
+
+    local raenge = Gruppen.RaidkaderRaenge()
+    if not next(raenge) then return nil, L["Bitte erst einen Gildenrang wählen."] end
     local M, grund = Gruppen.GildenMitglieder()
     if not M then return nil, grund end
 
     local liste = {}
     for _, m in ipairs(M) do
-        if m.rangIndex ~= nil and m.rangIndex <= bisRang then
+        if m.rangIndex ~= nil and raenge[m.rangIndex] then
             liste[#liste + 1] = { name = m.name, rang = tostring(m.rang or m.rangIndex), rangIndex = m.rangIndex }
         end
     end
-    -- Niemand in den Raengen: eher eine unvollstaendig geladene Gildenliste als ein leerer Kader.
+    -- Niemand in den Rängen: eher eine unvollständig geladene Gildenliste als ein leerer Kader.
     if #liste == 0 then return nil, L["In den gewählten Rängen ist niemand – nichts geändert."] end
     table.sort(liste, function(a, b) return a.name:lower() < b.name:lower() end)
 
-    local d = db()
-    d.raidkader = { stand = time(), bisRang = bisRang, namen = liste }
-    d.raidkaderRang = bisRang
+    local rliste = {}
+    for r in pairs(raenge) do rliste[#rliste + 1] = r end
+    table.sort(rliste)
+
+    d.raidkader = { stand = time(), raenge = rliste, bisRang = d.raidkaderRang, namen = liste }
     return #liste
 end
 
---- Liest den Raidkader still ein, wenn ein Rang gewaehlt ist (beim Anmelden und nach neuen geteilten Einstellungen).
+--- Liest den Raidkader still ein, wenn ein Rang gewählt ist (beim Anmelden und nach neuen geteilten Einstellungen).
 function Gruppen.RaidkaderAuto()
-    if db().raidkaderRang == nil then return false end
+    if not Gruppen.RaidkaderHatRaenge() then return false end
     local n = Gruppen.RaidkaderSync()
     if n and ns.Fenster and ns.Fenster.Sichtbar and ns.Fenster.Sichtbar() then ns.Fenster.Aktualisieren() end
     return n and true or false
@@ -540,12 +693,37 @@ local function einteilungAufraeumen()
 end
 
 --- In welcher Gruppe ist der Spieler an diesem Tag?
+--  @param kat  Optionale Raid-Größe (10, 20 oder 40). Wenn angegeben, wird die Gruppe dieser Größe geliefert.
 --  @return Gruppenname, Eintrag  oder nil (nicht eingeteilt)
-function Gruppen.EinteilungVon(datum, name)
+function Gruppen.EinteilungVon(datum, name, kat)
     local T = einteilungen()[Gruppen.IdStart(datum)]
     local k = Kern.Schluessel(name)
     local e = T and k and T[k]
-    if e and e.gruppe and e.gruppe ~= "" then return e.gruppe, e end
+    if not e then return nil end
+    if kat then
+        kat = tonumber(kat)
+        if e.gruppen and e.gruppen[kat] and e.gruppen[kat] ~= "" then
+            return e.gruppen[kat], e
+        end
+        if e.gruppe and e.gruppe ~= "" and Gruppen.Groesse(e.gruppe) == kat then
+            return e.gruppe, e
+        end
+        return nil
+    end
+    -- Ohne Kategorie: wenn e.gruppe vorhanden ist und noch stimmt
+    if e.gruppe and e.gruppe ~= "" then
+        if not e.gruppen or e.gruppen[Gruppen.Groesse(e.gruppe)] == e.gruppe then
+            return e.gruppe, e
+        end
+    end
+    if e.gruppen then
+        for _, gr in ipairs({ 40, 20, 10 }) do
+            if e.gruppen[gr] and e.gruppen[gr] ~= "" then
+                return e.gruppen[gr], e
+            end
+        end
+    end
+    if e.gruppe and e.gruppe ~= "" then return e.gruppe, e end
     return nil
 end
 
@@ -636,22 +814,58 @@ end
 --- Die Namen, die an diesem Tag in dieser Gruppe eingeteilt sind (alphabetisch).
 function Gruppen.EinteilungListe(datum, gruppe)
     local liste = {}
+    local kat = Gruppen.Groesse(gruppe)
     for _, e in pairs(einteilungen()[Gruppen.IdStart(datum)] or {}) do
-        if e.gruppe == gruppe then liste[#liste + 1] = e.name end
+        local treffer = false
+        if e.gruppen and e.gruppen[kat] == gruppe then
+            treffer = true
+        elseif e.gruppe == gruppe and (not e.gruppen or e.gruppen[kat] == gruppe) then
+            treffer = true
+        end
+        if treffer then liste[#liste + 1] = e.name end
     end
     table.sort(liste, function(a, b) return a:lower() < b:lower() end)
     return liste
 end
 
---- Die Spieler auf der Bench an diesem Tag.
-function Gruppen.BenchListe(datum)
-    return Gruppen.EinteilungListe(datum, Gruppen.BENCH)
+--- Die Spieler auf der Bench an diesem Tag (optional gefiltert nach Gruppe / Raid-Größe).
+function Gruppen.BenchListe(datum, gruppe)
+    local kat = gruppe and Gruppen.Groesse(gruppe)
+    local liste = {}
+    local gesehen = {}
+    for _, e in pairs(einteilungen()[Gruppen.IdStart(datum)] or {}) do
+        local istB = false
+        if kat then
+            local g = e.gruppen and e.gruppen[kat] or (e.gruppe and Gruppen.Groesse(e.gruppe) == kat and e.gruppe)
+            if g and Gruppen.IstBench(g) then istB = true end
+        else
+            if e.gruppen then
+                for _, g in pairs(e.gruppen) do
+                    if Gruppen.IstBench(g) then istB = true break end
+                end
+            elseif e.gruppe and Gruppen.IstBench(e.gruppe) then
+                istB = true
+            end
+        end
+        if istB and not gesehen[e.name] then
+            gesehen[e.name] = true
+            liste[#liste + 1] = e.name
+        end
+    end
+    table.sort(liste, function(a, b) return a:lower() < b:lower() end)
+    return liste
 end
 
 --- Gibt es fuer diesen Tag ueberhaupt eine Einteilung (in irgendeiner Gruppe)?
 function Gruppen.EinteilungVorhanden(datum)
     for _, e in pairs(einteilungen()[Gruppen.IdStart(datum)] or {}) do
-        if e.gruppe and e.gruppe ~= "" then return true end
+        if e.gruppen then
+            for _, g in pairs(e.gruppen) do
+                if g and g ~= "" then return true end
+            end
+        elseif e.gruppe and e.gruppe ~= "" then
+            return true
+        end
     end
     return false
 end
@@ -678,23 +892,72 @@ local function nameOk(n)
 end
 
 --- Traegt einen Spieler ein (der juengere Eintrag gewinnt). @return true, wenn sich etwas geaendert hat
-local function einteilungEinsetzen(datum, name, gruppe, zeit, von)
+local function einteilungEinsetzen(datum, name, gruppe, zeit, von, zielKat)
     local k = Kern.Schluessel(name)
     if not k then return false end
     datum = Gruppen.IdStart(datum)
     local T = einteilungen()
     T[datum] = T[datum] or {}
-    local alt = T[datum][k]
-    if alt and ((alt.zeit or 0) > zeit or ((alt.zeit or 0) == zeit and tostring(alt.von or "") >= tostring(von))) then
-        return false
+    local e = T[datum][k]
+    if not e then
+        e = { name = Kern.Anzeigename(name), gruppe = "", gruppen = {}, zeiten = {}, von = von }
+        T[datum][k] = e
     end
-    T[datum][k] = { name = Kern.Anzeigename(name), gruppe = gruppe or "", zeit = zeit, von = von }
+    if not e.gruppen then
+        e.gruppen = {}
+        e.zeiten = {}
+        if e.gruppe and e.gruppe ~= "" then
+            local k0 = Gruppen.Groesse(e.gruppe)
+            e.gruppen[k0] = e.gruppe
+            e.zeiten[k0] = e.zeit or 0
+        end
+    end
+
+    -- Ziel-Kategorie ermitteln
+    local kat = zielKat
+    if gruppe and gruppe:match("^:(%d+)$") then
+        kat = tonumber(gruppe:match("^:(%d+)$"))
+        gruppe = ""
+    elseif gruppe and gruppe ~= "" then
+        kat = kat or Gruppen.Groesse(gruppe)
+    end
+
+    if kat then
+        kat = tonumber(kat)
+        local altZeit = math.max((e.zeiten and e.zeiten[kat]) or 0, e.zeit or 0)
+        if altZeit > zeit or (altZeit == zeit and tostring(e.von or "") >= tostring(von)) then
+            return false
+        end
+        e.zeiten = e.zeiten or {}
+        e.zeiten[kat] = zeit
+        if gruppe and gruppe ~= "" then
+            e.gruppen[kat] = gruppe
+        else
+            e.gruppen[kat] = nil
+        end
+    else
+        -- gruppe == "" ohne Kategorie: alle Kategorien leeren
+        if (e.zeit or 0) > zeit or ((e.zeit or 0) == zeit and tostring(e.von or "") >= tostring(von)) then
+            return false
+        end
+        e.gruppen = {}
+        e.zeiten = {}
+    end
+
+    e.zeit = zeit
+    e.von = von
+    -- Letzte oder verbleibende Gruppe pflegen
+    if gruppe and gruppe ~= "" then
+        e.gruppe = gruppe
+    else
+        e.gruppe = e.gruppen[40] or e.gruppen[20] or e.gruppen[10] or ""
+    end
     return true
 end
 
 --- Eine Meldung `T;<Datum>;<Urheber>;<Name>|<Gruppe>|<Zeit>~<Name>|<Gruppe>|<Zeit>…` an die Gilde und die Gruppe.
 --  @param schluessel  Liste der Spielerschluessel dieses Tages (nil = alle)
-function Gruppen.EinteilungSenden(datum, schluessel)
+function Gruppen.EinteilungSenden(datum, schluessel, sendeKat, sendeGruppe)
     datum = Gruppen.IdStart(datum)
     local T = einteilungen()[datum]
     if not T or not ns.Abgleich or not ns.Abgleich.Senden then return false end
@@ -716,8 +979,20 @@ function Gruppen.EinteilungSenden(datum, schluessel)
     end
     for _, k in ipairs(keys) do
         local e = T[k]
-        if e and nameOk(e.name) and gruppeOk(e.gruppe or "") then
-            anhaengen(string.format("%s|%s|%d", e.name, e.gruppe or "", e.zeit or 0))
+        if e and nameOk(e.name) then
+            if schluessel and #schluessel == 1 and sendeKat and (sendeGruppe == "" or sendeGruppe == nil) then
+                local zt = (e.zeiten and e.zeiten[sendeKat]) or e.zeit or time()
+                anhaengen(string.format("%s|:%d|%d", e.name, sendeKat, zt))
+            elseif e.gruppen and next(e.gruppen) then
+                for gr, grp in pairs(e.gruppen) do
+                    if gruppeOk(grp) then
+                        local zt = (e.zeiten and e.zeiten[gr]) or e.zeit or 0
+                        anhaengen(string.format("%s|%s|%d", e.name, grp, zt))
+                    end
+                end
+            elseif gruppeOk(e.gruppe or "") then
+                anhaengen(string.format("%s|%s|%d", e.name, e.gruppe or "", e.zeit or 0))
+            end
         end
     end
     if aktuell ~= "" then teile[#teile + 1] = aktuell end
@@ -729,9 +1004,10 @@ function Gruppen.EinteilungSenden(datum, schluessel)
     return #teile > 0
 end
 
---- ⭐ Teilt einen Spieler fuer einen Tag einer Gruppe zu (leer/nil = nicht eingeteilt). In hoechstens einer Gruppe.
+--- ⭐ Teilt einen Spieler fuer einen Tag einer Gruppe zu (leer/nil = nicht eingeteilt).
+--  Spieler können je Raid-Größe (10er, 20er, 40er) in einer Gruppe eingeteilt sein.
 --  @return true, oder nil und ein Grund
-function Gruppen.EinteilungSetzen(datum, name, gruppe, von)
+function Gruppen.EinteilungSetzen(datum, name, gruppe, von, zielKat)
     von = von or ichName()
     if not Gruppen.EinteilungDarf(von) then
         return nil, L["Keine Berechtigung (nur Gildenränge mit Schreibrecht)."]
@@ -739,18 +1015,24 @@ function Gruppen.EinteilungSetzen(datum, name, gruppe, von)
     if not tagOk(datum) then return nil, L["Ungültiges Datum."] end
     if not nameOk(name) then return nil, L["Ungültiger Spielername."] end
     gruppe = gruppe or ""
-    if gruppe ~= "" and not (gruppeOk(gruppe) and (gruppe == Gruppen.BENCH or gruppe == Gruppen.KEINEMELDUNG or Gruppen.Holen(gruppe))) then
+    if gruppe ~= "" and not (gruppeOk(gruppe) and (Gruppen.IstBench(gruppe) or gruppe == Gruppen.KEINEMELDUNG or Gruppen.Holen(gruppe))) then
         return nil, L["Diese Gruppe gibt es nicht."]
+    end
+
+    local kat = zielKat
+    if gruppe ~= "" then
+        kat = kat or Gruppen.Groesse(gruppe)
     end
 
     local k = Kern.Schluessel(name)
     datum = Gruppen.IdStart(datum)
     local alt = einteilungen()[datum] and einteilungen()[datum][k]
     local zeit = time()
-    if alt and (alt.zeit or 0) >= zeit then zeit = alt.zeit + 1 end     -- immer juenger als der eigene alte Eintrag
-    einteilungEinsetzen(datum, name, gruppe, zeit, von)
+    local altZeit = (alt and alt.zeiten and kat and alt.zeiten[kat]) or (alt and alt.zeit) or 0
+    if altZeit >= zeit then zeit = altZeit + 1 end     -- immer juenger als der eigene alte Eintrag
+    einteilungEinsetzen(datum, name, gruppe, zeit, von, kat)
     einteilungAufraeumen()
-    Gruppen.EinteilungSenden(datum, { k })
+    Gruppen.EinteilungSenden(datum, { k }, kat, gruppe)
     return true
 end
 

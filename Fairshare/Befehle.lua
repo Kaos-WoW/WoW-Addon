@@ -64,6 +64,7 @@ local function hilfe()
     print(L["  |cffffff78/fs muster|r       – Diagnose: Textvorlagen für eigene Erkennung"])
     print(L["  |cffffff78/fs darstellung|r  – Diagnose: Einstellungsfenster zeichnet nicht richtig"])
     print(L["  |cffffff78/fs test|r         – Selbsttests der Auswertung"])
+    print(L["  |cffffff78/fs probe|r        – Übungsmodus (Standardabend testen, keine echten Daten)"])
 end
 
 -- =====================================================================
@@ -284,6 +285,27 @@ befehle["test"] = function()
     if ns.Tests and ns.Tests.Alle then ns.Tests.Alle() else sag(L["Keine Tests geladen."]) end
 end
 
+befehle["probe"] = function(arg)
+    arg = (arg or ""):lower():match("^%s*(.-)%s*$")
+    local unter = arg:match("^(%S+)") or ""
+    if unter == "abend" or unter == "night" then
+        if ns.Probe and ns.Probe.StandardAbend then
+            ns.Probe.StandardAbend(true)
+        else
+            sag(L["Probe-Modus nicht verfügbar."])
+        end
+    else
+        if ns.Fenster and ns.Fenster.ProbeUmschalten then
+            ns.Fenster.ProbeUmschalten()
+        else
+            sag(L["Probe-Modus nicht verfügbar."])
+        end
+        sag(L["Probe-Modus (Übungsmodus):"])
+        print(L["  |cffffff78/fs probe abend|r  – Standardabend im Chat ausgeben (Erwartet / Ist)"])
+    end
+end
+befehle["practice"] = befehle["probe"]
+
 --- Diagnose fuer das Einstellungsfenster: Zeichnet es Text nicht, steht hier warum.
 befehle["darstellung"] = function()
     ns.Einstellungen.Zeigen()
@@ -455,8 +477,18 @@ befehle["week"] = befehle["woche"]
 
 befehle["raidkader"] = function(rest)
     rest = rest and rest:match("^%s*(.-)%s*$") or ""
-    local rang = tonumber(rest)
-    local n, grund = ns.Gruppen.RaidkaderSync(rang)
+    local param
+    if rest:find("[,%s]") then
+        local t = {}
+        for r in rest:gmatch("%d+") do
+            local z = tonumber(r)
+            if z then t[z] = true end
+        end
+        if next(t) then param = t end
+    elseif tonumber(rest) then
+        param = tonumber(rest)
+    end
+    local n, grund = ns.Gruppen.RaidkaderSync(param)
     if n then
         sag(string.format(L["Raidkader eingelesen: %d Mitglieder."], n))
         if Fenster.Sichtbar() then Fenster.Aktualisieren() end

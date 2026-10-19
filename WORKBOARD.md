@@ -22,11 +22,12 @@ Agents dieselbe Datei gleichzeitig ändern oder die Arbeit des anderen überschr
 
 ## Belegt
 
-*Nichts belegt.* Claude hat am 22.10.2026 abgegeben (alles committet und gepusht). Wer als Nächstes arbeitet,
-trägt sich hier ein.
-
 | Agent | Bereich | Dateien | Seit | Stand |
 |---|---|---|---|---|
+
+## Erledigt, nicht committet
+
+*(derzeit keine)*
 
 ## Erledigt (alles committet und gepusht, `origin/main` = `81eb59c`)
 
@@ -56,51 +57,44 @@ Claude, 22.10.2026: **Bedienung der Gruppen vereinfacht** („viel zu komplizier
 | `81eb59c` | LIESMICH für 0.2.0 |
 
 **Tests (immer vor dem Commit laufen lassen):**
-`python luacheck.py` · `python tests/rechenkern.py` (447) · `python tests/szenarien.py` (59 Szenarien; **ohne `-I`**, sonst findet Python `lupa` nicht) ·
-`python tests/texte.py --streng` (728 Schlüssel; ungenutzte Schlüssel aus `Locale.lua` entfernen) · danach `.\deploy.ps1` (rollt in `_classic_beta_` aus; Änderungen: `/reload`, neue Dateien: WoW-Neustart).
+`python luacheck.py` · `python tests/rechenkern.py` (478) · `python tests/szenarien.py` (64 Szenarien; **ohne `-I`**, sonst findet Python `lupa` nicht) ·
+`python tests/texte.py --streng` (777 Schlüssel; ungenutzte Schlüssel aus `Locale.lua` entfernen) · danach `.\deploy.ps1` (rollt in `_classic_beta_` aus; Änderungen: `/reload`, neue Dateien: WoW-Neustart).
 Patches bisher als Python-Skripte im Scratchpad (CRLF erhalten, `python -X utf8`); Lua-Text nie per Heredoc, sondern per Write-Werkzeug. Die Simulation (`tests/sim.py`) hat eine eigene Uhr, rechnet `time({Tabelle})` wie im Spiel und kennt Flüstern (`WHISPER`, nur der Empfänger bekommt es).
 
 **Im Spiel vom Nutzer bestätigt:** Regelwerk (Wertung, Zuschläge, Anhebung, Neuling, Gast, Rückgabe), Würfelfenster inkl. Passen und frühem Ende, „Fairshare nutzen?“ nur für den Plündermeister, geteilte Einstellungen mit Sperre/Selbstheilung, Raidkader per Rangsync, Einteilung, Bench, „Keine Meldung“, Abschluss je Gruppe, Gruppenwechsel = anderer Abend, schlanke Abwesenheit, Wochenabschluss (Buchung); **neu 22.10.:** die vereinfachte Bedienung (Ausklappliste mit gezeichnetem Pfeil, zwei Listen, Reiter nur mit Schreibrecht – ein Spieler ohne Recht sah nur „Spieler“/„Verlauf“), Gruppen kommen per „An alle senden“ bei den anderen an.
 
 **NOCH NICHT im Spiel gesehen (zuerst prüfen lassen):**
-1. **Leitungs-Abgleich** (Nutzer testet am 23.10.2026): zwei Spieler mit Schreibrecht, nicht in einer Gruppe, auf unterschiedlichem Stand; nach 1–2 Minuten muss der andere „Mit der Leitung abgeglichen: …“ im Chat sehen. Falls nichts passiert: `/fs abgleich status` (Zeile „Leitungs-Abgleich: aktiv“), `Konfig.Darf` (Gildenliste geladen? Rang im Bereich?), ob Flüstern in Forever Addon-Nachrichten durchlässt (ungemessen).
-2. **Auto-Senden** der Einstellungen nach einer Änderung (Chat: „Geänderte Einstellungen wurden an alle gesendet.“).
-3. **Raidkader liest sich beim Anmelden von selbst ein** (25 s; nur wenn ein Rang gewählt ist und die Gildenliste da ist).
-4. Chat-Meldung beim Start eines Gruppen-Abgleichs bei den Empfängern.
-5. Farben je Gruppe in der Einteilung, „Neuen Abend beginnen“ in einer abgeschlossenen Abwesenheit.
-6. Das leere erste Öffnen nach dem Anmelden (Schrift vorladen, `Stil.SchriftVorladen`/`AuffrischenBisFertig`). Bleibt es leer: `/fs darstellung` ausgeben lassen.
+1. **Reiter „Anwesenheit“ & Default = Anwesend** (neu 22.10.): Eingeteilte Spieler ohne Eintrag sind automatisch anwesend (grün). 3 Knöpfe `[Bank/Bench] [Abwesend] [Unent.]` zum 1-Klick-Toggle. Kein Panik-Abschluss mehr vor dem Verlassen der Gruppe nötig.
+2. **Probe-Modus / Übungsmodus** (neu 22.10.): `/fs probe abend` (Chat-Simulation mit 14 Spielern, 6/6 Prüfungen) und `/fs probe` (UI-Leiste, Item-Vergabe, isolierte Wegwerf-DB).
+3. **Leitungs-Abgleich** (Nutzer testet am 23.10.2026): zwei Spieler mit Schreibrecht, nicht in einer Gruppe, auf unterschiedlichem Stand; nach 1–2 Minuten muss der andere „Mit der Leitung abgeglichen: …“ im Chat sehen. Falls nichts passiert: `/fs abgleich status` (Zeile „Leitungs-Abgleich: aktiv“), `Konfig.Darf` (Gildenliste geladen? Rang im Bereich?), ob Flüstern in Forever Addon-Nachrichten durchlässt (ungemessen).
+4. **Auto-Senden** der Einstellungen nach einer Änderung (Chat: „Geänderte Einstellungen wurden an alle gesendet.“).
+5. **Raidkader liest sich beim Anmelden von selbst ein** (25 s; nur wenn ein Rang gewählt ist und die Gildenliste da ist).
+6. Chat-Meldung beim Start eines Gruppen-Abgleichs bei den Empfängern.
+7. Farben je Gruppe in der Einteilung, „Neuen Abend beginnen“ in einer abgeschlossenen Anwesenheit.
+8. Das leere erste Öffnen nach dem Anmelden (Schrift vorladen, `Stil.SchriftVorladen`/`AuffrischenBisFertig`). Bleibt es leer: `/fs darstellung` ausgeben lassen.
 
 **Entscheide des Nutzers, die nicht offensichtlich sind (nicht neu aufrollen):**
-- Im Raid = wer am **Abendende** in der Gruppe steht (nicht Boss-Quote); wer früher geht und kein Main-Item hatte, gilt als abwesend.
+- Im Raid = wer am **Abendende** in der Gruppe steht bzw. wer laut Einteilung eingeteilt ist und nicht als abwesend/Bank/unentschuldigt markiert wurde; wer früher geht und kein Main-Item hatte, gilt als abwesend.
 - Abgemeldete werden **nirgends eingeteilt**: Wer im Raidkader steht und in der **Raid-ID (Woche ab dem Wechseltag, Standard Mittwoch)** nirgends eingeteilt war, ist abgemeldet; Buchung per
   „Woche abschließen“, **zwei Zuschläge je Spieler**, Schnitt = Mittel der Gruppen-Schnitte je Abend-Nummer. „Keine Meldung“ ist ein Ziel der Einteilung.
 - (seit 22.10.2026) Die Einteilung gilt **einmal je Raid-ID** (eine Woche ab einstellbarem Wechseltag, Standard Mittwoch); Raidleitung baut die Gruppen so, dass an beiden Tagen dieselben Spieler stehen, Teilzeit-Spieler kommen auf die Bank. Die Raidtage je Gruppe stehen nicht mehr in der Oberfläche.
-- Abwesenheit und Einteilung sieht nur, wer Schreibrecht hat (Gildenrang); alle anderen nur Spieler und Verlauf. Raidkader automatisch beim Anmelden, Rang geteilt.
+- Anwesenheit und Einteilung sieht nur, wer Schreibrecht hat (Gildenrang); alle anderen nur Spieler und Verlauf. Raidkader automatisch beim Anmelden, Rang geteilt.
 - **Stufe 1 und 2 sind die Wurzel des Vertrauens** (dürfen immer senden/einteilen/buchen); die Rangstufe ändern nur sie; andere sehen geteilte Einstellungen nur lesend.
 - Verworfen: automatische Umteilung/Warnung, wenn jemand in einer anderen Gruppe raidet als eingeteilt (Raidleitung organisiert vorher).
 - Fenster-Mindestbreite 880.
 
-## ⭐ Nächste Aufgabe (Auftrag des Nutzers, 19.10.2026): Übungsmodus „Probe-Abend“ zum einfachen Testen
+## Erledigte Sonderaufgaben
 
-**Warum:** Die Testläufe im Spiel sind zu kompliziert (zwei echte Spieler, Gruppe verlassen, Einteilung, Würfe, Handel, Abschluss; Fehler wie „Xalessa war noch im Raid, darum kein Zuschlag“ entstehen durch die Testbedingungen, nicht durch das Addon). Der Nutzer will **einen vollen Raidabend testen können, ohne echte Daten zu erzeugen und ohne zweiten Spieler.** Die Auftraggeber-Wünsche: „super einfach“, „keine echten Daten“.
-
-**Was es schon gibt (nutzen, nicht neu bauen):**
-- Der **Beispiel-Modus** (`zustand.beispiel` in `Fenster.lua`, Knopf „Beispiel“ im Fuß; `Quelle.Beispiel/BeispielWurf`, `Anwesenheit.BeispielKandidaten*`): zeigt feste Demodaten, ändert nichts, **simuliert aber keinen Abend** (Abschließen nur als Chat-Text).
-- **`Anwesenheit._SetDB(mockDB)`**: leitet die Datenbuch-Zugriffe (`abende`, `zuschlaege`, `anhebungen`, `anhebungsliste`) auf eine Wegwerf-Tabelle um; die Tests in `Tests.lua` (`/fs test`) benutzen es und mocken zusätzlich `Konfig.Darf`, `Rolle.Berechtigt`, `Erfassung.Historie`, `Gruppen.Pflicht/EinteilungVorhanden` (siehe `testAbendAbschlussUndSpielerdetail`).
-- `tests/szenarien.py` und `tests/sim.py` spielen ganze Abende offline mit mehreren virtuellen Clients durch (Szenarien 36, 42-47, 53-55 u. a.). Das ist die Vorlage für die Abläufe, die der Probe-Abend im Spiel nachbilden soll.
-
-**Vorschlag (Erster Entwurf, bitte prüfen und verbessern):** Ein **Übungsmodus** (`/fs probe` oder Knopf im Fuß neben „Beispiel“), der
-1. **alle Datenzugriffe auf eine reine Speicher-Tabelle umlenkt** (Historie, Datenbuch, Zuschläge, aktiver Abend; nichts davon wird in `FairshareDB` geschrieben, nach dem Schließen ist alles weg) und **jedes Senden sperrt** (`Abgleich.Senden/einreihen`, `Konfig.Senden/AutoSenden`, `BuchVerteilen`, `Verteilen`, `Leitung`-Beacon), damit nichts bei anderen ankommt;
-2. mit **erfundenen Spielern** arbeitet (z. B. „Anna, Ben, Chris, Dora“, alle im Kader, mit Anfangswerten), die man per Knopf **„in den Raid / aus dem Raid“** setzt (ersetzt `Rolle.Einheiten`/`anwesendeNamen` im Übungsmodus);
-3. eine **kleine Bedienleiste** zeigt: *„Item an <Spieler> vergeben“* (Haupt/OS), *„Spieler geht“*, *„Bench“*, *„Unentschuldigt“*, *„Abend abschließen“*, *„Neuer Abend“*, *„Zurücksetzen“*; die normalen Reiter (Spieler, Verlauf, Abwesenheit, Spielerdetail) zeigen dabei das Ergebnis mit der **echten Rechnung** (`Kern.*`, `Anwesenheit.AbendVorschau/-Abschliessen`), damit Zuschläge, Schnitt, Wertung und Spielerdetail genau so aussehen wie im Betrieb;
-4. oben einen **auffälligen Hinweis „PROBE – keine echten Daten“** (Warnfarbe wie beim Beispiel-Modus) und beim Schließen nichts hinterlässt.
-5. **Optional, sehr nützlich:** eine Schaltfläche **„Fertiger Probe-Abend“**, die ein Skript abspielt (Abend A: Kaos 4 Items, Anna 2; Abend B …) und die erwarteten Zahlen daneben schreibt („Soll: Zuschlag 2,0“), damit man nur noch vergleicht.
-
-**Alternative, kleiner:** Nur `/fs probe abend` als **Textausgabe** (wie `/fs test`): läuft in einer Wegwerf-Datenbank einen Standardabend durch (Raid, Bench, Unentschuldigt, Abgemeldet, Neuling) und schreibt Zeile für Zeile „Erwartet / Ist“ in den Chat. Weniger Bedienung, schneller gebaut, deckt die Rechenregeln ab, aber nicht die Oberfläche.
-
-**Abnahme (der Nutzer entscheidet im Spiel):** In unter 2 Minuten, allein, ohne zweiten Spieler und ohne Gruppe: Spieler in den Raid setzen, Items vergeben, einen Spieler gehen lassen, unentschuldigt markieren, Abend abschließen, Zuschlag im Spielerdetail sehen. Danach `/fs` im Normalbetrieb zeigt unverändert die echten Daten.
-
-**Beachten:** ⚠️ Nichts aus dem Probe-Modus darf in `FairshareDB` oder über das Netz gehen (Test: Szenario mit zwei Clients, einer im Probe-Modus, der andere darf nichts empfangen, und `FairshareDB` bleibt gleich). Die Zeilen der Übersicht (`Fenster.lua`) werden von allen Ansichten benutzt: Knöpfe der Bedienleiste außerhalb des Probe-Modus verstecken. Neue Texte durch `L[]` (und `tests/texte.py --streng`). Jede Änderung wie üblich mit `luacheck.py`, `rechenkern.py`, `szenarien.py`, `deploy.ps1`.
+- **Übungsmodus „Probe-Abend“ & UI-Modus (`/fs probe`, `/fs probe abend`):**
+  - Vollständige Simulation eines Abends mit 14 Spielern (10 im Raid [inkl. Igor 1. Abend Proberaid, Jonas 2. Abend Neuling], 2 abgemeldet [Kevin, Lisa], 1 weder an- noch abgemeldet [Max], 1 Bench [Nora]).
+  - Textausgabe `/fs probe abend` (6/6 Prüfungen grün).
+  - UI-Bedienleiste (`probeLeiste`) mit Spieler-Auswahl, Item-Vergabe (Main/OS), Status-Schaltern (Bench, Abwesend, Unent.), Fertiger Ablauf, Zurücksetzen.
+  - Volle Netzwerk- und Speicherisolation (`Anwesenheit._SetDB`, `_SetAnwesende`, Senden gesperrt).
+- **Reiter „Anwesenheit“ & Default = Anwesend:**
+  - Reiter von „Abwesenheit“ in „Anwesenheit“ umbenannt.
+  - 5-Spalten-Layout mit 3 Knöpfen `[Bank] [Abwesend] [Unent.]` je Zeile für direktes Umschalten mit 1 Klick.
+  - Standard für eingeteilte Spieler ist `Anwesend` (grün, Faktor 0, kein Zuschlag).
+  - Raidleiter kann den Abend auch nach dem Verlassen der Gruppe durch Spieler ohne Wertungsverfälschung abschließen.
 
 **Offene Punkte / Ideen (alle vom Nutzer so gewollt, nichts davon beauftragt):**
 - **Kleineres Fenster ermöglichen** (später, erst wenn alles andere durch ist): Werkzeugleiste umbrechen/Überlaufmenü, kürzere Knöpfe, Spalten einklappen.

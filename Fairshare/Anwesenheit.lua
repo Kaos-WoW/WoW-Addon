@@ -142,8 +142,15 @@ end
 --  Teilnehmer-Erkennung
 -- =====================================================================
 
+local anwesendeOverride = nil
+
+function Anwesenheit._SetAnwesende(mockListe)
+    anwesendeOverride = mockListe
+end
+
 --- Liest die Namen aller aktuell anwesenden Spieler in der Gruppe/Raid.
 local function anwesendeNamen()
+    if anwesendeOverride then return anwesendeOverride end
     local liste = {}
     local einheiten = ns.Rolle and ns.Rolle.Einheiten and ns.Rolle.Einheiten() or {}
     for _, e in ipairs(einheiten) do
@@ -723,11 +730,15 @@ function Anwesenheit.KandidatenListe(abend, mitRaid)
 
     -- 1. Die erwarteten Spieler dieser Gruppe (Einteilung des Tages, sonst Kader)
     local pflicht, nurEinteilung, bench = erwarteteNamen(abend)
+    local pflichtSet = {}
     for _, n in ipairs(pflicht or {}) do
         local k = Kern.Schluessel(n)
-        if k and not gesehen[k] then
-            gesehen[k] = true
-            pool[#pool + 1] = n
+        if k then
+            pflichtSet[k] = true
+            if not gesehen[k] then
+                gesehen[k] = true
+                pool[#pool + 1] = n
+            end
         end
     end
     -- ⭐ Die Bench des Tages steht in jeder Gruppe in der Liste (springt einer ein, stellt man ihn hier um)
@@ -811,17 +822,19 @@ function Anwesenheit.KandidatenListe(abend, mitRaid)
                 protokollText = string.format(L["Vergessen: %s, %s"], vEintrag.von or "?", date(L["%d.%m. %H:%M"], vEintrag.zeit or time()))
             end
 
+            local istImRaid = inRaid[k] or (nurEinteilung and pflichtSet[k] and not bEintrag and not benchE and not uEintrag and not vEintrag and not aEintrag)
+            local istOffen = not inRaid[k] and not bEintrag and not benchE and not uEintrag and not vEintrag and not aEintrag and not (nurEinteilung and pflichtSet[k])
             kandidaten[#kandidaten + 1] = {
-                name           = Kern.Anzeigename(n),
-                online         = istOnline,
-                bank           = bEintrag or (benchE and { name = Kern.Anzeigename(n), von = "Einteilung", zeit = 0 }) or nil,
+                name            = Kern.Anzeigename(n),
+                online          = istOnline,
+                bank            = bEintrag or (benchE and { name = Kern.Anzeigename(n), von = "Einteilung", zeit = 0 }) or nil,
                 benchEinteilung = benchE and true or false,
-                unentschuldigt = uEintrag,
-                vergessen      = vEintrag,
-                abgemeldet     = aEintrag,
-                offen          = (not inRaid[k] and not bEintrag and not benchE and not uEintrag and not vEintrag and not aEintrag) and true or false,
-                imRaid         = inRaid[k] and true or false,
-                protokoll      = protokollText,
+                unentschuldigt  = uEintrag,
+                vergessen       = vEintrag,
+                abgemeldet      = aEintrag,
+                offen           = istOffen and true or false,
+                imRaid          = istImRaid and true or false,
+                protokoll       = protokollText,
             }
         end
     end
@@ -915,17 +928,51 @@ end
 --  @return Menge Schlüssel -> Name, Anzahl
 function Anwesenheit.RaidMenge(abend, items)
     local menge = {}
+    local pflichtListe, nurEinteilung, benchListe = erwarteteNamen(abend)
+    local benchSet = {}
+    for _, n in ipairs(benchListe or {}) do
+        local k = Kern.Schluessel(n)
+        if k then benchSet[k] = true end
+    end
+
+    local function istAusgeschlossen(k)
+        if not abend then return false end
+        if abend.bank and abend.bank[k] then return true end
+        if abend.unentschuldigt and abend.unentschuldigt[k] then return true end
+        if abend.abgemeldet and abend.abgemeldet[k] then return true end
+        if abend.vergessen and abend.vergessen[k] then return true end
+        if benchSet[k] then return true end
+        return false
+    end
+
+    -- 1. Eingeteilte Spieler (nur bei echter Einteilung des Tages: Standard ist Anwesend)
+    if nurEinteilung then
+        for _, n in ipairs(pflichtListe or {}) do
+            local k = Kern.Schluessel(n)
+            if k and not istAusgeschlossen(k) then
+                menge[k] = n
+            end
+        end
+    end
+
+    -- 2. Aktuell im Raid oder aus Bossliste (z.B. Gäste/Pugs)
     local namen
-    if ns.Rolle and ns.Rolle.Einheiten and not dbOverride then      -- im Prüfstand (Mock-DB): Liste des letzten Bosses
+    if anwesendeOverride then
+        namen = anwesendeOverride
+    elseif ns.Rolle and ns.Rolle.Einheiten and not dbOverride then      -- im Prüfstand (Mock-DB): Liste des letzten Bosses
         namen = anwesendeNamen()
     else
         local b = abend.bossListe and abend.bossListe[#abend.bossListe]
         namen = (b and b.anwesende) or {}
     end
-    for _, n in ipairs(namen) do
+    for _, n in ipairs(namen or {}) do
         local k = Kern.Schluessel(n)
-        if k then menge[k] = n end
+        if k and not istAusgeschlossen(k) then
+            menge[k] = n
+        end
     end
+
+    -- 3. Spieler, die ein Main-Item bekommen haben
     for _, it in ipairs(items or {}) do
         local k = Kern.Schluessel(it.eintrag.awardedTo)
         if k and not menge[k] then menge[k] = it.eintrag.awardedTo end
@@ -1043,11 +1090,15 @@ function Anwesenheit.AbendVorschau(abend, offeneAlsAbgemeldet)
 
     -- 1. Die erwarteten Spieler (Einteilung des Tages, sonst Kader der Gruppe)
     local pflichtListe, nurEinteilung, benchListe = erwarteteNamen(abend)
+    local pflichtSet = {}
     for _, n in ipairs(pflichtListe or {}) do
         local k = Kern.Schluessel(n)
-        if k and not gesehen[k] then
-            gesehen[k] = true
-            pool[#pool + 1] = n
+        if k then
+            pflichtSet[k] = true
+            if not gesehen[k] then
+                gesehen[k] = true
+                pool[#pool + 1] = n
+            end
         end
     end
     -- ⭐ Bench laut Einteilung: Bank-Faktor 0 (jeder Gruppenabend führt sie mit)
@@ -1166,14 +1217,19 @@ function Anwesenheit.AbendVorschau(abend, offeneAlsAbgemeldet)
             faktor = Kern.FAKTOR_BANK
             zuschlag = 0
             fehlAnzahl = 0
+        elseif nurEinteilung and pflichtSet[k] and not aEintrag then
+            -- ⭐ Eingeteilt und nichts gewählt: Standard ist Anwesend (Faktor 0, 0 Zuschlag)
+            status = "imRaid"
+            fehlAnzahl = 0
+            faktor = 0
+            zuschlag = 0
         elseif aEintrag or offeneAlsAbgemeldet then
             status = "abgemeldet"
             fehlAnzahl = Anwesenheit.Fehlhistorie(n, 5) + 1
             faktor = Kern.FehlFaktor(fehlAnzahl, "abgemeldet")
             zuschlag = Kern.Zuschlag(faktor, schnitt)
         else
-            -- ⭐ Niemand hat entschieden: offen. Das ist kein Zuschlag, sondern ein Hinweis, dass der
-            -- Abend sich noch nicht abschließen lässt.
+            -- ⭐ Niemand hat entschieden: offen.
             status = "offen"
             fehlAnzahl = 0
             faktor = 0
@@ -2139,6 +2195,24 @@ function Anwesenheit.BeispielUnentToggle(name)
     end
 end
 
+--- Toggelt Abgemeldet im Demo-Modus.
+function Anwesenheit.BeispielAbmeldToggle(name)
+    local k = Kern.Schluessel(name)
+    Anwesenheit.BeispielKandidaten()
+    local e = beispielBankState and beispielBankState[k]
+    if not e then return end
+    local t = time()
+    if e.abgemeldet then
+        e.abgemeldet = nil
+        e.protokoll = ""
+    else
+        e.abgemeldet = { name = e.name, von = "Kaos", zeit = t }
+        e.bank = nil
+        e.unentschuldigt = nil
+        e.protokoll = string.format(L["Abgemeldet: %s, %s"], "Kaos", date(L["%d.%m. %H:%M"], t))
+    end
+end
+
 --- Setzt die interaktiven Demo-Kandidaten zurück (alle Haken entfernt).
 function Anwesenheit.BeispielKandidatenReset()
     beispielBankState = {
@@ -2181,5 +2255,600 @@ function Anwesenheit.BeispielInfo(name)
     end
     return { bosse = 10, gesamt = 10, quote = 1.0, prozent = 100, imRaid = true, status = "kader" }
 end
+
+-- =====================================================================
+--  Probe-Modus (Übungsmodus)
+-- =====================================================================
+
+local Probe = {}
+ns.Probe = Probe
+
+local probeAktiv = false
+local probeDB = nil
+local probeHist = nil
+local probeHistList = nil
+local probeRaidList = nil
+local probeBackups = nil
+local probeGesendet = 0
+
+local PROBE_ROSTER = {
+    "Anna", "Ben", "Chris", "David", "Elena", "Frank", "Greta", "Hanna",
+    "Igor", "Jonas", "Kevin", "Lisa", "Max", "Nora"
+}
+
+local function baueProbeDB()
+    local t = time()
+    local raid10 = { "Anna", "Ben", "Chris", "David", "Elena", "Frank", "Greta", "Hanna", "Igor", "Jonas" }
+    local d = {
+        abende = {},
+        zuschlaege = {},
+        anhebungen = {},
+        anhebungsliste = {},
+        aktiverAbend = {
+            id = "probe_abend",
+            datum = date("%Y-%m-%d", t),
+            gruppe = "Probe",
+            start = t - 3600,
+            ende = t + 7200,
+            bosse = 1,
+            bossListe = {
+                { name = "Probeboss", nummer = 9991, sieg = true, anwesende = raid10 }
+            },
+            teilnehmer = {
+                anna  = { name = "Anna", status = "kader", bosse = 1 },
+                ben   = { name = "Ben", status = "kader", bosse = 1 },
+                chris = { name = "Chris", status = "kader", bosse = 1 },
+                david = { name = "David", status = "kader", bosse = 1 },
+                elena = { name = "Elena", status = "kader", bosse = 1 },
+                frank = { name = "Frank", status = "kader", bosse = 1 },
+                greta = { name = "Greta", status = "kader", bosse = 1 },
+                hanna = { name = "Hanna", status = "kader", bosse = 1 },
+                igor  = { name = "Igor", status = "proberaid", bosse = 1 },
+                jonas = { name = "Jonas", status = "neuling", bosse = 1 },
+                kevin = { name = "Kevin", status = "kader", bosse = 0 },
+                lisa  = { name = "Lisa", status = "kader", bosse = 0 },
+                max   = { name = "Max", status = "kader", bosse = 0 },
+                nora  = { name = "Nora", status = "kader", bosse = 0 },
+            },
+            anwesenheit = {
+                anna = 1, ben = 1, chris = 1, david = 1, elena = 1,
+                frank = 1, greta = 1, hanna = 1, igor = 1, jonas = 1,
+            },
+            bank = {
+                nora = { name = "Nora", von = "ProbeLeiter" },
+            },
+            unentschuldigt = {},
+            abgemeldet = {
+                kevin = { name = "Kevin", von = "ProbeLeiter", zeit = t },
+                lisa  = { name = "Lisa", von = "ProbeLeiter", zeit = t },
+            },
+            vergessen = {
+                max = { name = "Max", von = "ProbeLeiter", zeit = t },
+            },
+            protokoll = {},
+        }
+    }
+
+    -- Historischer Abend 1: Die 12 Gruender (Anna..Hanna, Kevin, Lisa, Max, Nora)
+    d.abende["archiv_1"] = {
+        id = "archiv_1",
+        datum = date("%Y-%m-%d", t - 14 * 86400),
+        abgeschlossen = true,
+        buchRev = 1,
+        abschluss = {
+            zeit = t - 14 * 86400,
+            datum = date("%Y-%m-%d", t - 14 * 86400),
+            autor = "Kaos",
+            schnitt = 1.0,
+            mainItems = 10,
+            raidSpieler = 10,
+            gesamtBosse = 1,
+            spieler = {
+                anna  = { name = "Anna", status = "imRaid", zuschlag = 0 },
+                ben   = { name = "Ben", status = "imRaid", zuschlag = 0 },
+                chris = { name = "Chris", status = "imRaid", zuschlag = 0 },
+                david = { name = "David", status = "imRaid", zuschlag = 0 },
+                elena = { name = "Elena", status = "imRaid", zuschlag = 0 },
+                frank = { name = "Frank", status = "imRaid", zuschlag = 0 },
+                greta = { name = "Greta", status = "imRaid", zuschlag = 0 },
+                hanna = { name = "Hanna", status = "imRaid", zuschlag = 0 },
+                kevin = { name = "Kevin", status = "imRaid", zuschlag = 0 },
+                lisa  = { name = "Lisa", status = "imRaid", zuschlag = 0 },
+                max   = { name = "Max", status = "imRaid", zuschlag = 0 },
+                nora  = { name = "Nora", status = "imRaid", zuschlag = 0 },
+            }
+        }
+    }
+
+    -- Historischer Abend 2: Jonas kam vor 7 Tagen neu zum Kader (1. Abend = Proberaid)
+    d.abende["archiv_2"] = {
+        id = "archiv_2",
+        datum = date("%Y-%m-%d", t - 7 * 86400),
+        abgeschlossen = true,
+        buchRev = 1,
+        abschluss = {
+            zeit = t - 7 * 86400,
+            datum = date("%Y-%m-%d", t - 7 * 86400),
+            autor = "Kaos",
+            schnitt = 1.0,
+            mainItems = 5,
+            raidSpieler = 5,
+            gesamtBosse = 1,
+            spieler = {
+                anna  = { name = "Anna", status = "imRaid", zuschlag = 0 },
+                ben   = { name = "Ben", status = "imRaid", zuschlag = 0 },
+                chris = { name = "Chris", status = "imRaid", zuschlag = 0 },
+                david = { name = "David", status = "imRaid", zuschlag = 0 },
+                jonas = { name = "Jonas", status = "imRaid", zuschlag = 0 },
+            }
+        }
+    }
+
+    return d
+end
+
+function Probe.Aktiv()
+    return probeAktiv and true or false
+end
+
+function Probe.Roster()
+    return PROBE_ROSTER
+end
+
+function Probe.Historie()
+    return probeHist or {}
+end
+
+function Probe.Starten()
+    if probeAktiv then return true end
+
+    probeBackups = {
+        dbOverride = dbOverride,
+        anwesendeOverride = anwesendeOverride,
+
+        konfigDarf = ns.Konfig and ns.Konfig.Darf,
+        konfigSenden = ns.Konfig and ns.Konfig.Senden,
+        konfigAutoSenden = ns.Konfig and ns.Konfig.AutoSenden,
+
+        rolleBerechtigt = ns.Rolle and ns.Rolle.Berechtigt,
+        rolleIchSchreibe = ns.Rolle and ns.Rolle.IchSchreibe,
+
+        erfassungHistorie = ns.Erfassung and ns.Erfassung.Historie,
+        erfassungDarf = ns.Erfassung and ns.Erfassung.DarfZuruecknehmen,
+
+        gruppenPflicht = ns.Gruppen and ns.Gruppen.Pflicht,
+        gruppenEinteilungVorhanden = ns.Gruppen and ns.Gruppen.EinteilungVorhanden,
+        gruppenEinteilungListe = ns.Gruppen and ns.Gruppen.EinteilungListe,
+        gruppenBenchListe = ns.Gruppen and ns.Gruppen.BenchListe,
+        gruppenAktivName = ns.Gruppen and ns.Gruppen.AktivName,
+        gruppenGildenMitglieder = ns.Gruppen and ns.Gruppen.GildenMitglieder,
+        gruppenEinteilungDarf = ns.Gruppen and ns.Gruppen.EinteilungDarf,
+
+        abgleichSenden = ns.Abgleich and ns.Abgleich.Senden,
+        abgleichBuchVerteilen = ns.Abgleich and ns.Abgleich.BuchVerteilen,
+        abgleichVerteilen = ns.Abgleich and ns.Abgleich.Verteilen,
+        abgleichLeitungBeacon = ns.Abgleich and ns.Abgleich.LeitungBeacon,
+        abgleichLeitungBeaconSpaeter = ns.Abgleich and ns.Abgleich.LeitungBeaconSpaeter,
+        anwBuchVerteilen = Anwesenheit.BuchVerteilen,
+    }
+
+    probeGesendet = 0
+    local blockFn = function() probeGesendet = probeGesendet + 1 end
+
+    if ns.Abgleich then
+        ns.Abgleich.Senden = blockFn
+        ns.Abgleich.BuchVerteilen = blockFn
+        ns.Abgleich.Verteilen = blockFn
+        ns.Abgleich.LeitungBeacon = blockFn
+        ns.Abgleich.LeitungBeaconSpaeter = blockFn
+        if ns.Abgleich.WarteschlangeLeeren then ns.Abgleich.WarteschlangeLeeren() end
+    end
+    Anwesenheit.BuchVerteilen = blockFn
+    if ns.Konfig then
+        ns.Konfig.Senden = blockFn
+        ns.Konfig.AutoSenden = blockFn
+    end
+
+    ns.Konfig = ns.Konfig or {}
+    ns.Konfig.Darf = function() return true end
+    ns.Rolle = ns.Rolle or {}
+    ns.Rolle.Berechtigt = function() return true end
+    ns.Rolle.IchSchreibe = function() return true, "probe" end
+
+    ns.Gruppen = ns.Gruppen or {}
+    ns.Gruppen.AktivName = function() return "Probe" end
+    ns.Gruppen.EinteilungVorhanden = function() return true end
+    ns.Gruppen.EinteilungListe = function() return PROBE_ROSTER end
+    ns.Gruppen.BenchListe = function()
+        local abend = Anwesenheit.AktiverAbend(false)
+        local bench = {}
+        for k, b in pairs((abend and abend.bank) or {}) do
+            bench[#bench + 1] = b.name or k
+        end
+        return bench
+    end
+    ns.Gruppen.Pflicht = function() return PROBE_ROSTER end
+    ns.Gruppen.GildenMitglieder = function()
+        return {
+            anna  = { name = "Anna", online = true },
+            ben   = { name = "Ben", online = true },
+            chris = { name = "Chris", online = true },
+            david = { name = "David", online = true },
+            elena = { name = "Elena", online = true },
+            frank = { name = "Frank", online = true },
+            greta = { name = "Greta", online = true },
+            hanna = { name = "Hanna", online = true },
+            igor  = { name = "Igor", online = true },
+            jonas = { name = "Jonas", online = true },
+            kevin = { name = "Kevin", online = false },
+            lisa  = { name = "Lisa", online = false },
+            max   = { name = "Max", online = false },
+            nora  = { name = "Nora", online = true },
+        }
+    end
+    ns.Gruppen.EinteilungDarf = function() return true end
+
+    probeDB = baueProbeDB()
+    probeHist = {}
+    probeHistList = {}
+    probeRaidList = { "Anna", "Ben", "Chris", "David", "Elena", "Frank", "Greta", "Hanna", "Igor", "Jonas" }
+
+    ns.Erfassung = ns.Erfassung or {}
+    ns.Erfassung.Historie = function() return probeHist end
+    ns.Erfassung.DarfZuruecknehmen = function() return true end
+
+    Anwesenheit._SetDB(probeDB)
+    Anwesenheit._SetAnwesende(probeRaidList)
+
+    probeAktiv = true
+    return true
+end
+
+function Probe.Beenden()
+    if not probeAktiv then return end
+
+    Anwesenheit.AbendZuruecksetzen()
+    Anwesenheit._SetAnwesende(probeBackups and probeBackups.anwesendeOverride)
+    Anwesenheit._SetDB(probeBackups and probeBackups.dbOverride)
+
+    if probeBackups then
+        if ns.Konfig then
+            ns.Konfig.Darf = probeBackups.konfigDarf
+            ns.Konfig.Senden = probeBackups.konfigSenden
+            ns.Konfig.AutoSenden = probeBackups.konfigAutoSenden
+        end
+        if ns.Rolle then
+            ns.Rolle.Berechtigt = probeBackups.rolleBerechtigt
+            ns.Rolle.IchSchreibe = probeBackups.rolleIchSchreibe
+        end
+        if ns.Erfassung then
+            ns.Erfassung.Historie = probeBackups.erfassungHistorie
+            ns.Erfassung.DarfZuruecknehmen = probeBackups.erfassungDarf
+        end
+        if ns.Gruppen then
+            ns.Gruppen.Pflicht = probeBackups.gruppenPflicht
+            ns.Gruppen.EinteilungVorhanden = probeBackups.gruppenEinteilungVorhanden
+            ns.Gruppen.EinteilungListe = probeBackups.gruppenEinteilungListe
+            ns.Gruppen.BenchListe = probeBackups.gruppenBenchListe
+            ns.Gruppen.AktivName = probeBackups.gruppenAktivName
+            ns.Gruppen.GildenMitglieder = probeBackups.gruppenGildenMitglieder
+            ns.Gruppen.EinteilungDarf = probeBackups.gruppenEinteilungDarf
+        end
+        if ns.Abgleich then
+            ns.Abgleich.Senden = probeBackups.abgleichSenden
+            ns.Abgleich.BuchVerteilen = probeBackups.abgleichBuchVerteilen
+            ns.Abgleich.Verteilen = probeBackups.abgleichVerteilen
+            ns.Abgleich.LeitungBeacon = probeBackups.abgleichLeitungBeacon
+            ns.Abgleich.LeitungBeaconSpaeter = probeBackups.abgleichLeitungBeaconSpaeter
+        end
+        if ns.Abgleich and ns.Abgleich.WarteschlangeLeeren then
+            ns.Abgleich.WarteschlangeLeeren()
+        end
+        Anwesenheit.BuchVerteilen = probeBackups.anwBuchVerteilen
+    end
+
+    probeDB = nil
+    probeHist = nil
+    probeHistList = nil
+    probeRaidList = nil
+    probeBackups = nil
+    probeAktiv = false
+end
+
+function Probe.Zuruecksetzen()
+    if not probeAktiv then return end
+    probeDB = baueProbeDB()
+    probeHist = {}
+    probeHistList = {}
+    probeRaidList = { "Anna", "Ben", "Chris", "David", "Elena", "Frank", "Greta", "Hanna", "Igor", "Jonas" }
+    Anwesenheit._SetDB(probeDB)
+    Anwesenheit._SetAnwesende(probeRaidList)
+    local abend = Anwesenheit.AktiverAbend(true)
+    abend.gruppe = "Probe"
+    abend.bosse = 1
+    abend.bossListe = {
+        { name = "Probeboss", nummer = 9991, sieg = true, anwesende = probeRaidList }
+    }
+end
+
+function Probe.IstImRaid(name)
+    local kTarget = Kern.Schluessel(name)
+    for _, n in ipairs(probeRaidList or {}) do
+        if Kern.Schluessel(n) == kTarget then return true end
+    end
+    return false
+end
+
+function Probe.SetzeRaid(name, imRaid)
+    if not probeAktiv then return false end
+    local kTarget = Kern.Schluessel(name)
+    if not kTarget then return false end
+    local gefunden = false
+    for i, n in ipairs(probeRaidList) do
+        if Kern.Schluessel(n) == kTarget then
+            gefunden = true
+            if not imRaid then
+                table.remove(probeRaidList, i)
+            end
+            break
+        end
+    end
+    if imRaid and not gefunden then
+        table.insert(probeRaidList, Kern.Anzeigename(name))
+    end
+    Anwesenheit._SetAnwesende(probeRaidList)
+
+    local abend = Anwesenheit.AktiverAbend(false)
+    if abend then
+        if imRaid then
+            if abend.bank then abend.bank[kTarget] = nil end
+            if abend.unentschuldigt then abend.unentschuldigt[kTarget] = nil end
+            if abend.abgemeldet then abend.abgemeldet[kTarget] = nil end
+            if abend.vergessen then abend.vergessen[kTarget] = nil end
+        end
+        if abend.bossListe and #abend.bossListe > 0 then
+            abend.bossListe[#abend.bossListe].anwesende = probeRaidList
+        end
+    end
+    return true
+end
+
+function Probe.ToggleRaid(name)
+    local ist = Probe.IstImRaid(name)
+    return Probe.SetzeRaid(name, not ist)
+end
+
+function Probe.SetzeBank(name, an)
+    if not probeAktiv then return false end
+    if an then
+        Probe.SetzeRaid(name, false)
+        return Anwesenheit.BankSetzen(name, true, "ProbeLeiter")
+    else
+        Anwesenheit.BankSetzen(name, false, "ProbeLeiter")
+        return Probe.SetzeRaid(name, true)
+    end
+end
+
+function Probe.SetzeUnentschuldigt(name, an)
+    if not probeAktiv then return false end
+    if an then
+        Probe.SetzeRaid(name, false)
+        return Anwesenheit.UnentschuldigtSetzen(name, true, "ProbeLeiter")
+    else
+        Anwesenheit.UnentschuldigtSetzen(name, false, "ProbeLeiter")
+        return Probe.SetzeRaid(name, true)
+    end
+end
+
+function Probe.SetzeAbgemeldet(name, an)
+    if not probeAktiv then return false end
+    if an then
+        Probe.SetzeRaid(name, false)
+        return Anwesenheit.AbmeldungSetzen(name, true, "ProbeLeiter")
+    else
+        Anwesenheit.AbmeldungSetzen(name, false, "ProbeLeiter")
+        return Probe.SetzeRaid(name, true)
+    end
+end
+
+function Probe.SetzeKeineMeldung(name, an)
+    if not probeAktiv then return false end
+    if an then Probe.SetzeRaid(name, false) end
+    return Anwesenheit.VergessenSetzen(name, an, "ProbeLeiter")
+end
+
+function Probe.VergebeItem(name, istOS, itemID, itemLink)
+    if not probeAktiv then return false end
+    name = Kern.Anzeigename(name)
+    local t = time()
+    local nr = #probeHistList + 1
+    local id = "probe_item_" .. tostring(nr)
+    local item = {
+        id        = id,
+        awardedTo = name,
+        itemID    = itemID or (istOS and 32235 or 32505),
+        itemLink  = itemLink or nil,
+        timestamp = t,
+        OS        = istOS and true or false,
+        herkunft  = "probe",
+        gruppe    = "Probe",
+    }
+    probeHist[id] = item
+    table.insert(probeHistList, item)
+
+    local abend = Anwesenheit.AktiverAbend(true)
+    abend.gruppe = "Probe"
+    local k = Kern.Schluessel(name)
+    if k and abend.teilnehmer and not abend.teilnehmer[k] then
+        abend.teilnehmer[k] = { name = name, status = Anwesenheit.StatusVon(name), bosse = 1 }
+    end
+    return true, item
+end
+
+function Probe.FertigerAblauf(ausgeben)
+    if ausgeben == nil then ausgeben = true end
+    if not probeAktiv then Probe.Starten() end
+    Probe.Zuruecksetzen()
+
+    local abend = Anwesenheit.AktiverAbend(true)
+    abend.gruppe = "Probe"
+    abend.bosse = 1
+    abend.bossListe = {
+        { name = "Lucifron", nummer = 9901, sieg = true, anwesende = probeRaidList }
+    }
+
+    -- 10 Main-Items an die Kaderspieler im Raid:
+    -- Anna (2), Ben (2), Chris (1), David (1), Elena (1), Frank (1), Greta (1), Hanna (1) = 10 Items
+    -- Igor (Proberaid 1. Abend: 0 Items), Jonas (Neuling 2. Abend: 0 Items)
+    -- Abendschnitt = 10 Main-Items / 10 Raidspieler = 1.00
+    Probe.VergebeItem("Anna", false, 1001)
+    Probe.VergebeItem("Anna", false, 1002)
+    Probe.VergebeItem("Ben", false, 1003)
+    Probe.VergebeItem("Ben", false, 1004)
+    Probe.VergebeItem("Chris", false, 1005)
+    Probe.VergebeItem("David", false, 1006)
+    Probe.VergebeItem("Elena", false, 1007)
+    Probe.VergebeItem("Frank", false, 1008)
+    Probe.VergebeItem("Greta", false, 1009)
+    Probe.VergebeItem("Hanna", false, 1010)
+
+    -- Status außerhalb des Raids (4 Spieler):
+    Anwesenheit.BankSetzen("Nora", true, "ProbeLeiter")
+    Anwesenheit.VergessenSetzen("Max", true, "ProbeLeiter")
+    Anwesenheit.AbmeldungSetzen("Kevin", true, "ProbeLeiter")
+    Anwesenheit.AbmeldungSetzen("Lisa", true, "ProbeLeiter")
+
+    local igorStatus = Anwesenheit.StatusVon("Igor")
+    local jonasStatus = Anwesenheit.StatusVon("Jonas")
+    local rollenListe = {
+        { name = "Anna", haupt = 2, wertung = 2 },
+        { name = "Ben", haupt = 2, wertung = 2 },
+        { name = "Chris", haupt = 1, wertung = 1 },
+        { name = "David", haupt = 1, wertung = 1 },
+        { name = "Elena", haupt = 1, wertung = 1 },
+        { name = "Frank", haupt = 1, wertung = 1 },
+        { name = "Greta", haupt = 1, wertung = 1 },
+        { name = "Hanna", haupt = 1, wertung = 1 },
+        { name = "Igor", haupt = 0, wertung = 0 },
+        { name = "Jonas", haupt = 0, wertung = 0 },
+    }
+    Anwesenheit.Rollen(rollenListe, true)
+    local jonasWertung = 0
+    for _, e in ipairs(rollenListe) do
+        if e.name == "Jonas" then
+            jonasWertung = (e.neulingZiel and e.neulingZiel > 0) and e.neulingZiel or (e.wertung or 0)
+        end
+    end
+
+    local vorschau = Anwesenheit.AbendVorschau(abend)
+    local vMap = {}
+    for _, p in ipairs((vorschau and vorschau.spieler) or {}) do
+        vMap[p.schluessel] = p
+    end
+
+    local okAbschluss, _, zCount = Anwesenheit.AbendAbschliessen(abend, "ProbeLeiter")
+    local zDaten = Anwesenheit.ZuschlaegeDaten()
+
+    local annaZuschlag  = (zDaten.zuschlaege and zDaten.zuschlaege["anna"]) or 0
+    local noraZuschlag  = (zDaten.zuschlaege and zDaten.zuschlaege["nora"]) or 0
+    local maxZuschlag   = (zDaten.zuschlaege and zDaten.zuschlaege["max"]) or 0
+    local kevinZuschlag = (zDaten.zuschlaege and zDaten.zuschlaege["kevin"]) or 0
+    local lisaZuschlag  = (zDaten.zuschlaege and zDaten.zuschlaege["lisa"]) or 0
+
+    local pruefungen = {
+        raid = {
+            name = "Anna",
+            soll = 0.0,
+            ist = annaZuschlag,
+            ok = (vMap["anna"] and vMap["anna"].status == "imRaid") and annaZuschlag == 0,
+        },
+        bench = {
+            name = "Nora",
+            soll = 0.0,
+            ist = noraZuschlag,
+            ok = (vMap["nora"] and vMap["nora"].status == "bank") and noraZuschlag == 0,
+        },
+        keineMeldung = {
+            name = "Max",
+            soll = 0.7,
+            ist = maxZuschlag,
+            ok = (vMap["max"] and vMap["max"].status == "vergessen") and math.abs(maxZuschlag - 0.7) < 1e-6,
+        },
+        abgemeldet = {
+            name = "Kevin, Lisa",
+            soll = 0.7,
+            ist = kevinZuschlag,
+            ok = (vMap["kevin"] and vMap["kevin"].status == "abgemeldet")
+                and (vMap["lisa"] and vMap["lisa"].status == "abgemeldet")
+                and math.abs(kevinZuschlag - 0.7) < 1e-6
+                and math.abs(lisaZuschlag - 0.7) < 1e-6,
+        },
+        proberaid = {
+            name = "Igor",
+            soll = "proberaid",
+            ist = igorStatus,
+            ok = (igorStatus == "proberaid") and (vMap["igor"] and vMap["igor"].status == "imRaid"),
+        },
+        neuling = {
+            name = "Jonas",
+            soll = 3.0,
+            ist = jonasWertung,
+            ok = (jonasStatus == "neuling") and math.abs(jonasWertung - 3.0) < 1e-6,
+        },
+    }
+
+    local alleOk = pruefungen.raid.ok and pruefungen.bench.ok and pruefungen.keineMeldung.ok
+                   and pruefungen.abgemeldet.ok and pruefungen.proberaid.ok and pruefungen.neuling.ok
+                   and okAbschluss and (probeGesendet > 0)
+
+    if ausgeben then
+        local OK_TAG = "|cff55ff55[OK]|r"
+        local ERR_TAG = "|cffff5555[FEHLER]|r"
+        print("|cff1B6B57Fairshare|r: |cffffff78" .. L["Probe-Abend (Wegwerf-Datenbank, keine echten Daten):"] .. "|r")
+        print(string.format(L["  Abendschnitt: %.2f (%d Main-Items / %d Spieler im Raid)"],
+            vorschau and vorschau.schnitt or 0, 10, 10))
+
+        print(string.format(L["  Raid (%s): Erwartet Zuschlag %.1f  /  Ist %.1f %s"],
+            "Anna", pruefungen.raid.soll, pruefungen.raid.ist, pruefungen.raid.ok and OK_TAG or ERR_TAG))
+        print(string.format(L["  Bench (%s): Erwartet Zuschlag %.1f  /  Ist %.1f %s"],
+            "Nora", pruefungen.bench.soll, pruefungen.bench.ist, pruefungen.bench.ok and OK_TAG or ERR_TAG))
+        print(string.format(L["  Weder an- noch abgemeldet (%s): Erwartet Zuschlag %.1f (wie abgemeldet)  /  Ist %.1f %s"],
+            "Max", pruefungen.keineMeldung.soll, pruefungen.keineMeldung.ist, pruefungen.keineMeldung.ok and OK_TAG or ERR_TAG))
+        print(string.format(L["  Abgemeldet (%s): Erwartet Zuschlag %.1f  /  Ist %.1f %s"],
+            "Kevin, Lisa", pruefungen.abgemeldet.soll, pruefungen.abgemeldet.ist, pruefungen.abgemeldet.ok and OK_TAG or ERR_TAG))
+        print(string.format(L["  Proberaid 1. Abend (%s): Erwartet Status %s  /  Ist %s %s"],
+            "Igor", pruefungen.proberaid.soll, pruefungen.proberaid.ist, pruefungen.proberaid.ok and OK_TAG or ERR_TAG))
+        print(string.format(L["  Neuling 2. Abend (%s): Erwartet Einstieg %.1f (Niedrigster + 2)  /  Ist %.1f %s"],
+            "Jonas", pruefungen.neuling.soll, pruefungen.neuling.ist, pruefungen.neuling.ok and OK_TAG or ERR_TAG))
+
+        if alleOk then
+            print("|cff1B6B57Fairshare|r: |cff55ff55" .. L["Probe-Abend erfolgreich: 6/6 Prüfungen bestanden."] .. "|r")
+            print("  |cff8E9A94" .. L["FairshareDB unverändert, nichts gesendet."] .. "|r")
+        else
+            local fehlerAnz = 0
+            for _, p in pairs(pruefungen) do if not p.ok then fehlerAnz = fehlerAnz + 1 end end
+            print("|cff1B6B57Fairshare|r: |cffff5555" .. string.format(L["Probe-Abend fehlgeschlagen (%d Fehler)."], fehlerAnz) .. "|r")
+        end
+    end
+
+    return alleOk, {
+        ok = alleOk,
+        schnitt = vorschau and vorschau.schnitt or 0,
+        pruefungen = pruefungen,
+        okAbschluss = okAbschluss,
+        zCount = zCount,
+        gesendet = probeGesendet,
+    }
+end
+
+function Anwesenheit.ProbeStandardAbend(ausgeben)
+    if ausgeben == nil then ausgeben = true end
+    Probe.Starten()
+    local ok, res = Probe.FertigerAblauf(ausgeben)
+    Probe.Beenden()
+    return ok, res
+end
+
+Probe.StandardAbend = Anwesenheit.ProbeStandardAbend
 
 return Anwesenheit

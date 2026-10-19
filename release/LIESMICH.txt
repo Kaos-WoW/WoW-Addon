@@ -38,9 +38,10 @@ WAS ES TUT
 DAS LOOT-REGELWERK (Wertung)
  * Wertung = Main-Items + Zuschlaege + Anhebungen; wer die niedrigste hat,
    hat Vorrang. Nur bei Gleichstand entscheidet der Wurf.
- * Im Raid ist, wer am Ende des Abends in der Gruppe steht. Fehlen gibt
-   Zuschlaege (Staffel 0,7 / 1,0 / 1,0 / 1,0 / 1,3 / 1,5 mal dem Schnitt des
-   Abends), Bank/Bench 0, unentschuldigt mindestens 2.
+ * Im Raid ist, wer eingeteilt ist (Standard = Anwesend) bzw. am Ende des
+   Abends in der Gruppe steht. Fehlen gibt Zuschlaege (Staffel 0,7 / 1,0 / 1,0 /
+   1,0 / 1,3 / 1,5 mal dem Schnitt des Abends), Bank/Bench 0, unentschuldigt
+   mindestens 2.
  * Neulinge, Gaeste, Rueckgabe: siehe REGELWERK der Gildenleitung.
  * Anhebung: nur von Hand durch die Raid- oder Gildenleitung (/fs anhebung <Name>
    oder Einstellungen -> Gruppen -> Anhebung); es gibt keine automatische mehr.
@@ -50,17 +51,18 @@ DAS LOOT-REGELWERK (Wertung)
 GRUPPEN UND EINTEILUNG (nur mit Schreibrecht sichtbar)
  * Schreibrecht haben Gildenmeister und Offiziere (Stufe 1 und 2) und alle
    weiteren Raenge bis zur eingestellten Grenze. Nur sie sehen die Reiter
-   "Abwesenheit" und "Einteilung"; alle anderen sehen "Spieler" und "Verlauf".
+   "Anwesenheit" und "Einteilung"; alle anderen sehen "Spieler" und "Verlauf".
  * Einstellungen -> Gruppen: Gruppen anlegen (z. B. 40er, 10er), den
-   Raidkader festlegen (alle Gildenmitglieder bis zu einem Rang; liest sich
+   Raidkader festlegen (einzelne Gildenraenge an-/abwaehlbar; liest sich
    beim Anmelden von selbst ein) und den Wochentag, an dem eine neue Raid-ID
    beginnt (Standard Mittwoch).
  * Einteilung: oben in der Ausklappliste das Ziel waehlen (Gruppe, Bench,
    Keine Meldung). Links stehen die Spieler, die noch nirgends zugewiesen
    sind, rechts die im Ziel. Einmal je Raid-ID; wer irgendwo zugewiesen ist,
    erscheint bei den anderen Zielen nicht mehr.
- * Abwesenheit: Gruppe waehlen; Bench-Spieler koennen einspringen,
-   Unentschuldigte markieren, am Ende "Abend abschliessen".
+ * Anwesenheit: Gruppe waehlen; eingeteilte Spieler sind standardmaessig
+   "Anwesend" (kein Schliessungs-Stress nach Raidende). 3 Knoepfe je Zeile:
+   [Bank/Bench], [Abwesend], [Unent.]. Am Ende "Abend abschliessen".
  * Wochenabschluss: in der Einteilung "Woche abschliessen" (zweimal klicken).
 
 EINSTELLUNGEN UND DATEN TEILEN
@@ -95,6 +97,7 @@ BEFEHLE (Auswahl)       /fs hilfe zeigt alle
    /fs einstellungen    Einstellungen
    /fs wurf             Wuerfelfenster starten
    /fs einteilung       Einteilung (mit Schreibrecht)
+   /fs probe            Probe-Modus (Uebungsmodus zum Testen)
    /fs rolle            wer zeichnet gerade auf
    /fs abgleich status  Stand des Datenabgleichs
 

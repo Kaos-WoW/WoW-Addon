@@ -733,7 +733,10 @@ local function seiteGruppen(P)
     for i = 1, 8 do
         zeile(k1, { geteilt = true, art = "knopf",
             sichtbar = function() return G.Namen()[i] ~= nil end,
-            label = function() return G.Namen()[i] or "" end,
+            label = function()
+                local n = G.Namen()[i]
+                return n and string.format(L["[%der] %s"], G.Groesse(n), n) or ""
+            end,
             beschr = function()
                 local name = G.Namen()[i]
                 if not name then return "" end
@@ -744,13 +747,13 @@ local function seiteGruppen(P)
             end,
             knopf = { text = function() return loeschenBereit == G.Namen()[i] and L["Wirklich löschen"] or L["Löschen"] end,
                 klick = function()
-                    local name = G.Namen()[i]
-                    if not name then return end
-                    if loeschenBereit == name then
-                        G.Loeschen(name)
+                    local n = G.Namen()[i]
+                    if not n then return end
+                    if loeschenBereit == n then
+                        G.Loeschen(n)
                         loeschenBereit = nil
                     else
-                        loeschenBereit = name
+                        loeschenBereit = n
                     end
                 end } })
     end
@@ -759,13 +762,23 @@ local function seiteGruppen(P)
         beschr = L["Unten eine anlegen, zum Beispiel „40er“ oder „10er“."] })
 
     local k4 = karte(P, L["Neue Gruppe"])
+    local neueGroesse = 40
+    zeile(k4, { art = "segment", label = L["Raid-Größe"],
+        werte = {
+            { wert = 10, label = L["10er"] },
+            { wert = 20, label = L["20er"] },
+            { wert = 40, label = L["40er"] },
+        },
+        beschr = L["10er, 20er oder 40er Raid. Spieler können je Größe in einer Gruppe eingeteilt sein."],
+        get = function() return neueGroesse end,
+        set = function(v) neueGroesse = v end })
     zeile(k4, { geteilt = true, art = "eingabe", label = L["Name"],
         beschr = function()
             return Meldung.neu or L["Höchstens 40 Zeichen, ohne Semikolon."]
         end,
         knopf = { text = L["Anlegen"],
             klick = function(text)
-                local ok, grund = G.Anlegen(text)
+                local ok, grund = G.Anlegen(text, neueGroesse)
                 Meldung.neu = ok and farbig(C.ok, L["Angelegt."]) or farbig(C.bad, tostring(grund))
             end } })
 
@@ -787,9 +800,9 @@ local function seiteGruppen(P)
                 end
             end } })
 
-    -- ⭐ Der Raidkader: alle Gildenmitglieder bis zum gewählten Rang; wird beim Anmelden von selbst eingelesen
+    -- ⭐ Der Raidkader: alle Gildenmitglieder der gewählten Ränge; wird beim Anmelden von selbst eingelesen
     local kk = karte(P, L["Raidkader"],
-        L["Alle Gildenmitglieder bis zum gewählten Rang bilden den Raidkader, aus dem du in der Einteilung die Gruppen zusammenstellst. Er wird beim Anmelden von selbst eingelesen; der Rang gilt für alle, sobald er geteilt wird."])
+        L["Alle Gildenmitglieder der gewählten Ränge bilden den Raidkader, aus dem du in der Einteilung die Gruppen zusammenstellst. Er wird beim Anmelden von selbst eingelesen; die Ränge gelten für alle, sobald sie geteilt werden."])
     zeile(kk, { art = "info", sichtbar = function() return not G.Raenge() end,
         label = L["Gildenliste nicht geladen"],
         beschr = function() local _, grund = G.Raenge() return tostring(grund or "") end })
@@ -798,19 +811,13 @@ local function seiteGruppen(P)
             sichtbar = function() local R = G.Raenge() return R ~= nil and R[i] ~= nil end,
             label = function() local R = G.Raenge() return R and R[i] and R[i].name or "" end,
             get = function()
-                local R, bis = G.Raenge(), G.RaidkaderRang()
-                return R ~= nil and R[i] ~= nil and bis ~= nil and R[i].index <= bis
+                local R = G.Raenge()
+                return R ~= nil and R[i] ~= nil and G.RaidkaderRangGewaehlt(R[i].index)
             end,
             set = function(v)
                 local R = G.Raenge()
                 if not (R and R[i]) then return end
-                if v then
-                    G.RaidkaderRangSetzen(R[i].index)
-                elseif R[i - 1] then
-                    G.RaidkaderRangSetzen(R[i - 1].index)
-                else
-                    d().raidkaderRang = nil
-                end
+                G.RaidkaderRangSetzen(R[i].index, v)
                 pcall(G.RaidkaderAuto)
             end })
     end

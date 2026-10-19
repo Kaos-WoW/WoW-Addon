@@ -1489,6 +1489,73 @@ local function testKeineAutomatischeAnhebung()
     gleich("und steht vorn, weil seine Wertung die niedrigste ist", liste[1].name, "Shadow")
 end
 
+local function testProbeStandardAbend()
+    local Anw = ns.Anwesenheit
+    if not (Anw and Anw.ProbeStandardAbend) then return end
+
+    local ok, res = Anw.ProbeStandardAbend(false)
+    gleich("ProbeStandardAbend: Status ok", ok, true)
+    if res and res.pruefungen then
+        gleich("ProbeStandardAbend: Schnitt 1.0", res.schnitt, 1.0)
+        gleich("ProbeStandardAbend: Raid Anna ok", res.pruefungen.raid.ok, true)
+        gleich("ProbeStandardAbend: Bench Nora ok", res.pruefungen.bench.ok, true)
+        gleich("ProbeStandardAbend: Keine Meldung Max ok", res.pruefungen.keineMeldung.ok, true)
+        gleich("ProbeStandardAbend: Abgemeldet Kevin, Lisa ok", res.pruefungen.abgemeldet.ok, true)
+        gleich("ProbeStandardAbend: Proberaid Igor ok", res.pruefungen.proberaid.ok, true)
+        gleich("ProbeStandardAbend: Neuling Jonas ok", res.pruefungen.neuling.ok, true)
+        gleich("ProbeStandardAbend: Abschluss ok", res.okAbschluss, true)
+        gleich("ProbeStandardAbend: 3 Zuschlaege", res.zCount, 3)
+        gleich("ProbeStandardAbend: Broadcasts geblockt", (res.gesendet or 0) > 0, true)
+    end
+end
+
+local function testProbeUIUndInteraktion()
+    local P = ns.Probe
+    if not (P and P.Starten and P.Beenden) then return end
+
+    local okStart = P.Starten()
+    gleich("Probe.Starten ok", okStart, true)
+    gleich("Probe.Aktiv aktiv", P.Aktiv(), true)
+
+    local roster = P.Roster()
+    gleich("Probe.Roster enthaelt 14 Spieler", #roster, 14)
+
+    gleich("Anna initial im Raid", P.IstImRaid("Anna"), true)
+    gleich("Ben initial im Raid", P.IstImRaid("Ben"), true)
+    gleich("Nora initial nicht im Raid", P.IstImRaid("Nora"), false)
+
+    P.ToggleRaid("Nora")
+    gleich("Nora nach Toggle im Raid", P.IstImRaid("Nora"), true)
+
+    local okMain, itemMain = P.VergebeItem("Nora", false, 1001)
+    gleich("Main-Item vergeben", okMain, true)
+    gleich("Main-Item nicht OS", itemMain and itemMain.OS, false)
+
+    local okOS, itemOS = P.VergebeItem("Ben", true, 1002)
+    gleich("OS-Item vergeben", okOS, true)
+    gleich("OS-Item ist OS", itemOS and itemOS.OS, true)
+
+    local hCount = 0
+    for _ in pairs(P.Historie()) do hCount = hCount + 1 end
+    gleich("2 Items in Probe-Historie", hCount, 2)
+
+    P.SetzeBank("Nora", true)
+    gleich("Nora auf Bank", ns.Anwesenheit.IstBank("Nora"), true)
+    gleich("Nora nicht im Raid", P.IstImRaid("Nora"), false)
+
+    P.SetzeKeineMeldung("Max", true)
+    gleich("Max keine Meldung", ns.Anwesenheit.IstVergessen("Max"), true)
+
+    P.Zuruecksetzen()
+    local hCountReset = 0
+    for _ in pairs(P.Historie()) do hCountReset = hCountReset + 1 end
+    gleich("Historie nach Reset leer", hCountReset, 0)
+    gleich("Nora nach Reset nicht im Raid", P.IstImRaid("Nora"), false)
+
+    P.Beenden()
+    gleich("Probe.Aktiv nach Beenden aus", P.Aktiv(), false)
+end
+
 function Tests.Alle(ausgeben)
     gut, schlecht, meldungen = 0, 0, {}
 
@@ -1538,6 +1605,8 @@ function Tests.Alle(ausgeben)
     testRundung()
     testKennzeichenKodieren()
     testDatenbuch()
+    testProbeStandardAbend()
+    testProbeUIUndInteraktion()
 
     -- Im Betrieb (aus): kein Spieler wird von selbst angehoben, auch wenn er weit hinter den anderen liegt
     Kern.AUTO_ANHEBUNG = false

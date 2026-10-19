@@ -108,6 +108,7 @@ local wartezeit = 0
 
 --  @param kanalName  nil = die Gruppe, sonst z. B. "GUILD" (Einstellungen teilen, Konfig.lua)
 local function senden(text, kanalName)
+    if ns.Probe and ns.Probe.Aktiv and ns.Probe.Aktiv() then return false end
     if #text > 250 then return false end
 
     local f = C_ChatInfo and C_ChatInfo.SendAddonMessage or rawget(_G, "SendAddonMessage")
@@ -150,7 +151,14 @@ Takter:SetScript("OnUpdate", function(_, dt)
 end)
 
 local function einreihen(text, kanalName)
+    if ns.Probe and ns.Probe.Aktiv and ns.Probe.Aktiv() then return end
     Warteschlange[#Warteschlange + 1] = { text = text, kanal = kanalName }
+end
+
+--- Leert die Warteschlange (z. B. beim Start oder Ende des Probe-Modus).
+function Abgleich.WarteschlangeLeeren()
+    for i = #Warteschlange, 1, -1 do Warteschlange[i] = nil end
+    wartezeit = 0
 end
 
 --- Fuer andere Dateien (Wurf.lua): eine Nachricht an die Gruppe.
@@ -787,6 +795,7 @@ end
 
 --- Eine Addon-Nachricht ist eingetroffen.
 function Abgleich.Empfangen(text, sender, kanalName)
+    if ns.Probe and ns.Probe.Aktiv and ns.Probe.Aktiv() then return end
     if type(text) ~= "string" then return end
     letzterAbsender = sender
 

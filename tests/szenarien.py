@@ -2989,11 +2989,11 @@ fest(ok is None, "ein Mitglied ohne Gildenrang-Recht darf nicht einteilen (%s)" 
 # Auch ein Raidleiter-Assistent ohne Schreibrecht darf nicht (nur wer laut Einstellungen schreiben darf)
 fest(tup(ns1.Gruppen.EinteilungDarf("Timo"))[0] is False, "Timo (Rang 7) hat kein Schreibrecht")
 fest(tup(ns0.Gruppen.EinteilungDarf("Leiter Kaos"))[0] is True, "Leiter Kaos (Gildenmeister) hat Schreibrecht")
-# Timo wird in die andere Gruppe verschoben: hoechstens eine Gruppe
+# Timo wird zusaetzlich in 20er eingeteilt: unabhaengig von 40er
 tup(ns0.Gruppen.EinteilungSetzen(heute, "Timo", "20er"))
 w.weiter(5)
 fest(ev(ns2, heute, "Timo") == "20er", "Timo ist jetzt in 20er")
-fest(len(list(ns2.Gruppen.EinteilungListe(heute, "40er").values())) == 0, "und nicht mehr in 40er (hoechstens eine Gruppe)")
+fest(len(list(ns2.Gruppen.EinteilungListe(heute, "40er").values())) == 1, "und bleibt in 40er (unabhaengige Raid-Groessen)")
 # Herausnehmen
 tup(ns0.Gruppen.EinteilungSetzen(heute, "Timo", ""))
 w.weiter(5)
@@ -3038,7 +3038,7 @@ fest(sichtbar("teil") > 0 and sichtbar("unent") == 0 and sichtbar("bank") == 0, 
 tup(ns0.Gruppen.EinteilungSetzen(heute, "Protti", "40er"))      # Protti steht nicht im Raid: er erscheint in der Abwesenheit
 sl0("bank")
 fest(sichtbar("unent") > 0 and sichtbar("teil") == 0, "Abwesenheit zeigt ihre Knoepfe, kein Hinzufuegen mehr (Fund im Spiel 18.10.2026)")
-fest(sichtbar("vergessen") == 0 and sichtbar("abmeld") == 0, "und keine Knoepfe Abgemeldet/Keine Meldung mehr (Entscheid 18.10.2026)")
+fest(sichtbar("vergessen") == 0 and sichtbar("abmeld") > 0, "Abwesend ist wieder als eigener Knopf da, Keine Meldung bleibt in der Einteilung (Wunsch 19.10.2026)")
 sl0("einteilung")
 fest(sichtbar("teil") > 0 and sichtbar("unent") == 0 and sichtbar("abmeld") == 0, "und wieder zurueck")
 
@@ -3073,40 +3073,39 @@ def zwei(reihe):
 m9.Fenster.GruppeWaehlen("20er")
 links, rechts = zwei(m9.Fenster.EinteilungReihenfolge())
 fest(rechts == ["Moe:20er", "Timo:20er"], "rechts steht, wer in 20er ist (%s)" % (rechts,))
-fest(links == ["Leiter Kaos:None"],
-     "links: nur wer nirgends zugewiesen ist; Gruppen-, Bench- und Keine-Meldung-Spieler fehlen (%s)" % (links,))
+fest(links == ["Leiter Kaos:None", "Lina:None", "Protti:None", "Zora:None"],
+     "links: wer nicht in 20er ist, ist fuer 20er verfuegbar (auch wer in 40er oder Bench steht) (%s)" % (links,))
 m9.Fenster.GruppeWaehlen("40er")
 links, rechts = zwei(m9.Fenster.EinteilungReihenfolge())
 fest(rechts == ["Lina:40er", "Zora:40er"], "Ziel 40er: rechts Lina und Zora (%s)" % (rechts,))
-fest(links == ["Leiter Kaos:None"], "und links wieder nur die Freien (%s)" % (links,))
+fest(links == ["Leiter Kaos:None", "Moe:None", "Timo:None"], "und links wer nicht in 40er ist (%s)" % (links,))
 m9.Fenster.GruppeWaehlen("Bench")
 links, rechts = zwei(m9.Fenster.EinteilungReihenfolge())
 fest(rechts == ["Protti:Bench"], "Ziel Bench: rechts Protti (%s)" % (rechts,))
-fest(links == ["Leiter Kaos:None"],
-     "links: wer in einer Gruppe steht, ist auch für die Bench nicht verfügbar (%s)" % (links,))
+fest(links == ["Leiter Kaos:None", "Moe:None", "Timo:None"],
+     "links: wer in 20er steht, ist fuer 40er Bench verfuegbar (%s)" % (links,))
 m9.Fenster.GruppeWaehlen("Keine Meldung")
 links, rechts = zwei(m9.Fenster.EinteilungReihenfolge())
 fest(links == ["Leiter Kaos:None"] and rechts == [],
-     "und für Keine Meldung ebenso (%s / %s)" % (links, rechts))
+     "und für Keine Meldung nur Unentschiedene (%s / %s)" % (links, rechts))
 
-# Die Knoepfe: Hinzufuegen links, Entfernen rechts; die Bench-Spieler lassen sich einer Gruppe zuweisen
-m9.Fenster.GruppeWaehlen("20er")
-fest(m9.Fenster.EinteilungKlick("Protti") is None, "Protti (Bench) ist für 20er nicht verfügbar")
+# Die Knoepfe: Hinzufuegen links, Entfernen rechts
 m9.Fenster.GruppeWaehlen("Bench")
 fest(str(m9.Fenster.EinteilungKlick("Protti")) == "entf", "er wird rechts bei der Bench entfernt")
 m9.Fenster.GruppeWaehlen("20er")
-fest(str(m9.Fenster.EinteilungKlick("Protti")) == "hinzu", "und ist danach frei: ein Klick holt ihn in 20er")
+fest(str(m9.Fenster.EinteilungKlick("Protti")) == "hinzu", "ein Klick holt ihn in 20er")
 fest(ev(m9, tag9, "Protti") == "20er", "und er steht danach in 20er")
 links, rechts = zwei(m9.Fenster.EinteilungReihenfolge())
 fest("Protti:20er" in rechts and not any(x.startswith("Protti") for x in links), "Protti steht jetzt nur rechts (%s / %s)" % (links, rechts))
 fest(str(m9.Fenster.EinteilungKlick("Timo")) == "entf", "Entfernen rechts nimmt Timo wieder heraus")
-fest(ev(m9, tag9, "Timo") is None, "Timo ist nirgends eingeteilt")
+fest(tup(m9.Gruppen.EinteilungVon(tag9, "Timo", 20))[0] is None, "Timo ist in 20er nicht mehr eingeteilt")
 fest(str(m9.Fenster.EinteilungKlick("Timo")) == "hinzu", "und taucht links als frei wieder auf")
-# Ein Spieler kann nie in zwei Gruppen stehen: in 40er ist Moe (20er) gar nicht zu sehen
+# Ein Spieler in 20er ist fuer 40er verfuegbar und kann zusaetzlich eingeteilt werden
 m9.Fenster.GruppeWaehlen("40er")
 links, rechts = zwei(m9.Fenster.EinteilungReihenfolge())
-fest(not any(x.startswith("Moe") for x in links + rechts), "wer in 20er steht, ist fuer 40er nicht verfuegbar (%s / %s)" % (links, rechts))
-fest(m9.Fenster.EinteilungKlick("Moe") is None, "und laesst sich dort auch nicht anklicken")
+fest(any(x.startswith("Moe") for x in links), "wer in 20er steht, ist fuer 40er verfuegbar (%s / %s)" % (links, rechts))
+fest(m9.Fenster.EinteilungKlick("Moe") == "hinzu", "und laesst sich fuer 40er hinzufuegen")
+fest(ev(m9, tag9, "Moe") == "40er" and "Moe" in list(m9.Gruppen.EinteilungListe(tag9, "20er").values()), "Moe ist in 20er und 40er")
 
 # Der Klick auf einen Spieler in der Einteilung aendert die Einteilung der Raid-ID (auch bei den anderen)
 tup(ns0.Gruppen.EinteilungSetzen(heute, "Lina", "40er"))
@@ -3288,7 +3287,7 @@ tup(n0.Gruppen.EinteilungSetzen(heute, "Zora", "20er", "System"))        # ander
 liste = tup3(n0.Anwesenheit.KandidatenListe(None, True))[0]
 eintraege = {str(e["name"]).lower(): e for e in liste.values()}
 fest("moe" in eintraege and bool(eintraege["moe"]["benchEinteilung"]), "die Bench steht in der Abwesenheit, als Bench erkennbar")
-fest("protti" in eintraege and bool(eintraege["protti"]["offen"]), "der Eingeteilte, der fehlt, ist offen")
+fest("protti" in eintraege and bool(eintraege["protti"]["imRaid"]), "der Eingeteilte gilt als anwesend")
 fest("zora" not in eintraege, "Spieler der anderen Gruppe stehen nicht drin")
 fest(eintraege["moe"]["bank"] is not None and not bool(eintraege["moe"]["offen"]), "Bench gilt wie Bank und ist nicht offen")
 # Der Abschluss: Bench ist Bank (Faktor 0), blockiert nicht
@@ -3637,6 +3636,230 @@ w.weiter(15)
 rest1 = [str(x) for x in n1.Gruppen.Namen().values()]
 fest(len(rest1) == 0, "und Timo hat die Loeschung ohne Zutun bekommen (%s)" % (rest1,))
 n0.Einstellungen.Verstecken()
+
+print("== 63. Probe-Modus: /fs probe abend simuliert Standardabend, FairshareDB bleibt unverändert, nichts gesendet ==")
+w = welt36(auto=True)
+c0, c1 = w.clients[0], w.clients[1]
+n0, n1 = c0["ns"], c1["ns"]
+g0 = c0["g"]
+
+# Ausgangslage: 1 Vergabe auf beiden Clients in FairshareDB
+w.eintragen(0, "Leiter Kaos", 8001, int(w.t))
+w.weiter(10)
+fest(anz(w, 0) == 1 and anz(w, 1) == 1, "Ausgangslage: 1 echter Eintrag in FairshareDB bei beiden")
+abende_0 = len(list(n0.Anwesenheit.Daten()["abende"].keys()))
+zuschlaege_0 = len(list(n0.Anwesenheit.Daten()["zuschlaege"].keys()))
+
+# Client 0 ruft /fs probe auf -> Hilfezeilen
+g0["SlashCmdList"]["FAIRSHARE"]("probe")
+fest(any("probe abend" in str(m) for m in g0["__ausgabe"].values()), "/fs probe nennt /fs probe abend")
+
+# Client 0 ruft /fs probe abend auf
+g0["__ausgabe"] = c0["lua"].table()
+g0["SlashCmdList"]["FAIRSHARE"]("probe abend")
+
+# 1. Chat-Ausgabe pruefen (Erwartet / Ist fuer alle 6 Kategorien)
+chat0 = [str(m) for m in g0["__ausgabe"].values()]
+fest(any("Raid (Anna)" in m and "[OK]" in m for m in chat0), "Chat nennt Raid (Anna) [OK]")
+fest(any("Bench (Nora)" in m and "[OK]" in m for m in chat0), "Chat nennt Bench (Nora) [OK]")
+fest(any("Weder an- noch abgemeldet (Max)" in m and "[OK]" in m for m in chat0), "Chat nennt Weder an- noch abgemeldet (Max) [OK]")
+fest(any("Abgemeldet (Kevin, Lisa)" in m and "[OK]" in m for m in chat0), "Chat nennt Abgemeldet (Kevin, Lisa) [OK]")
+fest(any("Proberaid 1. Abend (Igor)" in m and "[OK]" in m for m in chat0), "Chat nennt Proberaid 1. Abend (Igor) [OK]")
+fest(any("Neuling 2. Abend (Jonas)" in m and "[OK]" in m for m in chat0), "Chat nennt Neuling 2. Abend (Jonas) [OK]")
+fest(any("6/6" in m and "bestanden" in m for m in chat0), "Chat meldet 6/6 Prüfungen bestanden")
+
+# 2. FairshareDB von Client 0 ist unveraendert
+fest(anz(w, 0) == 1, "FairshareDB von Client 0 unveraendert (1 Eintrag)")
+fest(len(list(n0.Anwesenheit.Daten()["abende"].keys())) == abende_0, "FairshareDB abende von Client 0 unveraendert")
+fest(len(list(n0.Anwesenheit.Daten()["zuschlaege"].keys())) == zuschlaege_0, "FairshareDB zuschlaege von Client 0 unveraendert")
+
+# 3. Client 1 hat absolut nichts empfangen
+w.weiter(20)
+fest(anz(w, 1) == 1, "Client 1 hat nichts empfangen (Historie unveraendert)")
+fest(len(list(n1.Anwesenheit.Daten()["abende"].keys())) == abende_0, "Client 1 hat keine Abende empfangen")
+fest(len(list(n1.Anwesenheit.Daten()["zuschlaege"].keys())) == zuschlaege_0, "Client 1 hat keine Zuschlaege empfangen")
+
+# 4. Direkter Aufruf ohne Chat-Ausgabe
+ok, res = tup(n0.Anwesenheit.ProbeStandardAbend(False))
+fest(ok is True, "ProbeStandardAbend erfolgreich")
+fest(res["pruefungen"]["raid"]["ok"] is True, "Raid-Rechnung korrekt")
+fest(res["pruefungen"]["bench"]["ok"] is True, "Bench-Rechnung korrekt")
+fest(res["pruefungen"]["keineMeldung"]["ok"] is True, "Keine-Meldung-Rechnung korrekt")
+fest(res["pruefungen"]["abgemeldet"]["ok"] is True, "Abgemeldet-Rechnung korrekt")
+fest(res["pruefungen"]["proberaid"]["ok"] is True, "Proberaid-Rechnung korrekt")
+fest(res["pruefungen"]["neuling"]["ok"] is True, "Neuling-Rechnung korrekt")
+fest(res["gesendet"] > 0, "Broadcasts wurden im Probe-Modus blockiert")
+
+print("== 64. Probe-Modus Oberflaeche: Roster, Raid-Toggle, Vergabe, Isolation, Abschluss und Bereinigung ==")
+w = welt36(auto=True)
+c0, c1 = w.clients[0], w.clients[1]
+n0, n1 = c0["ns"], c1["ns"]
+g0 = c0["g"]
+
+# 1. Ausgangslage: 1 Vergabe auf beiden Clients in FairshareDB
+w.eintragen(0, "Leiter Kaos", 9001, int(w.t))
+w.weiter(10)
+fest(anz(w, 0) == 1 and anz(w, 1) == 1, "Ausgangslage: 1 echter Eintrag in FairshareDB bei beiden")
+abende_vorher = len(list(n0.Anwesenheit.Daten()["abende"].keys()))
+zuschlaege_vorher = len(list(n0.Anwesenheit.Daten()["zuschlaege"].keys()))
+
+# 2. Probe-Modus ueber die Oberflaeche aktivieren
+n0.Fenster.ProbeModus(True)
+fest(n0.Probe.Aktiv() is True, "Probe-Modus ist aktiv")
+fest(n0.Fenster.IstProbe() is True, "Fensterzustand zeigt Probe-Modus an")
+
+# 3. Erfundenes Roster pruefen
+roster = [str(x) for x in n0.Probe.Roster().values()]
+fest(len(roster) == 14 and "Anna" in roster and "Igor" in roster and "Jonas" in roster and "Nora" in roster, "Erfundenes Roster enthaelt 14 Spieler")
+fest(n0.Probe.IstImRaid("Anna") is True and n0.Probe.IstImRaid("Ben") is True and n0.Probe.IstImRaid("Nora") is False, "Standard: 10 im Raid, Nora nicht")
+
+# 4. Raid-Toggle: Spieler in den Raid holen
+n0.Probe.ToggleRaid("Nora")
+fest(n0.Probe.IstImRaid("Nora") is True, "Nora in den Raid geholt")
+
+# 5. Items im Probe-Modus vergeben (Main und OS)
+ok1, it1 = tup(n0.Probe.VergebeItem("Nora", False, 9101))
+fest(ok1 is True and it1["OS"] is False, "Main-Item an Nora vergeben")
+ok2, it2 = tup(n0.Probe.VergebeItem("Ben", True, 9102))
+fest(ok2 is True and it2["OS"] is True, "OS-Item an Ben vergeben")
+fest(len(list(n0.Probe.Historie().keys())) == 2, "2 Eintraege in der Probe-Historie")
+
+# 6. Status setzen: Bench, Unentschuldigt, Abgemeldet
+n0.Probe.SetzeBank("Nora", True)
+fest(bool(tup(n0.Anwesenheit.IstBank("Nora"))[0]) is True, "Nora auf die Bench gesetzt")
+fest(n0.Probe.IstImRaid("Nora") is False, "Nora nicht mehr im Raid")
+n0.Probe.SetzeKeineMeldung("Max", True)
+fest(bool(tup(n0.Anwesenheit.IstVergessen("Max"))[0]) is True, "Max als Keine Meldung markiert")
+n0.Probe.SetzeAbgemeldet("Kevin", True)
+fest(bool(tup(n0.Anwesenheit.IstAbgemeldet("Kevin"))[0]) is True, "Kevin abgemeldet")
+
+# 7. Abend abschliessen in der Wegwerf-DB
+abend = n0.Anwesenheit.AktiverAbend(False)
+fest(abend is not None, "Aktiver Probe-Abend vorhanden")
+okAbschluss, _, zAnzahl = tup3(n0.Anwesenheit.AbendAbschliessen(abend, "ProbeLeiter"))
+fest(okAbschluss is True, "Probe-Abend erfolgreich abgeschlossen")
+fest(zAnzahl == 3, "3 Zuschlaege verbucht (Max, Kevin, Lisa)")
+
+# 8. Netzwerk-Isolation: Mitspieler empfaengt absolut nichts
+w.weiter(30)
+fest(anz(w, 1) == 1, "Client 1 hat waehrend des Probe-Modus nichts empfangen (1 echter Eintrag)")
+fest(len(list(n1.Anwesenheit.Daten()["abende"].keys())) == 0, "Client 1 hat keine Probe-Abende empfangen")
+fest(len(list(n1.Anwesenheit.Daten()["zuschlaege"].keys())) == 0, "Client 1 hat keine Probe-Zuschlaege empfangen")
+
+# 9. Probe-Modus beenden: Alles aufgeraeumt, echte Daten unveraendert
+n0.Fenster.ProbeModus(False)
+fest(n0.Probe.Aktiv() is False, "Probe-Modus beendet")
+fest(n0.Fenster.IstProbe() is False, "Fenster nicht mehr im Probe-Modus")
+fest(anz(w, 0) == 1, "Client 0 hat nach Beenden wieder exakt seinen 1 echten Eintrag")
+fest(len(list(n0.Anwesenheit.Daten()["abende"].keys())) == abende_vorher, "Client 0 FairshareDB abende unveraendert")
+fest(len(list(n0.Anwesenheit.Daten()["zuschlaege"].keys())) == zuschlaege_vorher, "Client 0 FairshareDB zuschlaege unveraendert")
+
+print("== 65. Raidkader: Gildenraenge einzeln waehlbar, Zwischenraenge auslassen ==")
+for cl in (w.clients[0], w.clients[1]):
+    cl["lua"].execute("""
+__gilde65 = {
+  [21] = { name = "Leiter Kaos", guildRank = "Gildenmeister", guildRankOrder = 0 },
+  [22] = { name = "Timo", guildRank = "Offizier", guildRankOrder = 1 },
+  [23] = { name = "Lina", guildRank = "Mitglied", guildRankOrder = 2 },
+  [24] = { name = "Moe", guildRank = "Initiand", guildRankOrder = 3 },
+}
+C_Club = C_Club or {}
+C_Club.GetGuildClubId = function() return 1 end
+C_Club.GetClubMembers = function() local t = {} for id in pairs(__gilde65) do t[#t + 1] = id end table.sort(t) return t end
+C_Club.GetMemberInfo = function(club, id) return __gilde65[id] end
+""")
+
+# Raenge einzeln setzen: 0, 1 und 3 an, 2 aus
+n0.Gruppen.RaidkaderRangSetzen(0, True)
+n0.Gruppen.RaidkaderRangSetzen(1, True)
+n0.Gruppen.RaidkaderRangSetzen(2, False)
+n0.Gruppen.RaidkaderRangSetzen(3, True)
+
+fest(n0.Gruppen.RaidkaderRangGewaehlt(0) is True, "Rang 0 (Leiter Kaos) ist gewaehlt")
+fest(n0.Gruppen.RaidkaderRangGewaehlt(1) is True, "Rang 1 (Timo) ist gewaehlt")
+fest(n0.Gruppen.RaidkaderRangGewaehlt(2) is False, "Rang 2 (Lina) ist NICHT gewaehlt (ausgelassen)")
+fest(n0.Gruppen.RaidkaderRangGewaehlt(3) is True, "Rang 3 (Moe) ist gewaehlt")
+
+anzahl = tup3(n0.Gruppen.RaidkaderSync())[0]
+fest(anzahl == 3, "RaidkaderSync liest genau 3 Mitglieder ein (%s)" % (anzahl,))
+kaderNamen = [str(x["name"]) for x in tup3(n0.Gruppen.Raidkader())[0].values()]
+fest("Leiter Kaos" in kaderNamen and "Timo" in kaderNamen and "Moe" in kaderNamen, "Leiter Kaos, Timo und Moe sind im Raidkader")
+fest("Lina" not in kaderNamen, "Lina (Rang 2) ist ausgelassen und fehlt im Raidkader")
+
+# Synchronisation ueber Konfig (N|0,1,3)
+n0.Konfig.Senden()
+w.weiter(10)
+fest(w.clients[1]["ns"].Gruppen.RaidkaderRangGewaehlt(2) is False, "Client 1 uebernimmt: Rang 2 nicht gewaehlt")
+fest(w.clients[1]["ns"].Gruppen.RaidkaderRangGewaehlt(0) is True and w.clients[1]["ns"].Gruppen.RaidkaderRangGewaehlt(3) is True,
+     "Client 1 uebernimmt: Raenge 0 und 3 gewaehlt")
+tup3(w.clients[1]["ns"].Gruppen.RaidkaderSync())
+kader1 = [str(x["name"]) for x in tup3(w.clients[1]["ns"].Gruppen.Raidkader())[0].values()]
+fest("Leiter Kaos" in kader1 and "Moe" in kader1 and "Lina" not in kader1, "Client 1 synchronisiert denselben gefilterten Kader")
+
+print("== 66. Raid-Groessen 10er, 20er und 40er: Gruppen erstellen, unabhaengige Zuweisung je Groesse ==")
+w66 = welt36()
+for c_ in w66.clients:
+    c_["lua"].execute("""
+__gilde = {
+  [1] = { name = "Leiter Kaos", guildRank = "Gildenmeister", guildRankOrder = 1 },
+  [2] = { name = "Timo", guildRank = "Raider", guildRankOrder = 3 },
+  [3] = { name = "Lina", guildRank = "Raider", guildRankOrder = 3 },
+}
+C_Club = {
+  GetGuildClubId = function() return 1 end,
+  GetClubMembers = function() local t = {} for id in pairs(__gilde) do t[#t + 1] = id end table.sort(t) return t end,
+  GetMemberInfo = function(club, id) return __gilde[id] end,
+}
+""")
+    c_["ns"].Gruppen.Anlegen("Kara 1", 10)
+    c_["ns"].Gruppen.Anlegen("Kara 2", 10)
+    c_["ns"].Gruppen.Anlegen("ZulGurub", 20)
+    c_["ns"].Gruppen.Anlegen("MoltenCore", 40)
+w66.ereignis("PLAYER_ENTERING_WORLD")
+w66.weiter(15)
+
+ns66_0, ns66_1 = w66.clients[0]["ns"], w66.clients[1]["ns"]
+heute66 = str(ns66_0.Gruppen.EinteilungTag(0))
+
+# 1. Gruppen fuer verschiedene Groessen angelegt und Groessen geprueft
+fest(ns66_0.Gruppen.Groesse("Kara 1") == 10, "Kara 1 ist 10er")
+fest(ns66_0.Gruppen.Groesse("Kara 2") == 10, "Kara 2 ist 10er")
+fest(ns66_0.Gruppen.Groesse("ZulGurub") == 20, "ZulGurub ist 20er")
+fest(ns66_0.Gruppen.Groesse("MoltenCore") == 40, "MoltenCore ist 40er")
+
+# 2. Spieler Anna wird in 10er, 20er und 40er eingeteilt
+tup(ns66_0.Gruppen.EinteilungSetzen(heute66, "Anna", "Kara 1"))
+tup(ns66_0.Gruppen.EinteilungSetzen(heute66, "Anna", "ZulGurub"))
+tup(ns66_0.Gruppen.EinteilungSetzen(heute66, "Anna", "MoltenCore"))
+w66.weiter(5)
+
+# Anna ist in allen drei Gruppen gleichzeitig eingeteilt
+fest("Anna" in list(ns66_0.Gruppen.EinteilungListe(heute66, "Kara 1").values()), "Anna in Kara 1 (10er)")
+fest("Anna" in list(ns66_0.Gruppen.EinteilungListe(heute66, "ZulGurub").values()), "Anna in ZulGurub (20er)")
+fest("Anna" in list(ns66_0.Gruppen.EinteilungListe(heute66, "MoltenCore").values()), "Anna in MoltenCore (40er)")
+
+# Client 1 erfaehrt alle drei Zuweisungen
+fest("Anna" in list(ns66_1.Gruppen.EinteilungListe(heute66, "Kara 1").values()), "Client 1: Anna in Kara 1")
+fest("Anna" in list(ns66_1.Gruppen.EinteilungListe(heute66, "ZulGurub").values()), "Client 1: Anna in ZulGurub")
+fest("Anna" in list(ns66_1.Gruppen.EinteilungListe(heute66, "MoltenCore").values()), "Client 1: Anna in MoltenCore")
+
+# 3. Innerhalb derselben Groesse wechselt die Zuweisung (Kara 1 -> Kara 2)
+tup(ns66_0.Gruppen.EinteilungSetzen(heute66, "Anna", "Kara 2"))
+w66.weiter(5)
+fest("Anna" not in list(ns66_0.Gruppen.EinteilungListe(heute66, "Kara 1").values()), "Anna nicht mehr in Kara 1")
+fest("Anna" in list(ns66_0.Gruppen.EinteilungListe(heute66, "Kara 2").values()), "Anna nun in Kara 2")
+fest("Anna" in list(ns66_0.Gruppen.EinteilungListe(heute66, "ZulGurub").values()), "ZulGurub unberuehrt")
+fest("Anna" in list(ns66_0.Gruppen.EinteilungListe(heute66, "MoltenCore").values()), "MoltenCore unberuehrt")
+
+# 4. Einzelne Groesse leeren (Entfernen aus 20er)
+tup(ns66_0.Gruppen.EinteilungSetzen(heute66, "Anna", "", None, 20))
+w66.weiter(5)
+fest("Anna" not in list(ns66_0.Gruppen.EinteilungListe(heute66, "ZulGurub").values()), "Anna aus 20er entfernt")
+fest("Anna" in list(ns66_0.Gruppen.EinteilungListe(heute66, "Kara 2").values()), "Kara 2 bleibt aktiv")
+fest("Anna" in list(ns66_0.Gruppen.EinteilungListe(heute66, "MoltenCore").values()), "MoltenCore bleibt aktiv")
+fest("Anna" not in list(ns66_1.Gruppen.EinteilungListe(heute66, "ZulGurub").values()), "Client 1: 20er entfernt")
+fest("Anna" in list(ns66_1.Gruppen.EinteilungListe(heute66, "Kara 2").values()), "Client 1: Kara 2 aktiv")
+fest("Anna" in list(ns66_1.Gruppen.EinteilungListe(heute66, "MoltenCore").values()), "Client 1: MoltenCore aktiv")
 
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")
