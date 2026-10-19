@@ -525,11 +525,16 @@ end
 
 local function einfuehren(zeilen, herkunft)
     local liste, abgelehnt = {}, 0
+    local resetZeit = ns.Erfassung.ResetZeit()      -- ⭐ was älter ist als der letzte gildenweite Reset, kommt nicht zurück
     for _, z in ipairs(zeilen) do
         local id, e = Kern.Dekodieren(z, jetzt())
         if id then
-            e.herkunft = herkunft
-            liste[#liste + 1] = { id = id, e = e }
+            if resetZeit > 0 and (tonumber(e.timestamp) or 0) < resetZeit then
+                -- älter als der Reset: still verwerfen
+            else
+                e.herkunft = herkunft
+                liste[#liste + 1] = { id = id, e = e }
+            end
         else
             abgelehnt = abgelehnt + 1
         end
@@ -615,7 +620,12 @@ local function buchEinfuehren(zeilen, S)
         local satz = Kern.BuchDekodieren(z, jetzt())
         if satz then
             for _, fertig in ipairs(Kern.BuchSammeln(Ausstehend, satz, time())) do
-                if Kern.BuchEinfuehren(d, fertig) == "neu" then neu = neu + 1 end
+                local resetZeit = ns.Erfassung.ResetZeit()
+                if resetZeit > 0 and (tonumber(fertig.zeit) or 0) < resetZeit then
+                    -- älter als der letzte gildenweite Reset: nicht übernehmen
+                elseif Kern.BuchEinfuehren(d, fertig) == "neu" then
+                    neu = neu + 1
+                end
                 if S then
                     S.buchGesehen = S.buchGesehen or {}
                     local t = (fertig.typ == "a") and ("a:" .. fertig.id .. "@" .. fertig.rev) or ("h:" .. fertig.id)

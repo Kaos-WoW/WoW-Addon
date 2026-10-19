@@ -1696,6 +1696,40 @@ function Anwesenheit.KaderNiedrigste(ausser)
     return niedrigste
 end
 
+--- ⭐ Manuelle Anhebung (Entscheid 19.10.2026): Die Raid- oder Gildenleitung setzt einen Spieler auf den Niedrigsten
+--  der ANDEREN Kaderspieler im Raid plus `Kern.ANHEBUNG_ABSTAND` (2). Nie nach unten: Liegt er schon dort oder höher,
+--  passiert nichts. Wird als Satz im Datenbuch festgeschrieben und an alle verteilt.
+--  @param spielerName  Name (Nachname und Realm dürfen fehlen, wenn der Spieler im Raid ist)
+--  @return Kennung, Zielwertung, Anhebung — oder nil und ein Grund
+function Anwesenheit.AnhebungSetzen(spielerName, vonName)
+    if not Anwesenheit.DarfBankVerwalten(vonName) then
+        return nil, L["Keine Berechtigung (nur Raidleiter oder Gildenleitung)."]
+    end
+    local name = tostring(spielerName or ""):match("^%s*(.-)%s*$")
+    if name == "" then return nil, L["Kein Spielername angegeben."] end
+    for _, n in ipairs(anwesendeNamen()) do
+        if Kern.GleicherSpieler(n, name) then name = n break end      -- der volle Name aus dem Raid
+    end
+    if not Kern.Schluessel(name) then return nil, L["Ungültiger Spielername."] end
+
+    local ref = Anwesenheit.KaderNiedrigste(name)
+    if not ref then return nil, L["Zum Vergleichen fehlen andere Kaderspieler im Raid."] end
+
+    local H = (ns.Erfassung and ns.Erfassung.Historie and ns.Erfassung.Historie()) or {}
+    local liste = Kern.Bilanz(H, 0, { name }, { name }, Anwesenheit.ZuschlaegeDaten())
+    local wertung = (liste[1] and liste[1].wertung) or 0
+    local ziel = Kern.Runde3(ref + Kern.ANHEBUNG_ABSTAND)
+    local diff = Kern.Runde3(ziel - wertung)
+    if diff <= 0 then
+        return nil, string.format(L["%s liegt mit %.1f schon bei oder über %.1f: keine Anhebung nötig."],
+            Kern.Anzeigename(name), wertung, ziel)
+    end
+    local id = Anwesenheit.AnhebungBuchen(name, diff,
+        string.format(L["Manuelle Anhebung auf %.1f (Niedrigster im Raid + 2)"], ziel), vonName)
+    if not id then return nil, L["Die Anhebung konnte nicht gespeichert werden."] end
+    return id, ziel, diff
+end
+
 --- Kennung der Auswertung eines Tages (Marker, damit sie nur einmal stattfindet).
 local function auswertungsKennung(tag)
     -- ⭐ je Gruppe und Tag (zwei Gruppen am selben Tag werten ihre Anhebung getrennt aus)
@@ -1713,6 +1747,7 @@ end
 --  @param anwesende  optional: die Namen der Anwesenden (sonst die Gruppe)
 --  @return Zahl der Angehobenen, oder nil wenn schon ausgewertet / zu wenige Kaderspieler
 function Anwesenheit.AnhebungenAuswerten(anwesende)
+    if not Kern.AUTO_ANHEBUNG then return nil end        -- automatische Anhebung aus (siehe Kern.AUTO_ANHEBUNG)
     local d = db()
     d.anhebungsliste = d.anhebungsliste or {}
     local tag = date("%Y%m%d")

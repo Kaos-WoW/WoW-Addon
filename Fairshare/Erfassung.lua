@@ -84,16 +84,16 @@ Erfassung.Einstellungen = db
 function Erfassung.Bereiche()
     local b = db().bereiche
     local h = (type(b) == "table" and type(b.haupt) == "table") and b.haupt or { 1, 100 }
-    local z = (type(b) == "table" and type(b.zweit) == "table") and b.zweit or { 1, 50 }
+    local z = (type(b) == "table" and type(b.zweit) == "table") and b.zweit or { 1, 99 }
     return { haupt = { h[1], h[2] }, zweit = { z[1], z[2] } }
 end
 
 --- Bringt die gespeicherten Bereiche in Kern. Ohne Einstellung (oder bei
---  unbrauchbaren Werten) gilt 1-100 und 1-50.
+--  unbrauchbaren Werten) gilt 1-100 und 1-99.
 function Erfassung.BereicheAnwenden()
     local b = Erfassung.Bereiche()
     if not Kern.BereicheSetzen(b.haupt[1], b.haupt[2], b.zweit[1], b.zweit[2]) then
-        Kern.BereicheSetzen(1, 100, 1, 50)
+        Kern.BereicheSetzen(1, 100, 1, 99)
     end
 end
 
@@ -792,20 +792,80 @@ function Erfassung.Zuruecksetzen()
     return n
 end
 
---- Die Sicherung vor dem letzten Zuruecksetzen.
+-- ---------------------------------------------------------------------
+--  ⭐ Gildenweiter Reset (Wunsch 22.10.2026): Ein lokaler Reset wird vom nächsten Abgleich wieder aufgefüllt. Darum
+--  gibt es eine **Reset-Marke** (`resetZeit`, Zeitpunkt des Resets): Sie reist mit den geteilten Einstellungen
+--  (Konfig.lua, Zeile `Z|`, nur von Stufe 1 und 2 angenommen). Wer sie bekommt, leert seine Daten; und alles, was
+--  älter ist als die Marke, nimmt der Abgleich nicht mehr an (Abgleich.lua), auch nicht von jemandem, der den
+--  Reset noch nicht hat.
+-- ---------------------------------------------------------------------
+
+--- Der Zeitpunkt des letzten gildenweiten Resets (0 = es gab keinen).
+function Erfassung.ResetZeit()
+    return tonumber(db().resetZeit) or 0
+end
+
+--- Leert Historie UND Datenbuch (Abschlüsse, Zuschläge, Anhebungen) und setzt die Reset-Marke. Einstellungen,
+--  Gruppen, Raidkader und Einteilung bleiben. Vorher wird alles gesichert (in der Datei, nicht im Spiel wiederherstellbar).
+local function allesLeeren(zeit)
+    local d = db()
+    local n = zaehle(d.vergaben)
+    d.sicherung = { zeit = time(), n = n, gilde = true, vergaben = d.vergaben, alias = d.alias,
+                    abende = d.abende, zuschlaege = d.zuschlaege, anhebungen = d.anhebungen,
+                    anhebungsliste = d.anhebungsliste }
+    d.vergaben, d.alias = {}, {}
+    d.abende, d.zuschlaege, d.anhebungen, d.anhebungsliste = {}, {}, {}, {}
+    d.aktiverAbend = nil
+    d.resetZeit = zeit
+    if ns.Abgleich then
+        ns.Abgleich.HalloSpaeter(2)
+        ns.Abgleich.Pruefen()
+    end
+    if ns.Fenster and ns.Fenster.Aktualisieren then ns.Fenster.Aktualisieren() end
+    return n
+end
+
+--- Den gildenweiten Reset auslösen (nur Stufe 1 und 2): leert hier und schickt die Reset-Marke an alle.
+--  @return Zahl der entfernten Einträge, oder nil und ein Grund
+function Erfassung.GildenReset()
+    if not (ns.Konfig and ns.Konfig.DarfWurzel and ns.Konfig.DarfWurzel()) then
+        return nil, L["Nur Gildenmeister und Offiziere (Stufe 1 und 2) dürfen die Daten gildenweit zurücksetzen."]
+    end
+    local zeit = (GetServerTime and GetServerTime()) or time()
+    local n = allesLeeren(zeit)
+    local gesendet, grund = ns.Konfig.Senden()
+    if not gesendet then
+        return n, grund          -- hier geleert; wer die Marke nicht bekommt, behält seine Daten
+    end
+    return n
+end
+
+--- Die Reset-Marke einer geteilten Einstellung ist angekommen und neuer als die eigene: Daten leeren.
+function Erfassung.ResetAnwenden(zeit, von)
+    zeit = tonumber(zeit)
+    if not zeit or zeit <= Erfassung.ResetZeit() then return false end
+    allesLeeren(zeit)
+    print("|cff1B6B57Fairshare|r: " .. string.format(L["Die Gildenleitung (%s) hat die Daten zurückgesetzt: Historie und Wertungen sind gelöscht."],
+        tostring(von or "?")))
+    return true
+end
+
+--- Die Sicherung vor dem letzten lokalen Zuruecksetzen (nicht nach einem gildenweiten Reset).
 --  @return { n =, zeit = } oder nil
 function Erfassung.SicherungInfo()
     local s = db().sicherung
+    if s and s.gilde then return nil end
     return s and { n = s.n or zaehle(s.vergaben), zeit = s.zeit } or nil
 end
 
 --- Spielt die Sicherung wieder ein. Nichts, was inzwischen neu dazukam,
 --  geht verloren (es wird zusammengefuehrt, nicht ersetzt).
---  @return Zahl der zurueckgeholten Eintraege, oder nil wenn es keine gibt
+--  @return Zahl der zurueckgeholten Eintraege, oder nil (und ein Grund) wenn es keine gibt
 function Erfassung.Wiederherstellen()
     local d = db()
     local s = d.sicherung
     if not s then return nil end
+    if s.gilde then return nil, L["Ein gildenweiter Reset lässt sich nicht zurücknehmen."] end
     local n = 0
     for id, e in pairs(s.vergaben or {}) do
         if not d.vergaben[id] then

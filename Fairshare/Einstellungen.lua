@@ -43,6 +43,7 @@ local aktuelleSeite = "erfassung"
 local Meldung = {}       -- kurze Rueckmeldungen je Schluessel
 local loeschenBereit
 local verlaufBereit = false
+local gildeResetBereit = false
 local letzteMasse = {}
 
 local function d() return ns.Erfassung.Einstellungen() end
@@ -393,6 +394,30 @@ local function seiteDaten(P, k)
                     Meldung.reset = nil
                 end
             end } })
+    -- ⭐ Gildenweit zurücksetzen: nur Stufe 1 und 2 (gesperrt für alle anderen)
+    zeile(k, { geteilt = "wurzel", art = "knopf", label = L["Daten gildenweit zurücksetzen"],
+        beschr = function()
+            if gildeResetBereit then
+                return farbig(C.bad, L["Nochmal klicken: Das löscht die Daten bei ALLEN Gildenmitgliedern mit dem Addon."])
+            end
+            return Meldung.gildeReset or L["Löscht Historie, Wertungen, Abschlüsse und Anhebungen bei allen Gildenmitgliedern mit dem Addon. Einstellungen, Gruppen und Einteilung bleiben. Das lässt sich nicht zurücknehmen."]
+        end,
+        knopf = { text = function() return gildeResetBereit and L["Wirklich für alle zurücksetzen"] or L["Für alle zurücksetzen"] end,
+            klick = function()
+                if gildeResetBereit then
+                    gildeResetBereit = false
+                    local n, grund = ns.Erfassung.GildenReset()
+                    if n then
+                        Meldung.gildeReset = farbig(C.ok, string.format(L["%d Einträge entfernt, die Reset-Marke geht an alle."], n))
+                                             .. (grund and (" " .. farbig(C.bad, tostring(grund))) or "")
+                    else
+                        Meldung.gildeReset = farbig(C.bad, tostring(grund))
+                    end
+                else
+                    gildeResetBereit = true
+                    Meldung.gildeReset = nil
+                end
+            end } })
     zeile(k, { art = "knopf", label = L["Sicherung wiederherstellen"],
         sichtbar = function() return ns.Erfassung.SicherungInfo() ~= nil end,
         beschr = function()
@@ -492,10 +517,10 @@ local function seiteWuerfeln(P)
     bereichZeile(kb, "haupt", L["Bereich für Hauptbedarf"])
     bereichZeile(kb, "zweit", L["Bereich für Zweitbedarf (OS)"])
     zeile(kb, { geteilt = true, art = "knopf", label = L["Standardbereiche"],
-        beschr = function() return string.format(L["Setzt %d-%d für Hauptbedarf und %d-%d für Zweitbedarf zurück."], 1, 100, 1, 50) end,
+        beschr = function() return string.format(L["Setzt %d-%d für Hauptbedarf und %d-%d für Zweitbedarf zurück."], 1, 100, 1, 99) end,
         knopf = { text = L["Standard"],
             klick = function()
-                ns.Erfassung.BereicheSetzen(1, 100, 1, 50)
+                ns.Erfassung.BereicheSetzen(1, 100, 1, 99)
                 Meldung.bereich = nil
             end } })
 
@@ -742,6 +767,24 @@ local function seiteGruppen(P)
             klick = function(text)
                 local ok, grund = G.Anlegen(text)
                 Meldung.neu = ok and farbig(C.ok, L["Angelegt."]) or farbig(C.bad, tostring(grund))
+            end } })
+
+    -- ⭐ Manuelle Anhebung (die automatische ist aus, Entscheid 19.10.2026)
+    local ka = karte(P, L["Anhebung"],
+        L["Die Anhebung gibt es nicht mehr automatisch. Die Raid- oder Gildenleitung kann hier einen Spieler anheben, der im Raid ist: Er kommt auf den Niedrigsten der anderen Kaderspieler im Raid plus 2 (nie nach unten)."])
+    zeile(ka, { art = "eingabe", label = L["Spieler anheben"],
+        beschr = function()
+            return Meldung.anhebung or L["Name des Spielers eintragen und „Anheben“ klicken."]
+        end,
+        knopf = { text = L["Anheben"],
+            klick = function(text)
+                local id, ziel, diff = ns.Anwesenheit.AnhebungSetzen(text)
+                if id then
+                    Meldung.anhebung = farbig(C.ok, string.format(L["%s angehoben: +%.1f auf %.1f."], tostring(text), diff, ziel))
+                    if ns.Fenster then ns.Fenster.Aktualisieren() end
+                else
+                    Meldung.anhebung = farbig(C.bad, tostring(ziel))
+                end
             end } })
 
     -- ⭐ Der Raidkader: alle Gildenmitglieder bis zum gewählten Rang; wird beim Anmelden von selbst eingelesen

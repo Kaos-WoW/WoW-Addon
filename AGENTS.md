@@ -56,7 +56,7 @@ das nur liest, weder Haupt/Zweit noch Gruppen noch Abgleich leisten kann.
 | `Abgleich.lua` | Hallo, Live-Meldung, Abgleich, Hinweis-Fenster | ja |
 | `Blizzbeute.lua` | Blizzards `C_LootHistory` als zweite Quelle | ja |
 | `Stil.lua` | Bausteine im KaosUI-Look (Farben, runde Ecken, Knopf, Schalter, Segmentwahl, Bildlauf) | ja |
-| `Wurf.lua` | eigenes Würfelfenster: Haupt (1-100) / OS (1-50) / Passen, Startdialog, Rangliste mit Anhebung | ja |
+| `Wurf.lua` | eigenes Würfelfenster: Haupt (1-100) / OS (1-99) / Passen, Startdialog, Rangliste mit Anhebung | ja |
 | `Konfig.lua` | Einstellungen teilen: einer stellt ein, alle bekommen es (Gilde, Rangprüfung, Nachfragen) | ja |
 | `Nutzung.lua` | Dialog „Fairshare nutzen?": Antwort ja/nein je Gruppe mit Plündermeister, sonst schläft das Addon | ja |
 | `Einstellungen.lua` | das Einstellungsfenster (Karten und Zeilen, drei Seiten) | ja |
@@ -105,11 +105,7 @@ Speziell für die Gilde **Resurrected** (Thunderstrike EU) entwickeltes Regelwer
     - Bank: Faktor **0** (zählt voll wie Raid-Anwesenheit)
   - Abendschnitt: $\text{Schnitt} = \frac{\text{vergebene Main-Items an diesem Abend}}{\text{Spieler im Raid}}$.
   - Zuschlag: $\text{Zuschlag} = \text{Faktor} \times \text{Schnitt}$.
-* **§ 3 Anhebung (17.10.2026, Gildenleitung: „auf den Niedrigsten im Kader + 2“):**
-  - Liegt ein Kaderspieler im Raid **mehr als 1 Punkt unter dem Niedrigsten der anderen Kaderspieler**, wird seine Wertung auf **deren Niedrigsten + `Kern.ANHEBUNG_ABSTAND` (2)** gesetzt — hinter sie, kein sicheres Item.
-  - **Einmal je Abend, zu Beginn:** `Anwesenheit.AnhebungenAuswerten` läuft beim ersten Bosskampf des Abends (`BossBuchen`, nur der Aufzeichner) für alle Kaderspieler im Raid gleichzeitig aus dem Stand vor jeder Anhebung; als Nachholer ruft `Anwesenheit.Rollen(…, true)` sie beim Starter des Wurfs. Jede Anhebung ist ein verteilter Satz `ha_<Spieler>_<Tag>`, der Vermerk `hm_<Tag>` (Wert 0) sagt „heute ausgewertet“. Danach gilt `keineAnhebung`: Wer nur noch kein Item hatte, rutscht im Lauf des Abends nicht nach hinten.
-  - Der Bezugspunkt ist der Niedrigste der **Kaderspieler** (nicht der Würfler); `Kern.WurfReihenfolge` zeigt eine noch nicht festgeschriebene Anhebung nur an (`referenz`).
-  - Liegt er bereits gleichauf oder höher, gibt es keine Anhebung. Neulinge am 2. Abend und Gäste: siehe § 4.
+* **§ 3 Anhebung (seit 19.10.2026 nur von Hand):** Die automatische Anhebung ist aus (`Kern.AUTO_ANHEBUNG = false`; Entscheid der Gildenleitung: die Zuschläge reichen, die Anhebung traf auch Spieler, die immer dabei waren). Der Code der Rechnung bleibt (`Kern.Anhebung`, der Zweig in `Kern.WurfReihenfolge`, `Anwesenheit.AnhebungenAuswerten` kehrt sofort zurück) und wird in `Tests.lua` mit eingeschaltetem Schalter geprüft; `testKeineAutomatischeAnhebung` prüft das Betriebsverhalten. **Manuell:** `Anwesenheit.AnhebungSetzen(Name)` (Raid- oder Gildenleitung, `DarfBankVerwalten`): setzt auf den Niedrigsten der ANDEREN Kaderspieler im Raid (`KaderNiedrigste`) plus `Kern.ANHEBUNG_ABSTAND` (2), nie nach unten; bucht einen Satz `h_…` im Datenbuch (`AnhebungBuchen`, geht live an alle). Bedienung: Einstellungen → Gruppen → Karte „Anhebung“ (Feld Name, Knopf „Anheben“) und `/fs anhebung <Name>`. Der Neuling-Einstieg am 2. Abend (Niedrigster + 2, § 4) bleibt automatisch. Szenario 36 (Block „Keine automatische Anhebung mehr“).
 * **§ 4 Neulinge & Gäste:**
   - ⭐ **Gründer sind keine Neulinge** (Fund im Spiel 17.10.2026: Am ersten Abend mit der Regel galt der ganze Kader als Proberaid, die Würfe wurden ausgeblendet, „Niemand hat gewürfelt“): `Anwesenheit.Gruender()` = die Spieler im Abschluss des **ersten abgeschlossenen Abends** (der Kader zu dem Zeitpunkt, auch die Fehlenden). Solange noch kein Abend abgeschlossen ist, und für jeden Gründer, ist der Status `kader`. Proberaid und Neuling gibt es nur für Spieler, die später zum Kader kamen. Szenario 38 sichert das.
   - **Neulinge (Proberaid):** Am 1. Raidabend im Kader kein Würfeln auf Main-Bedarf (`Anwesenheit.StatusVon` = `proberaid`, in `Kern.WurfReihenfolge` nie Würfler, nicht in der Ergebnisliste) und kein Fehl-Zuschlag.
@@ -276,7 +272,7 @@ Absenders und seine Zuordnung.
 ## Gargul
 
 * **Würfelbereiche:** Gargul bringt MS 1–100 und OS 1–99 mit. Die Gilde
-  würfelt standardmäßig **100 / 50** (jetzt **einstellbar**, siehe „Würfelbereiche einstellbar").
+  würfelt standardmäßig **100 / 99** (seit 22.10.2026, wie Garguls eigene Voreinstellung; vorher 100 / 50; **einstellbar**, siehe „Würfelbereiche einstellbar").
   `Quelle.GargulBereiche()` prüft, `…Setzen()` stellt `RollTracking.Brackets` auf die Bereiche von Fairshare um
   (Einstellung, kein Eingriff in den Code), `…Uebernehmen()` holt MS/OS aus Gargul nach Fairshare; `/fs bereiche`.
   Sonst ordnet Gargul die 50er-Würfe nicht ein.
@@ -296,7 +292,7 @@ Absenders und seine Zuordnung.
 
 Anlass: Gargul ist in der Beta noch verbuggt. Der Plündermeister/Leiter/Assistent startet einen Wurf (`/fs wurf <Link>`,
 Knopf *Wurf starten* → Dialog mit Shift-Klick-Feld und der Beute des offenen Beutefensters). Bei **allen** mit Fairshare
-geht ein kleines Fenster auf: Gegenstand (Tooltip), Zeitbalken, **Haupt (1-100)**, **OS (1-50)**, **Passen**. Ein Klick
+geht ein kleines Fenster auf: Gegenstand (Tooltip), Zeitbalken, **Haupt (1-100)**, **OS (1-99)**, **Passen**. Ein Klick
 ruft `RandomRoll(1, 100|50)`; die Zahl kommt vom Server als `RANDOM_ROLL_RESULT` und wird wie jeder Wurf in
 `Erfassung.Systemmeldung` gelesen (das Addon sendet nie Ergebnisse → nichts zu fälschen). Solange ein Wurf läuft
 (+6 s), ordnet `Wurf.AktuellerLink()` jeden Bedarfswurf der Gruppe dem Gegenstand zu — auch von Spielern ohne Addon.
@@ -310,7 +306,7 @@ Englisch heißt Zweitbedarf **„OS"** (Nutzerwunsch), nicht „Off".
 **Offene Wünsche (Nutzer, 14.10.2026, „für die Zukunft"):**
 * **Würfelzeit frei wählbar**, länger oder kürzer. Heute: Einstellung `wurfDauer` mit 20/30/45/60 s (Einstellungen →
   Gargul & Abgleich → Würfelfenster, Grenzen 10–120 s in `Wurf.Dauer`). Idee: Feld im Startdialog für diesen einen Wurf.
-* **Festlegbar, was ein „Main"- und was ein „OS"-Wurf ist.** Heute fest 1-100 / 1-50 an vier Stellen: `Kern.Bedarfsart`,
+* **Festlegbar, was ein „Main"- und was ein „OS"-Wurf ist.** Früher fest 1-100 / 1-50 (heute Standard 1-100 / 1-99) an vier Stellen: `Kern.Bedarfsart`,
   die Knöpfe in `Wurf.lua` (`RandomRoll`, Beschriftung), `Quelle.GargulBereiche`/`SOLL`, Texte. Idee: zwei Einstellungen
   (Obergrenze Haupt, Obergrenze OS), überall daraus lesen; Beschriftungen und Erkennung folgen; Abgleich-Protokoll
   unberührt (die Art steckt im Eintrag, nicht der Bereich).
@@ -373,7 +369,7 @@ Nur einer stellt ein (Würfelbereiche, Verzauberer, Gruppen …), alle bekommen 
 ### Würfelbereiche einstellbar, Ansage, Abbrechen (Nutzerwünsche 14.10.2026)
 
 * ⭐ **Würfelbereiche einstellbar** (Einstellungen → *Würfeln & Abgleich* → *Würfelbereiche*; `/fs bereiche haupt 1 100`,
-  `… zweit 1 50`): `Kern.BEREICHE` (Standard 1-100/1-50) wird von `Erfassung.BereicheAnwenden` aus `FairshareDB.bereiche`
+  `… zweit 1 99`): `Kern.BEREICHE` (Standard 1-100/1-99) wird von `Erfassung.BereicheAnwenden` aus `FairshareDB.bereiche`
   befüllt (bei `PLAYER_ENTERING_WORLD`, nicht beim Laden der Datei: die gespeicherten Daten sind dann noch nicht da).
   `Kern.Bedarfsart(min, max)` vergleicht damit. Geprüft wird in `Kern.BereicheSetzen` (ganze Zahlen, 1 ≤ min < max ≤ 10000,
   Haupt ≠ Zweit). **Die Bereiche des Leiters gehen mit jedem Wurf mit** (`S;id;Sekunden;h1,h2,z1,z2;Link`; ältere Fassungen
@@ -474,7 +470,7 @@ verrollen; verteilt wird per **Handel**. Darum:
 
 Drei Quellen füllen dieselbe Anzeige (`Quelle.Wurf()`), jede liefert `Wuerfe`, **`Arten`** (`haupt`/`zweit`), `namen`, `link`:
 
-* **Gargul** (`RollOff.CurrentRollOff.Rolls`): die Art kommt aus dem Wurfbereich (`Kern.Bedarfsart`: 1-100 Haupt, 1-50
+* **Gargul** (`RollOff.CurrentRollOff.Rolls`): die Art kommt aus dem Wurfbereich (`Kern.Bedarfsart`: 1-100 Haupt, 1-99
   Zweit), hilfsweise aus dem Bereichsnamen („MS"/„OS"). Wer beides wirft, zählt als Haupt.
 * **Blizzards Würfelfenster** (Bedarf/Gier, Gruppenbeute) — Ergebnis des ersten Livetests: *öffnete das Fenster nicht*.
   Jetzt: `START_LOOT_ROLL` öffnet es (`Erfassung.WurfBeginnt`, Gegenstand über `GetLootRollItemLink`), die
@@ -581,6 +577,10 @@ eine Zeile in `seiteErfassung`/`seiteGargul`/`seiteGruppen`.
 
 ⚠️ Die Optik ist nur im Spiel prüfbar; `tests/szenarien.py` prüft, dass jede Zeile, jeder Knopf und
 jede Seite ohne Fehler läuft und speichert.
+
+### ⭐ Gildenweiter Reset (22.10.2026, `/fs reset gilde`, Einstellungen → Erfassung → Daten → „Für alle zurücksetzen“)
+
+Ein lokaler Reset wird vom nächsten Abgleich wieder aufgefüllt (Abgleich ergänzt nur). Darum gibt es eine **Reset-Marke** `FairshareDB.resetZeit` (Serverzeit des Resets): Sie reist als Zeile **`Z|<Zeit>`** in den geteilten Einstellungen (`Konfig.lua`), wird also auch an Spieler nachgereicht, die beim Reset offline waren (Anmelden/Gruppenbeitritt fragt `A`). **Angenommen nur, wenn der Urheber Stufe 1 oder 2 ist** (`Konfig.WURZEL`; Marken von Stufe 3+ werden ignoriert und gemerkt). Wer eine neuere Marke bekommt, ruft `Erfassung.ResetAnwenden`: leert **Historie und Datenbuch** (`vergaben`, `alias`, `abende`, `zuschlaege`, `anhebungen`, `anhebungsliste`, `aktiverAbend`); Einstellungen, Gruppen, Raidkader und Einteilung bleiben. **Alles, was älter ist als die Marke, nimmt der Abgleich nicht mehr an** (`Abgleich.einfuehren`: Eintrag `timestamp`; `buchEinfuehren`: Satz `zeit`), auch nicht von jemandem, der den Reset noch nicht hat. Ausgelöst wird er von `Erfassung.GildenReset()` (nur `Konfig.DarfWurzel`, danach sofort `Konfig.Senden`; die UI und der Befehl fragen zweimal). Die Sicherung (`sicherung.gilde = true`) bleibt in der Datei, `/fs reset undo` und der Wiederherstellen-Knopf verweigern sie (ein gildenweiter Reset ist nicht zurücknehmbar, nur von Hand aus `FairshareDB.sicherung`). Der lokale `/fs reset` bleibt wie er war. Szenario 60. ⚠️ Spieler, die die neue Fassung nicht haben, kennen die Marke nicht und behalten ihre Daten.
 
 ### Historie zurücksetzen (`/fs reset`, seit 14.10.2026)
 

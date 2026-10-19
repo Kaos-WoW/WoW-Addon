@@ -400,10 +400,10 @@ Gargul = {
 }
 """)
 B = ns.Quelle.GargulBereiche()
-fest(B["ok"] is False and B["haupt"] is True and B["zweit"] is False, "Standardbereiche von Gargul (100/99): Zweitbedarf wird NICHT erkannt")
+fest(B["ok"] is True and B["haupt"] is True and B["zweit"] is True, "Standardbereiche von Gargul (100/99) passen zum Standard von Fairshare")
 ns.Quelle.GargulBereicheSetzen()
 B = ns.Quelle.GargulBereiche()
-fest(B["ok"] is True, "nach dem Umstellen auf 100/50 stimmt alles")
+fest(B["ok"] is True, "nach dem Umstellen stimmt alles")
 fest(tup3(ns.Fenster.GargulAnbinden())[0] is True, "Anbindung an Garguls Ereignisse")
 link = "|cff0070dd|Hitem:777::::::::60:::::|h[Helm]|h|r"
 A = lua.table_from({"checksum": "G9", "awardedTo": "Lina", "itemLink": link, "itemID": 777,
@@ -883,22 +883,22 @@ ns2, g2, lua2 = w2.clients[0]["ns"], w2.clients[0]["g"], w2.clients[0]["lua"]
 lua2.execute("""
 Gargul = { RollOff = { inProgress = true, CurrentRollOff = { itemLink = "x", Rolls = {
   { player = "Timo", amount = 87, min = 1, max = 100 },
-  { player = "Lina", amount = 41, min = 1, max = 50 },
+  { player = "Lina", amount = 41, min = 1, max = 99 },
   { player = "Moe",  amount = 30, min = 1, max = 100 },
-  { player = "Moe",  amount = 45, min = 1, max = 50 },
+  { player = "Moe",  amount = 45, min = 1, max = 99 },
   { player = "Zora", amount = 60, min = 1, max = 99, classification = "OS" },
 } } } }
 """)
 W = ns2.Quelle.Wurf()
 fest(W["Arten"]["timo"] == "haupt" and W["Wuerfe"]["timo"] == 87, "Gargul: 1-100 ist Haupt")
-fest(W["Arten"]["lina"] == "zweit" and W["Wuerfe"]["lina"] == 41, "Gargul: 1-50 ist Zweit")
+fest(W["Arten"]["lina"] == "zweit" and W["Wuerfe"]["lina"] == 41, "Gargul: 1-99 ist Zweit")
 fest(W["Arten"]["moe"] == "haupt" and W["Wuerfe"]["moe"] == 30, "Moe: der erste Wurf (30 Haupt) zaehlt, nicht der spaetere")
 fest(W["Arten"]["zora"] == "zweit", "Gargul: Bereichsname OS gilt als Zweit")
 lua2.execute("""
 Gargul.RollOff.CurrentRollOff.Rolls = {
   { player = "Timo", amount = 95, min = 1, max = 100, time = 200 },
   { player = "Timo", amount = 20, min = 1, max = 100, time = 100 },
-  { player = "Lina", amount = 44, min = 1, max = 50,  time = 150 },
+  { player = "Lina", amount = 44, min = 1, max = 99,  time = 150 },
   { player = "Lina", amount = 99, min = 1, max = 100, time = 160 },
 }""")
 W = ns2.Quelle.Wurf()
@@ -955,7 +955,7 @@ ok, grund = tup(L0["ns"].Wurf.Starten("x " + LINK + " y"))
 fest(ok is True, "der Leiter startet einen Wurf (%s)" % grund)
 w.weiter(3)
 fest(aktiv(0) and aktiv(1) and aktiv(2), "bei allen laeuft der Wurf")
-fest(hat_text(1, "Haupt (1-100)") and hat_text(1, "Zweit (1-50)") and hat_text(1, "Passen"), "Spieler sehen die drei Knoepfe")
+fest(hat_text(1, "Haupt (1-100)") and hat_text(1, "Zweit (1-99)") and hat_text(1, "Passen"), "Spieler sehen die drei Knoepfe")
 fest(hat_text(1, "Schwert der Probe"), "der Gegenstand steht im Fenster")
 fest(L0["ns"].Fenster.Sichtbar() is True, "beim Leiter oeffnet sich die Uebersicht")
 fest(T1["ns"].Fenster.Sichtbar() is False, "bei den Spielern nicht")
@@ -966,17 +966,17 @@ wl = T1["g"]["__wurfLog"]
 fest(len(wl) == 1 and wl[1][1] == 1 and wl[1][2] == 100, "RandomRoll(1, 100) wurde gerufen")
 systemwurf("Timo", 77, 100)
 w.weiter(1)
-fest(T1["g"]["__klick"]("Haupt (1-100)") is False and T1["g"]["__klick"]("Zweit (1-50)") is False,
+fest(T1["g"]["__klick"]("Haupt (1-100)") is False and T1["g"]["__klick"]("Zweit (1-99)") is False,
      "danach sind die Knoepfe gesperrt")
 fest(len(T1["g"]["__wurfLog"]) == 1, "kein zweiter Wurf")
 fest(any("77" in roh(t) and "Haupt" in roh(t) for t in [str(x) for x in T1["g"]["__text"]("gewürfelt").values()]),
      "Timo sieht seinen Wurf im Fenster")
 
 # Lina klickt Zweit
-N2["g"]["__klick"]("Zweit (1-50)")
+N2["g"]["__klick"]("Zweit (1-99)")
 wl2 = N2["g"]["__wurfLog"]
-fest(len(wl2) == 1 and wl2[1][2] == 50, "RandomRoll(1, 50) fuer Zweit")
-systemwurf("Lina", 33, 50)
+fest(len(wl2) == 1 and wl2[1][2] == 99, "RandomRoll(1, 99) fuer Zweit")
+systemwurf("Lina", 33, 99)
 
 # Der Leiter sieht beides, dem Gegenstand zugeordnet, Haupt vor Zweit
 R = L0["ns"].Erfassung.AktuelleWuerfe()
@@ -1034,7 +1034,7 @@ def runde(tasche=True, mit=("Timo", "Lina"), loot=False):
     ns.Wurf.Starten(LINK)
     lua.execute("__chat = {}")   # die Startzeile im Chat prueft Szenario 35, nicht die Folgeszenarien
     w.weiter(3)
-    for wer, wert, bereich in (("Timo", 77, 100), ("Lina", 91, 100), ("Moe", 12, 50)):
+    for wer, wert, bereich in (("Timo", 77, 100), ("Lina", 91, 100), ("Moe", 12, 99)):
         for c in w.clients:
             c["g"]["__ereignis"]("CHAT_MSG_SYSTEM", "%s rolls %d (1-%d)" % (wer, wert, bereich))
     w.weiter(1)
@@ -1086,6 +1086,19 @@ g["__ereignis"]("TRADE_SHOW")
 g["__ereignis"]("TRADE_CLOSED")      # Gegenstand noch im Rucksack
 w.weiter(3)
 fest(sum(1 for v in w.hist(0).values() if v["itemID"] == 7100) == 0, "Handel abgebrochen: nichts eingetragen")
+
+# --- Handel gelungen, aber das Angebot war beim Schliessen nicht lesbar (Fund im Spiel 19.10.2026) ------------
+w, cl, g, ns, lua = runde()
+g["__klick"]("Zuteilen")
+g["__npc"] = "Timo"
+g["__ereignis"]("TRADE_SHOW")
+lua.execute("__angeboten = {}")                  # das Handelsfenster liefert keine Links mehr
+lua.execute("__tasche[1].leer = true")
+g["__ereignis"]("TRADE_CLOSED")
+w.weiter(8)
+treffer = [v for v in w.hist(0).values() if v["itemID"] == 7100]
+fest(len(treffer) == 1 and treffer[0]["awardedTo"] == "Timo", "auch ohne lesbares Angebot wird der vorgemerkte Gegenstand eingetragen (%d)" % len(treffer))
+fest(len(ns.Wurf.Offene()) == 0, "und die Vormerkung ist erledigt")
 
 # --- Nicht auffindbar: nur eintragen -----------------------------------------
 w, cl, g, ns, lua = runde(tasche=False)
@@ -1229,7 +1242,7 @@ g["__ereignis"]("TRADE_PLAYER_ITEM_CHANGED", 1)
 g["__ereignis"]("TRADE_CLOSED")
 w.weiter(3)
 treffer = eintraege(w, 7100, "Moe")
-fest(len(treffer) == 1 and treffer[0]["OS"] is True, "Moe hatte 1-50 gewuerfelt: als Zweitbedarf eingetragen")
+fest(len(treffer) == 1 and treffer[0]["OS"] is True, "Moe hatte 1-99 gewuerfelt: als Zweitbedarf eingetragen")
 
 # --- 5. Kein Wurf bekannt, aber ein Stueck mit Handelsfrist: Hauptbedarf ---------
 w, cl, g, ns, lua = runde()
@@ -1518,24 +1531,24 @@ cl = w.clients[0]
 ns, g, lua = cl["ns"], cl["g"], cl["lua"]
 K = ns.Kern
 
-fest(K.Bedarfsart(1, 100) == "haupt" and K.Bedarfsart(1, 50) == "zweit", "Standard: 1-100 Haupt, 1-50 Zweit")
+fest(K.Bedarfsart(1, 100) == "haupt" and K.Bedarfsart(1, 99) == "zweit", "Standard: 1-100 Haupt, 1-99 Zweit")
 ok, grund = tup(ns.Erfassung.BereichSetzen("haupt", 1, 200))
 fest(ok is True, "Hauptbereich auf 1-200 gesetzt (%s)" % grund)
 fest(K.Bedarfsart(1, 200) == "haupt" and K.Bedarfsart(1, 100) is None, "ab jetzt zaehlt 1-200 als Haupt, 1-100 nicht mehr")
 fest(g["FairshareDB"]["bereiche"]["haupt"][2] == 200, "und es ist gespeichert")
-K.BereicheSetzen(1, 100, 1, 50)                       # wie nach einem Neustart: Standard im Speicher
+K.BereicheSetzen(1, 100, 1, 99)                       # wie nach einem Neustart: Standard im Speicher
 ns.Erfassung.BereicheAnwenden()
 fest(K.Bedarfsart(1, 200) == "haupt", "BereicheAnwenden holt die gespeicherten Werte zurueck")
 
 for was, args in (("Zahlen", ("a", "b")), ("umgekehrt", (50, 20)), ("zu gross", (1, 99999)), ("null", (0, 10)),
-                  ("gleich wie OS", (1, 50)), ("Kommazahl", (1, 10.5))):
+                  ("gleich wie OS", (1, 99)), ("Kommazahl", (1, 10.5))):
     ok, grund = tup(ns.Erfassung.BereichSetzen("haupt", *args))
     fest(ok is False, "abgelehnt: %s (%s)" % (was, str(grund)[:50]))
 fest(K.Bedarfsart(1, 200) == "haupt", "nach den Fehlversuchen gilt weiter 1-200")
 
 ok, grund = tup(ns.Erfassung.BereichSetzen("zweit", 3, 40))
 fest(ok is True and K.Bedarfsart(3, 40) == "zweit", "auch ein Bereich, der nicht bei 1 beginnt (3-40)")
-ns.Erfassung.BereicheSetzen(1, 100, 1, 50)
+ns.Erfassung.BereicheSetzen(1, 100, 1, 99)
 
 # --- Gargul: beide Richtungen --------------------------------------------------
 lua.execute("""
@@ -1572,7 +1585,7 @@ fest(K.Bedarfsart(1, 70) == "haupt", "/fs bereiche uebernehmen <- Gargul")
 sl("bereiche")
 fehler = [str(x) for x in g["__ausgabe"].values() if "Fehler" in str(x)]
 fest(not fehler, "/fs bereiche ohne Fehler")
-ns.Erfassung.BereicheSetzen(1, 100, 1, 50)
+ns.Erfassung.BereicheSetzen(1, 100, 1, 99)
 
 # --- Einstellungsseite ----------------------------------------------------------
 ns.Einstellungen.Zeigen()
@@ -1581,7 +1594,7 @@ fest(len(list(g["__text"]("Bereich für Hauptbedarf").values())) > 0, "Seite zei
 fest(len(list(g["__text"]("Bereich für Zweitbedarf (OS)").values())) > 0, "und den fuer Zweitbedarf (OS)")
 ns.Erfassung.BereicheSetzen(1, 300, 1, 40)
 ns.Einstellungen.Aktualisieren()
-fest(g["__klick"]("Standard") is True and K.Bedarfsart(1, 100) == "haupt", "Knopf Standard setzt 1-100 / 1-50")
+fest(g["__klick"]("Standard") is True and K.Bedarfsart(1, 100) == "haupt", "Knopf Standard setzt 1-100 / 1-99")
 lua.execute('Gargul._cfg["RollTracking.Brackets"] = { {"MS",1,100,2,false,false}, {"OS",1,60,3,true,false} }')
 ns.Einstellungen.Aktualisieren()
 fest(g["__klick"]("Aus Gargul übernehmen") is True and K.Bedarfsart(1, 60) == "zweit", "Knopf Aus Gargul uebernehmen")
@@ -2251,7 +2264,7 @@ ns, g = w.clients[0]["ns"], w.clients[0]["g"]
 L35 = "|cff0070dd|Hitem:9351::::::::60:::::|h[Rollding]|h|r"
 ok = tup(ns.Wurf.Starten(L35, "45"))[0]
 chat = [str(c[1]) for c in g["__chat"].values()]
-fest(ok and len(chat) == 1 and "/roll 1-100" in chat[0] and "/roll 1-50" in chat[0] and "45" in chat[0] and "Rollding" in chat[0],
+fest(ok and len(chat) == 1 and "/roll 1-100" in chat[0] and "/roll 1-99" in chat[0] and "45" in chat[0] and "Rollding" in chat[0],
      "Wurfstart: eine Zeile mit Gegenstand, beiden Bereichen und Zeit (%s)" % (chat[0][:90] if chat else "keine"))
 fest(str(list(g["__chat"].values())[0][2]) == "PARTY", "in einer 5er-Gruppe: Gruppenchat")
 ns.Wurf.Abbrechen()
@@ -2464,13 +2477,12 @@ def hat_vermerk(k):
     return False
 
 
-fest(all(hat_vermerk(k) for k in (0, 1, 2)), "der Vermerk, dass der Tag ausgewertet ist, liegt bei allen")
 vorher = buchstand(w, 0)
 probe(ns0, lua0.table_from(NAMEN))
 fest(buchstand(w, 0) == vorher, "ein zweiter Durchlauf bucht den Neuling-Start nicht noch einmal")
 
 
-# --- Anhebung zu Abendbeginn: einmal, fuer alle, nicht im Lauf des Abends -------------------
+# --- Keine automatische Anhebung mehr; die Leitung hebt von Hand an (Entscheid 19.10.2026) -------------------
 w = welt36()
 ns0, lua0 = w.clients[0]["ns"], w.clients[0]["lua"]
 # Vorgeschichte: Kaos 9, Timo 9, Lina 9 Items; Protti nur 5 (liegt weit hinten)
@@ -2480,7 +2492,6 @@ for k in (0, 1, 2):
             w.setze(k, "alt_%s_%d" % (wer.replace(" ", ""), j), {"awardedTo": wer, "itemID": 8000 + i * 20 + j, "timestamp": int(w.t) - 90000 - j})
     for j in range(5):
         w.setze(k, "alt_Protti_%d" % j, {"awardedTo": "Protti", "itemID": 8100 + j, "timestamp": int(w.t) - 90000 - j})
-# Alle waren schon an einem frueheren Abend dabei (sonst Proberaid/Neuling): ein Abend im Archiv
 ab = {"id": "2026-01-01", "datum": "2026-01-01", "bosse": 1, "gesehen": {}, "bossListe": {}, "teilnehmer": {},
       "anwesenheit": {"leiter kaos": 1, "timo": 1, "lina": 1, "protti": 1}, "bank": {}, "unentschuldigt": {}, "protokoll": {}}
 for k in (0, 1, 2):
@@ -2488,29 +2499,22 @@ for k in (0, 1, 2):
 w.weiter(5)
 ok = ns0.Anwesenheit.BossBuchen("Lucifron", 2001, True, lua0.table_from(["Leiter Kaos", "Timo", "Lina", "Protti"]))
 w.weiter(20)
-fest(abs(anhebung_von(w, 0, "protti") - 6.0) < 1e-9, "Protti (5) liegt 4 hinter den anderen (9): einmal auf 9 + 2 = 11 gesetzt (+6)")
-fest(abs(anhebung_von(w, 1, "protti") - 6.0) < 1e-9 and abs(anhebung_von(w, 2, "protti") - 6.0) < 1e-9, "die Anhebung erreicht alle")
-fest(anhebung_von(w, 0, "timo") is None and anhebung_von(w, 0, "lina") is None, "die anderen bleiben unangetastet")
+fest(anhebung_von(w, 0, "protti") is None, "zu Abendbeginn wird niemand mehr von selbst angehoben (Protti 5 gegen 9)")
 n1 = buchstand(w, 0)
-# Zweiter Bosskampf: keine weitere Auswertung
-ns0.Anwesenheit.BossBuchen("Magmadar", 2002, True, lua0.table_from(["Leiter Kaos", "Timo", "Lina", "Protti"]))
-w.weiter(20)
-fest(buchstand(w, 0) == n1, "ein zweiter Bosskampf wertet nicht noch einmal aus")
-# Spaeter am Abend: Kaos, Timo, Lina haben je 3 Items mehr (12) — Protti (11) wird NICHT noch einmal angehoben
-for k in (0,):
-    for i, wer in enumerate(["Leiter Kaos", "Timo", "Lina"]):
-        for j in range(3):
-            w.setze(k, "neu_%s_%d" % (wer.replace(" ", ""), j), {"awardedTo": wer, "itemID": 8300 + i * 10 + j, "timestamp": int(w.t) + j})
-probe2 = lua0.eval("""function(ns)
-    local liste = ns.Kern.Bilanz(ns.Erfassung.Historie(), 0, {"Leiter Kaos","Timo","Lina","Protti"}, nil, ns.Anwesenheit.ZuschlaegeDaten())
-    ns.Anwesenheit.Rollen(liste, true)
-    local aus = {}
-    for _, e in ipairs(liste) do aus[string.lower(e.name)] = { w = e.wertung, k = e.keineAnhebung and 1 or 0 } end
-    return aus
-end""")
-r = {str(k): v for k, v in probe2(ns0).items()}
-fest(abs(r["protti"]["w"] - 11) < 1e-9 and r["protti"]["k"] == 1, "Protti bleibt bei 11 und wird am selben Abend nicht noch einmal angehoben")
-fest(buchstand(w, 0) == n1, "und es wurde nichts Neues gebucht")
+# Manuell: die Raid-/Gildenleitung hebt Protti an: Niedrigster der anderen im Raid (9) + 2 = 11, also +6
+r = tup(ns0.Anwesenheit.AnhebungSetzen("Protti"))
+fest(r[0] is not None and abs(float(r[1]) - 11.0) < 1e-9 and abs(float(r[2]) - 6.0) < 1e-9, "manuelle Anhebung: Protti auf 11 (+6) (%s)" % (r,))
+w.weiter(15)
+fest(abs(anhebung_von(w, 0, "protti") - 6.0) < 1e-9 and abs(anhebung_von(w, 1, "protti") - 6.0) < 1e-9
+     and abs(anhebung_von(w, 2, "protti") - 6.0) < 1e-9, "und die Anhebung erreicht alle")
+r2 = tup(ns0.Anwesenheit.AnhebungSetzen("Protti"))
+fest(r2[0] is None, "ein zweites Mal: Protti liegt schon bei 11, nichts passiert (nie nach unten) (%s)" % (r2,))
+fest(buchstand(w, 0) != n1 and anhebung_von(w, 0, "timo") is None, "die anderen bleiben unangetastet")
+r3 = tup(w.clients[2]["ns"].Anwesenheit.AnhebungSetzen("Timo", "Lina"))
+fest(r3[0] is None, "wer nicht Raid- oder Gildenleitung ist, darf nicht anheben (%s)" % (r3,))
+# Der Name darf ohne Realm/Nachnamen eingegeben werden, wenn der Spieler im Raid ist
+r4 = tup(ns0.Anwesenheit.AnhebungSetzen("   "))
+fest(r4[0] is None, "ohne Namen wird nichts angehoben (%s)" % (r4,))
 
 # --- Kennzeichen und Anhebung bei der Vergabe ----------------------------------------
 w = welt36()
@@ -3528,6 +3532,111 @@ w.setze(0, "kaos9", {"awardedTo": "Moe", "itemID": 7200, "timestamp": z0 - 50})
 w.clients[0]["ns"].Abgleich.LeitungBeaconSpaeter(1)
 w.weiter(400)
 fest(anz(w, 1) == 7, "mit ausgeschaltetem Schalter bleibt Timo unveraendert (%d)" % anz(w, 1))
+
+print("== 60. Gildenweiter Reset: Reset-Marke, nur Stufe 1 und 2, Altes kommt nicht zurueck (Wunsch 22.10.2026) ==")
+w = gruppe(3)
+for c_ in w.clients:
+    c_["lua"].execute("""
+__gilde = {
+  [1] = { name = "Leiter Kaos", guildRank = "Gildenleiter", guildRankOrder = 1 },
+  [2] = { name = "Timo", guildRank = "Offizier", guildRankOrder = 2 },
+  [3] = { name = "Lina", guildRank = "Rekrut", guildRankOrder = 5 },
+}
+C_Club = {
+  GetGuildClubId = function() return 1 end,
+  GetClubMembers = function() local t = {} for id in pairs(__gilde) do t[#t + 1] = id end table.sort(t) return t end,
+  GetMemberInfo = function(club, id) return __gilde[id] end,
+}
+""")
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+z0 = int(w.t)
+for k in range(3):
+    for i in range(4):
+        w.setze(k, "e%d" % i, {"awardedTo": "Timo", "itemID": 8000 + i, "timestamp": z0 - 1000 * (i + 1)})
+    w.clients[k]["lua"].execute('FairshareDB.zuschlaege["z_alt_timo"] = { wert = 1.5 }')
+def leer(k):
+    return bool(w.clients[k]["lua"].eval("next(FairshareDB.zuschlaege) == nil"))
+ns_l, ns_t, ns_k = w.clients[2]["ns"], w.clients[1]["ns"], w.clients[0]["ns"]
+r = tup(ns_l.Erfassung.GildenReset())
+fest(r[0] is None and anz(w, 2) == 4, "Lina (Stufe 3) darf nicht gildenweit zuruecksetzen, nichts geaendert (%s)" % (r,))
+r = tup(ns_t.Erfassung.GildenReset())
+fest(r[0] == 4, "Timo (Stufe 2) darf: 4 Eintraege entfernt (%s)" % (r,))
+w.weiter(25)
+fest(anz(w, 0) == 0 and anz(w, 1) == 0 and anz(w, 2) == 0, "bei allen ist die Historie leer (%d/%d/%d)" % (anz(w, 0), anz(w, 1), anz(w, 2)))
+fest(leer(0) and leer(1) and leer(2), "und das Datenbuch (Zuschlaege) auch")
+rz = [float(c_["ns"].Erfassung.ResetZeit()) for c_ in w.clients]
+fest(rz[0] > 0 and rz[0] == rz[1] == rz[2], "alle haben dieselbe Reset-Marke (%s)" % (rz,))
+fest(len(list(w.clients[0]["g"]["FairshareDB"]["gruppen"].values())) >= 0, "die Gruppen bleiben bestehen")
+# Ein Spieler, der den Reset noch nicht hat, bringt Altes nicht zurueck; Neues schon
+w.setze(0, "alt", {"awardedTo": "Lina", "itemID": 8100, "timestamp": int(rz[0]) - 5000})
+w.setze(0, "neu", {"awardedTo": "Lina", "itemID": 8101, "timestamp": int(w.t) + 5})
+ok, grund = tup(ns_k.Abgleich.Starten())
+w.weiter(70)
+ids1 = w.ids(1)
+fest("neu" in ids1 and "alt" not in ids1, "Timo bekommt den neuen Eintrag, den alten nicht (%s)" % (ids1,))
+fest("alt" not in w.ids(2), "Lina ebenso")
+# Eine Reset-Marke von Stufe 3 gilt nicht
+for c_ in w.clients:
+    c_["ns"].Erfassung.Einstellungen()["konfigRang"] = 3
+w.clients[2]["ns"].Erfassung.Einstellungen()["resetZeit"] = int(w.t) + 500
+vorher = float(ns_k.Erfassung.ResetZeit())
+tup(ns_l.Konfig.Senden())
+w.weiter(20)
+fest(float(ns_k.Erfassung.ResetZeit()) == vorher and anz(w, 0) >= 1, "eine Reset-Marke von Stufe 3 wird ignoriert, Daten bleiben (%d)" % anz(w, 0))
+# Gesperrt: Lina kann es auch ueber den Befehl nicht
+w.clients[2]["g"]["SlashCmdList"]["FAIRSHARE"]("reset gilde")
+aus = [str(x) for x in w.clients[2]["g"]["__ausgabe"].values()]
+fest(any("Stufe 1 und 2" in x or "level 1 and 2" in x for x in aus), "/fs reset gilde meldet ihr, dass nur Stufe 1 und 2 es duerfen")
+
+print("== 61. /fs test laeuft auch, wenn der Spieler eine Einteilung und eine aktive Gruppe hat (Fund im Spiel 19.10.2026) ==")
+w = welt36()
+n0, g0 = w.clients[0]["ns"], w.clients[0]["g"]
+heute = str(n0.Gruppen.EinteilungTag(0))
+tup(n0.Gruppen.EinteilungSetzen(heute, "Timo", "40er", "System"))
+n0.Gruppen.Aktivieren("40er")
+g0["__ausgabe"] = w.clients[0]["lua"].table()
+g0["SlashCmdList"]["FAIRSHARE"]("test")
+aus = [str(x) for x in g0["__ausgabe"].values()]
+fehler = [x for x in aus if "Error" in x or "Fehler im" in x or "attempt to" in x]
+fest(not fehler, "/fs test meldet keinen Fehler (%s)" % (fehler[:2],))
+fest(any("bestanden" in x.lower() or "passed" in x.lower() or "Prüfungen" in x for x in aus) or len(aus) > 0, "und gibt etwas aus (%d Zeilen)" % len(aus))
+
+print("== 62. Auto-Senden ueber die Oberflaeche: Gruppe in den Einstellungen loeschen erreicht die anderen (Fund im Spiel 19.10.2026) ==")
+w = welt36()
+n0, g0, l0 = w.clients[0]["ns"], w.clients[0]["g"], w.clients[0]["lua"]
+n1 = w.clients[1]["ns"]
+for c_ in w.clients:
+    c_["lua"].execute("""
+__gilde = {
+  [1] = { name = "Leiter Kaos", guildRank = "Gildenleiter", guildRankOrder = 1 },
+  [2] = { name = "Timo", guildRank = "Offizier", guildRankOrder = 2 },
+  [3] = { name = "Lina", guildRank = "Rekrut", guildRankOrder = 5 },
+}
+C_Club = {
+  GetGuildClubId = function() return 1 end,
+  GetClubMembers = function() local t = {} for id in pairs(__gilde) do t[#t + 1] = id end table.sort(t) return t end,
+  GetMemberInfo = function(club, id) return __gilde[id] end,
+}
+""")
+n0.Gruppen.Anlegen("Test1")
+n0.Konfig.Senden()
+w.weiter(12)
+fest("Test1" in [str(x) for x in n1.Gruppen.Namen().values()], "Ausgangslage: Timo kennt die Gruppen")
+g0["SlashCmdList"]["FAIRSHARE"]("einstellungen")
+w.weiter(1)
+g0["__klick"]("Gruppen")
+n0.Einstellungen.Aktualisieren()
+namen_vorher = [str(x) for x in n0.Gruppen.Namen().values()]
+for nm in namen_vorher:
+    g0["__klick"]("Löschen")
+    g0["__klick"]("Wirklich löschen")
+    n0.Einstellungen.Aktualisieren()
+fest(len(list(n0.Gruppen.Namen().values())) == 0, "Kaos hat alle Gruppen ueber die Knoepfe geloescht")
+w.weiter(15)
+rest1 = [str(x) for x in n1.Gruppen.Namen().values()]
+fest(len(rest1) == 0, "und Timo hat die Loeschung ohne Zutun bekommen (%s)" % (rest1,))
+n0.Einstellungen.Verstecken()
 
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")

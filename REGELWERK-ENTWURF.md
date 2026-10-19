@@ -11,7 +11,7 @@ Wie beim Golf: **Wer die niedrigste Wertung hat, hat Vorrang.** Gleichstand wird
 | **Zuschlag** | Zahl, die für einen verpassten Abend auf die Wertung draufgerechnet wird |
 | **Faktor** | bestimmt die Höhe des Zuschlags (Faktor × Schnitt des Abends) |
 | **Schnitt des Abends** | vergebene Main-Items ÷ Spieler im Raid, meist etwa 1 |
-| **Anhebung** | Wer weit unter allen anderen liegt, wird zu Beginn des Abends einmal auf den Niedrigsten plus 2 gesetzt (§ 3) |
+| **Anhebung** | wird nur noch von Hand gesetzt: Niedrigster der anderen im Raid plus 2 (§ 3) |
 | **Kader** | die Spieler der Gildenränge, die zum Raid gehören; wer nicht dazugehört, ist **Gast** |
 | **Raidkader** | der Pool, den man per Knopf bis zu einem Gildenrang einliest und aus dem man die Gruppen zusammenklickt |
 | **Einteilung** | wer an einem Raidtag in welcher Gruppe ist (**Gruppe 1, Gruppe 2 …**, **Bench** oder **Keine Meldung**); wer nirgends steht, gilt als abgemeldet |
@@ -47,13 +47,11 @@ Gegenüber dem Schnitt der Anwesenden gilt: **Faktor unter 1 = Vorteil, 1,0 = ne
 - **Keine Meldung** (weder an- noch abgemeldet): Wer so eingeteilt ist, bekommt beim Wochenabschluss das 1. und 2. Mal innerhalb von 8 Raidabenden die Wertung einer normalen Abmeldung, ab dem 3. Mal wie unentschuldigt. Das lässt sich mit „Woche zurücknehmen“ korrigieren.
 - „Unentschuldigt“ kann zurückgenommen werden, wenn es einen guten Grund gab (zum Beispiel ein Unfall): vor dem Abschluss durch Entfernen der Markierung, danach über „Abend wiedereröffnen“.
 
-## 3. Die Anhebung – wer weit zurückliegt, kommt hinter die anderen
+## 3. Die Anhebung – nur noch von Hand
 
-**Warum:** Wer nach langer Abwesenheit weit hinter allen anderen liegt, soll nicht sofort das erste Item sicher bekommen. Im Lauf des Abends kann er trotzdem ein Item bekommen, wenn eines droppt, das er braucht, und seine Berechtigung die oberste ist.
+**Seit dem 19.10.2026 gibt es keine automatische Anhebung mehr.** Die Zuschläge für verpasste Abende (§ 2) reichen aus. Die frühere Regel (wer mehr als 1 Punkt unter dem Niedrigsten liegt, kommt zu Beginn des Abends auf *Niedrigster plus 2*) hat auch Spieler getroffen, die jeden Abend dabei waren und nur Pech beim Würfeln hatten. Das war als Strafe nicht gewollt.
 
-**Regel:** Zu Beginn des Abends (beim ersten Bosskampf) schaut das Addon auf alle Kaderspieler im Raid. Liegt jemand **mehr als 1 Punkt unter dem Niedrigsten der anderen Kaderspieler**, wird seine Wertung einmalig auf *deren Niedrigsten plus 2* gesetzt. Dieser Wert gilt von da an dauerhaft und ist im Spielerdetail als „Anhebung“ sichtbar.
-
-**Folge:** Der angehobene Spieler steht 2 Punkte hinter den Niedrigsten und gewinnt nicht als Erster. Sobald die anderen Items bekommen haben und über ihm liegen (das kann nach ein bis zwei Bossen schon so sein), ist er an der Reihe. Die Anhebung gibt es **nur einmal je Abend**, sie hebt nur an und senkt nie. Wer schon mehr Items hat, liegt höher und wird nicht angehoben.
+**Manuelle Anhebung:** Die Raid- oder Gildenleitung kann einen Spieler anheben, zum Beispiel nach einer sehr langen Pause. Das geht unter **Einstellungen → Gruppen → Anhebung** (Namen eintragen, „Anheben“) oder mit **`/fs anhebung <Name>`**. Der Spieler kommt auf *den Niedrigsten der anderen Kaderspieler im Raid plus 2*, nie nach unten (liegt er schon dort oder höher, passiert nichts). Die Anhebung steht im Spielerdetail und geht an alle.
 
 ## 4. Neue Spieler und Gäste
 

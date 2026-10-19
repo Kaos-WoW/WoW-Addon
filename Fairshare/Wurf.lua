@@ -9,7 +9,7 @@
          die Beute im offenen Beutefenster anklicken.
       2. Bei ALLEN in der Gruppe mit Fairshare geht ein kleines Fenster auf:
          Gegenstand, Restzeit, Knoepfe **Haupt**, **Zweit (OS)**, **Passen**.
-         Die Bereiche (Standard 1-100 und 1-50) sind einstellbar; der Leiter
+         Die Bereiche (Standard 1-100 und 1-99) sind einstellbar; der Leiter
          schickt seine mit jedem Wurf mit, damit alle gleich wuerfeln.
       3. Ein Klick wuerfelt (`RandomRoll`) im richtigen Bereich. Die Zahl
          wuerfelt der Server; sie kommt wie jeder Wurf als Systemmeldung
@@ -1283,9 +1283,12 @@ local function handelZu()
     handel = nil
     if not H or not C_Timer then return end
     angebotLesen(H, false)
-    if #H.angeboten == 0 then return end
+    H.gebucht = {}
 
-    C_Timer.After(1.5, function()
+    -- ⭐ Prüfen, was gehandelt wurde. Zwei Läufe: Der Rucksack meldet den Verlust manchmal erst nach einer Weile.
+    -- Auch wenn das Handelsfenster beim Schließen nicht mehr lesbar war (leeres Angebot), zählen die für diesen
+    -- Partner VORGEMERKTEN Gegenstände mit (Nutzerfund 19.10.2026: Handel gelungen, Wertung nicht angepasst).
+    local function pruefen()
         local zaehler = {}
         for _, l in ipairs(H.angeboten) do
             local id = idVon(l)
@@ -1295,14 +1298,22 @@ local function handelZu()
                 z.n = z.n + 1
             end
         end
+        for _, v in ipairs(offenListe()) do
+            if Kern.GleicherSpieler(v.name, H.partner) and v.id and not zaehler[v.id] then
+                zaehler[v.id] = { n = 1, link = v.link }
+            end
+        end
         for id, z in pairs(zaehler) do
             local vor = H.vorher[id]
             -- Weg aus dem Rucksack = gehandelt (ein abgebrochener Handel laesst alles liegen).
-            if vor and anzahlImRucksack(id) <= vor - z.n then
+            if vor and not H.gebucht[id] and anzahlImRucksack(id) <= vor - z.n then
+                H.gebucht[id] = true
                 handelVerbuchen(H, id, z.link)
             end
         end
-    end)
+    end
+    C_Timer.After(1.5, pruefen)
+    C_Timer.After(5, pruefen)
 end
 
 -- ---------------------------------------------------------------------

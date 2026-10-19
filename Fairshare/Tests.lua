@@ -1159,6 +1159,9 @@ local function testAbendAbschlussUndSpielerdetail()
     local altPflicht = ns.Gruppen and ns.Gruppen.Pflicht
     ns.Gruppen = ns.Gruppen or {}
     ns.Gruppen.Pflicht = function() return { "Kaos", "Timo", "Shadow", "Deters", "Protti" } end
+    -- ⭐ Der Test darf nicht von der echten Einteilung des Spielers abhängen (sonst gilt sie statt der Pflichtliste)
+    local altEinteilung = ns.Gruppen.EinteilungVorhanden
+    ns.Gruppen.EinteilungVorhanden = function() return false end
 
     -- 1. Schnitt berechnen: 2 Main-Items / 2 Spieler im Raid = 1.0
     local schnitt, items, raidSpieler = Anw.AbendSchnitt(abend)
@@ -1259,6 +1262,7 @@ local function testAbendAbschlussUndSpielerdetail()
     ns.Rolle.Berechtigt = altBerechtigt
     ns.Erfassung.Historie = altHist
     ns.Gruppen.Pflicht = altPflicht
+    ns.Gruppen.EinteilungVorhanden = altEinteilung
     Anw.AbendZuruecksetzen()
     if Anw._SetDB then Anw._SetDB(nil) end
 end
@@ -1472,6 +1476,19 @@ local function testDatenbuch()
     gleich("Reopen mit Spielern abgelehnt", (Kern.BuchDekodieren("a;x;2;0;2026-10-16;5;K;1;1;1;1;3", T)), nil)
 end
 
+local function testKeineAutomatischeAnhebung()
+    local liste = {
+        { name = "Kaos", haupt = 9, zweit = 0, letzte = 100, wertung = 9 },
+        { name = "Timo", haupt = 9, zweit = 0, letzte = 100, wertung = 9 },
+        { name = "Shadow", haupt = 2, zweit = 0, letzte = 100, wertung = 2 },
+    }
+    Kern.WurfReihenfolge(liste, function() return "haupt" end)
+    local shadow
+    for _, e in ipairs(liste) do if e.name == "Shadow" then shadow = e end end
+    gleich("Keine automatische Anhebung: Shadow (2 gegen 9) bleibt bei 2", (shadow and shadow.dynamischeAnhebung) or 0, 0)
+    gleich("und steht vorn, weil seine Wertung die niedrigste ist", liste[1].name, "Shadow")
+end
+
 function Tests.Alle(ausgeben)
     gut, schlecht, meldungen = 0, 0, {}
 
@@ -1479,6 +1496,9 @@ function Tests.Alle(ausgeben)
     local altH1, altH2 = Kern.BEREICHE.haupt[1], Kern.BEREICHE.haupt[2]
     local altZ1, altZ2 = Kern.BEREICHE.zweit[1], Kern.BEREICHE.zweit[2]
     Kern.BereicheSetzen(1, 100, 1, 50)
+    -- ⭐ Die automatische Anhebung ist im Betrieb aus (Kern.AUTO_ANHEBUNG); ihre Rechnung wird hier eingeschaltet geprüft.
+    local altAuto = Kern.AUTO_ANHEBUNG
+    Kern.AUTO_ANHEBUNG = true
 
     testGleicherSpieler()
     testZurueck()
@@ -1518,6 +1538,11 @@ function Tests.Alle(ausgeben)
     testRundung()
     testKennzeichenKodieren()
     testDatenbuch()
+
+    -- Im Betrieb (aus): kein Spieler wird von selbst angehoben, auch wenn er weit hinter den anderen liegt
+    Kern.AUTO_ANHEBUNG = false
+    testKeineAutomatischeAnhebung()
+    Kern.AUTO_ANHEBUNG = altAuto
 
     -- Vorherigen Zustand des Spielers wiederherstellen
     Kern.BereicheSetzen(altH1, altH2, altZ1, altZ2)

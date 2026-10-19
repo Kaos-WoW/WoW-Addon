@@ -162,6 +162,7 @@ function Konfig.Sammeln()
         verzauberer = kopie(ns.Wurf.Verzauberer()),
         raidkaderRang = ns.Gruppen.RaidkaderRang(),
         idWechsel = ns.Gruppen.IdWechsel(),
+        resetZeit = ns.Erfassung.ResetZeit(),
         gruppen = {},
     }
     for _, name in ipairs(ns.Gruppen.Namen()) do
@@ -207,6 +208,7 @@ function Konfig.Kodieren(s)
     z[#z + 1] = "R|" .. s.konfigRang
     if s.raidkaderRang then z[#z + 1] = "N|" .. s.raidkaderRang end         -- Raidkader bis zu diesem Rang
     if s.idWechsel then z[#z + 1] = "I|" .. s.idWechsel end                  -- Wochentag, an dem die Raid-ID wechselt
+    if s.resetZeit and s.resetZeit > 0 then z[#z + 1] = string.format("Z|%.0f", s.resetZeit) end   -- gildenweiter Reset
 
     local v = {}
     for _, n in ipairs(s.verzauberer) do
@@ -280,6 +282,10 @@ function Konfig.Dekodieren(zeilen)
         elseif typ == "I" then
             local w = tonumber(rest)
             if w and w >= 1 and w <= 7 then s.idWechsel = math.floor(w) end
+        elseif typ == "Z" then
+            -- Reset-Marke: eine plausible Zeit (nach 2001, höchstens einen Tag in der Zukunft)
+            local zt = tonumber(rest)
+            if zt and zt > 1000000000 and zt <= jetzt() + 86400 then s.resetZeit = math.floor(zt) end
         elseif typ == "V" then
             for n in rest:gmatch("[^,]+") do
                 if gueltigerName(n) and #s.verzauberer < 8 then s.verzauberer[#s.verzauberer + 1] = n end
@@ -466,9 +472,19 @@ function Konfig.AutoSenden()
         if not Konfig.DarfSenden() then return end
         local d = db()
         if type(d.konfigRoh) == "table" and zeilenGleich(Konfig.Kodieren(Konfig.Sammeln()), d.konfigRoh) then return end
-        local n = Konfig.Senden()
+        local n, grund = Konfig.Senden()
         if n then
             print("|cff1B6B57Fairshare|r: " .. L["Geänderte Einstellungen wurden an alle gesendet."])
+            -- ⭐ Einmal nachsenden: Addon-Nachrichten in der Gilde können verloren gehen (Drosselung). Wer den Stand
+            -- schon hat, ignoriert die Wiederholung (gleicher Stand).
+            C_Timer.After(15, function()
+                local dd = db()
+                if type(dd.konfigRoh) == "table" and dd.konfigVon and Kern.GleicherSpieler(dd.konfigVon, ichName()) then
+                    paketeSenden(dd.konfigRoh, tonumber(dd.konfigStand) or 0, dd.konfigVon, "GUILD")
+                end
+            end)
+        elseif grund then
+            print("|cff1B6B57Fairshare|r: |cffff5555" .. tostring(grund) .. "|r")
         end
     end)
     return true
@@ -533,8 +549,15 @@ local function sitzungAbschliessen(S)
         merke(string.format(L["Rangstufe von %s ignoriert: nur Stufe 1 und 2 dürfen sie ändern"], tostring(S.von)))
     end
 
+    -- ⭐ Eine Reset-Marke (gildenweit alles löschen) gilt nur von Stufe 1 und 2.
+    if vStufe > Konfig.WURZEL and s.resetZeit then
+        s.resetZeit = nil
+        merke(string.format(L["Reset-Marke von %s ignoriert: nur Stufe 1 und 2 dürfen die Daten gildenweit zurücksetzen"], tostring(S.von)))
+    end
+
     Konfig.Anwenden(s)
     d.konfigStand, d.konfigVon, d.konfigRoh = S.stand, S.von, zeilen
+    if s.resetZeit then ns.Erfassung.ResetAnwenden(s.resetZeit, S.von) end
     merke(string.format(L["Einstellungen von %s übernommen"], tostring(S.von)))
     sag(string.format(L["Einstellungen von |cffffff78%s|r übernommen. |cffffff78/fs konfig zurueck|r nimmt sie zurück."],
         tostring(S.von)))

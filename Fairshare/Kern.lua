@@ -299,7 +299,7 @@ function Kern.WurfReihenfolge(liste, istWuerfler, wurfWert)
                 -- an diesem Abend schon angehoben und festgeschrieben: nicht noch einmal
                 x.effektiveWertung = item.wertung
                 x.dynamischeAnhebung = 0
-            elseif ref and (ref - item.wertung) > 1 + 1e-9 then
+            elseif Kern.AUTO_ANHEBUNG and ref and (ref - item.wertung) > 1 + 1e-9 then
                 x.effektiveWertung = Kern.Runde3(ref + Kern.ANHEBUNG_ABSTAND)
                 x.dynamischeAnhebung = Kern.Runde3(x.effektiveWertung - item.wertung)
             else
@@ -373,6 +373,12 @@ Kern.MIN_ZUSCHLAG_UNENTSCHULDIGT = 2.0
 -- ⭐ Anhebung (§ 3, Gildenleitung 17.10.2026): Wer weit hinter allen liegt, wird auf den Niedrigsten
 -- der Kaderspieler im Raid PLUS diesen Abstand gesetzt — hinter sie, ohne sicheres Item.
 Kern.ANHEBUNG_ABSTAND = 2
+
+-- ⭐ Die AUTOMATISCHE Anhebung (§ 3: wer mehr als 1 Punkt unter dem Niedrigsten liegt, kommt auf Niedrigster + 2) ist
+-- seit dem 19.10.2026 AUS (Entscheid der Gildenleitung: die Zuschläge für Fehlen reichen, die Anhebung durfte keine
+-- Strafe für Anwesende sein). Es bleibt die manuelle Anhebung (Anwesenheit.AnhebungSetzen, Einstellungen → Gruppen,
+-- `/fs anhebung <Name>`) und der Einstieg der Neulinge am 2. Abend. Die Rechnung steht weiter hier und in den Tests.
+Kern.AUTO_ANHEBUNG = false
 -- ⭐ „Anmeldung vergessen" (Gildenleitung 17.10.2026): Wer innerhalb von `VERGESSEN_FENSTER` Raidabenden
 -- MEHR als `VERGESSEN_SCHWELLE` Mal weder an- noch abgemeldet war und nicht kam, wird wie unentschuldigt
 -- behandelt (Faktor 1,5, mindestens 2 Punkte). Davor gilt der Abend wie eine normale Abmeldung.
@@ -567,9 +573,9 @@ function Kern.Argumente(text, muster, nummern)
 end
 
 -- ⭐ Die Bereiche, die als Haupt- und als Zweitbedarf gelten (einstellbar,
--- Standard 1-100 und 1-50). Erfassung.lua haelt sie in den gespeicherten Daten
+-- Standard 1-100 und 1-99). Erfassung.lua haelt sie in den gespeicherten Daten
 -- und setzt sie hier; Wurf.lua uebernimmt waehrend eines Wurfs die des Leiters.
-Kern.BEREICHE = { haupt = { 1, 100 }, zweit = { 1, 50 } }
+Kern.BEREICHE = { haupt = { 1, 100 }, zweit = { 1, 99 } }
 
 --- Setzt beide Bereiche, wenn sie stimmig sind.
 --  @return true, oder false und ein Code: "zahl" | "grenzen" | "gleich"

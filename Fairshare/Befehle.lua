@@ -55,7 +55,9 @@ local function hilfe()
     print(L["  |cffffff78/fs bereiche|r     – Würfelbereiche (|cffffff78bereiche haupt 1 100|r, |cffffff78zweit|r, |cffffff78setzen|r in Gargul, |cffffff78uebernehmen|r aus Gargul)"])
     print(L["  |cffffff78/fs auto|r         – Fenster bei Wurfbeginn automatisch öffnen (an/aus)"])
     print(L["  |cffffff78/fs import|r       – Garguls bisherige Aufzeichnungen übernehmen"])
+    print(L["  |cffffff78/fs anhebung <Name>|r – Spieler manuell auf Niedrigster + 2 anheben (Raid- oder Gildenleitung)"])
     print(L["  |cffffff78/fs reset|r        – Historie auf diesem Rechner leeren (mit Rückfrage und Sicherung)"])
+    print(L["  |cffffff78/fs reset gilde|r  – Daten bei ALLEN Gildenmitgliedern zurücksetzen (nur Stufe 1 und 2, mit Rückfrage)"])
     print(L["  |cffffff78/fs filter|r       – ab welcher Qualität und wo aufgezeichnet wird"])
     print(L["  |cffffff78/fs gilde|r        – Diagnose: was die Gildenliste liefert (Namen, Ränge)"])
     print(L["  |cffffff78/fs stand|r        – Diagnose: eigene Historie und Aufzeichnung"])
@@ -80,14 +82,41 @@ befehle["import"] = function()
 end
 
 --- ⭐ Historie leeren: erst fragen, dann tun, vorher sichern.
-local resetBereit = nil
+local resetBereit, resetGildeBereit = nil, nil
 
 befehle["reset"] = function(arg)
     arg = (arg or ""):lower()
 
+    -- ⭐ Gildenweit: leert die Daten bei allen (Reset-Marke, siehe Erfassung.GildenReset)
+    local gilde = arg:match("^gilde%s*(.*)$") or arg:match("^guild%s*(.*)$")
+    if gilde then
+        if not (ns.Konfig.DarfWurzel and ns.Konfig.DarfWurzel()) then
+            sag(ROT .. L["Nur Gildenmeister und Offiziere (Stufe 1 und 2) dürfen die Daten gildenweit zurücksetzen."] .. "|r")
+            return
+        end
+        if gilde == "ja" or gilde == "yes" then
+            if not resetGildeBereit or (time() - resetGildeBereit) > 60 then
+                sag(ROT .. L["Erst |cffffff78/fs reset gilde|r eingeben, dann innerhalb einer Minute bestätigen."] .. "|r")
+                return
+            end
+            resetGildeBereit = nil
+            local n, grund = ns.Erfassung.GildenReset()
+            if not n then sag(ROT .. tostring(grund) .. "|r") return end
+            sag(string.format(L["|cff55ff55%d Einträge|r entfernt, die Reset-Marke geht an alle Gildenmitglieder mit dem Addon."], n))
+            if grund then sag(ROT .. tostring(grund) .. "|r") end
+            return
+        end
+        local n = 0
+        for _ in pairs(ns.Erfassung.Historie()) do n = n + 1 end
+        resetGildeBereit = time()
+        sag(string.format(L["Das entfernt |cffffff78%d Einträge|r der Historie samt allen Abschlüssen, Zuschlägen und Anhebungen bei |cffff5555ALLEN|r Gildenmitgliedern mit dem Addon. Einstellungen, Gruppen und Einteilung bleiben. Das lässt sich nicht zurücknehmen."], n))
+        print(L["  Zum Bestätigen innerhalb einer Minute: |cffffff78/fs reset gilde ja|r"])
+        return
+    end
+
     if arg == "undo" or arg == "zurueck" or arg == "zurück" then
-        local n = ns.Erfassung.Wiederherstellen()
-        if not n then sag(GRAU .. L["Es gibt keine Sicherung."] .. "|r") return end
+        local n, grund = ns.Erfassung.Wiederherstellen()
+        if not n then sag(GRAU .. (grund or L["Es gibt keine Sicherung."]) .. "|r") return end
         sag(string.format(L["|cff55ff55%d Einträge|r aus der Sicherung zurückgeholt."], n))
         return
     end
@@ -100,7 +129,7 @@ befehle["reset"] = function(arg)
         resetBereit = nil
         local n = ns.Erfassung.Zuruecksetzen()
         sag(string.format(L["|cff55ff55%d Einträge|r entfernt. Gesichert: |cffffff78/fs reset undo|r holt sie zurück."], n))
-        print(L["  |cff8E9A94Nur auf diesem Rechner: Haben andere in der Gruppe die Einträge noch, bringt sie der nächste Abgleich zurück.|r"])
+        print(L["  |cff8E9A94Nur auf diesem Rechner: Haben andere in der Gruppe die Einträge noch, bringt sie der nächste Abgleich zurück. Für alle in der Gilde: |cffffff78/fs reset gilde|r.|r"])
         return
     end
 
@@ -867,6 +896,19 @@ befehle["returned"] = befehle["rueckgabe"]
 befehle["revert"] = befehle["rueckgaengig"]
 
 --- ⭐ Einstellungen teilen (Konfig.lua)
+befehle["anhebung"] = function(arg)
+    local name = tostring(arg or ""):match("^%s*(.-)%s*$")
+    if name == "" then
+        sag(L["Anhebung: |cffffff78/fs anhebung <Name>|r setzt den Spieler auf den Niedrigsten der anderen Kaderspieler im Raid plus 2 (nur Raid- oder Gildenleitung)."])
+        return
+    end
+    local id, ziel, diff = ns.Anwesenheit.AnhebungSetzen(name)
+    if not id then sag(ROT .. tostring(ziel) .. "|r") return end
+    sag(string.format(L["|cff55ff55%s|r angehoben: +%.1f auf %.1f."], name, diff, ziel))
+    if Fenster.Sichtbar() then Fenster.Aktualisieren() end
+end
+befehle["raise"] = befehle["anhebung"]
+
 befehle["konfig"] = function(arg)
     local was = (arg or ""):lower():match("^(%S*)") or ""
     if was == "senden" or was == "send" then
@@ -902,7 +944,7 @@ befehle["sync"] = befehle["abgleich"]
 --- Die Wuerfelbereiche: anzeigen, aendern, mit Gargul abgleichen.
 --    /fs bereiche                 zeigt eigene und die von Gargul
 --    /fs bereiche haupt 1 100     Bereich fuer Hauptbedarf
---    /fs bereiche zweit 1 50      Bereich fuer Zweitbedarf (OS)
+--    /fs bereiche zweit 1 99      Bereich fuer Zweitbedarf (OS)
 --    /fs bereiche setzen          Fairshare -> Gargul
 --    /fs bereiche uebernehmen     Gargul -> Fairshare
 befehle["bereiche"] = function(arg)

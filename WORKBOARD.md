@@ -80,6 +80,28 @@ Patches bisher als Python-Skripte im Scratchpad (CRLF erhalten, `python -X utf8`
 - Verworfen: automatische Umteilung/Warnung, wenn jemand in einer anderen Gruppe raidet als eingeteilt (Raidleitung organisiert vorher).
 - Fenster-Mindestbreite 880.
 
+## ⭐ Nächste Aufgabe (Auftrag des Nutzers, 19.10.2026): Übungsmodus „Probe-Abend“ zum einfachen Testen
+
+**Warum:** Die Testläufe im Spiel sind zu kompliziert (zwei echte Spieler, Gruppe verlassen, Einteilung, Würfe, Handel, Abschluss; Fehler wie „Xalessa war noch im Raid, darum kein Zuschlag“ entstehen durch die Testbedingungen, nicht durch das Addon). Der Nutzer will **einen vollen Raidabend testen können, ohne echte Daten zu erzeugen und ohne zweiten Spieler.** Die Auftraggeber-Wünsche: „super einfach“, „keine echten Daten“.
+
+**Was es schon gibt (nutzen, nicht neu bauen):**
+- Der **Beispiel-Modus** (`zustand.beispiel` in `Fenster.lua`, Knopf „Beispiel“ im Fuß; `Quelle.Beispiel/BeispielWurf`, `Anwesenheit.BeispielKandidaten*`): zeigt feste Demodaten, ändert nichts, **simuliert aber keinen Abend** (Abschließen nur als Chat-Text).
+- **`Anwesenheit._SetDB(mockDB)`**: leitet die Datenbuch-Zugriffe (`abende`, `zuschlaege`, `anhebungen`, `anhebungsliste`) auf eine Wegwerf-Tabelle um; die Tests in `Tests.lua` (`/fs test`) benutzen es und mocken zusätzlich `Konfig.Darf`, `Rolle.Berechtigt`, `Erfassung.Historie`, `Gruppen.Pflicht/EinteilungVorhanden` (siehe `testAbendAbschlussUndSpielerdetail`).
+- `tests/szenarien.py` und `tests/sim.py` spielen ganze Abende offline mit mehreren virtuellen Clients durch (Szenarien 36, 42-47, 53-55 u. a.). Das ist die Vorlage für die Abläufe, die der Probe-Abend im Spiel nachbilden soll.
+
+**Vorschlag (Erster Entwurf, bitte prüfen und verbessern):** Ein **Übungsmodus** (`/fs probe` oder Knopf im Fuß neben „Beispiel“), der
+1. **alle Datenzugriffe auf eine reine Speicher-Tabelle umlenkt** (Historie, Datenbuch, Zuschläge, aktiver Abend; nichts davon wird in `FairshareDB` geschrieben, nach dem Schließen ist alles weg) und **jedes Senden sperrt** (`Abgleich.Senden/einreihen`, `Konfig.Senden/AutoSenden`, `BuchVerteilen`, `Verteilen`, `Leitung`-Beacon), damit nichts bei anderen ankommt;
+2. mit **erfundenen Spielern** arbeitet (z. B. „Anna, Ben, Chris, Dora“, alle im Kader, mit Anfangswerten), die man per Knopf **„in den Raid / aus dem Raid“** setzt (ersetzt `Rolle.Einheiten`/`anwesendeNamen` im Übungsmodus);
+3. eine **kleine Bedienleiste** zeigt: *„Item an <Spieler> vergeben“* (Haupt/OS), *„Spieler geht“*, *„Bench“*, *„Unentschuldigt“*, *„Abend abschließen“*, *„Neuer Abend“*, *„Zurücksetzen“*; die normalen Reiter (Spieler, Verlauf, Abwesenheit, Spielerdetail) zeigen dabei das Ergebnis mit der **echten Rechnung** (`Kern.*`, `Anwesenheit.AbendVorschau/-Abschliessen`), damit Zuschläge, Schnitt, Wertung und Spielerdetail genau so aussehen wie im Betrieb;
+4. oben einen **auffälligen Hinweis „PROBE – keine echten Daten“** (Warnfarbe wie beim Beispiel-Modus) und beim Schließen nichts hinterlässt.
+5. **Optional, sehr nützlich:** eine Schaltfläche **„Fertiger Probe-Abend“**, die ein Skript abspielt (Abend A: Kaos 4 Items, Anna 2; Abend B …) und die erwarteten Zahlen daneben schreibt („Soll: Zuschlag 2,0“), damit man nur noch vergleicht.
+
+**Alternative, kleiner:** Nur `/fs probe abend` als **Textausgabe** (wie `/fs test`): läuft in einer Wegwerf-Datenbank einen Standardabend durch (Raid, Bench, Unentschuldigt, Abgemeldet, Neuling) und schreibt Zeile für Zeile „Erwartet / Ist“ in den Chat. Weniger Bedienung, schneller gebaut, deckt die Rechenregeln ab, aber nicht die Oberfläche.
+
+**Abnahme (der Nutzer entscheidet im Spiel):** In unter 2 Minuten, allein, ohne zweiten Spieler und ohne Gruppe: Spieler in den Raid setzen, Items vergeben, einen Spieler gehen lassen, unentschuldigt markieren, Abend abschließen, Zuschlag im Spielerdetail sehen. Danach `/fs` im Normalbetrieb zeigt unverändert die echten Daten.
+
+**Beachten:** ⚠️ Nichts aus dem Probe-Modus darf in `FairshareDB` oder über das Netz gehen (Test: Szenario mit zwei Clients, einer im Probe-Modus, der andere darf nichts empfangen, und `FairshareDB` bleibt gleich). Die Zeilen der Übersicht (`Fenster.lua`) werden von allen Ansichten benutzt: Knöpfe der Bedienleiste außerhalb des Probe-Modus verstecken. Neue Texte durch `L[]` (und `tests/texte.py --streng`). Jede Änderung wie üblich mit `luacheck.py`, `rechenkern.py`, `szenarien.py`, `deploy.ps1`.
+
 **Offene Punkte / Ideen (alle vom Nutzer so gewollt, nichts davon beauftragt):**
 - **Kleineres Fenster ermöglichen** (später, erst wenn alles andere durch ist): Werkzeugleiste umbrechen/Überlaufmenü, kürzere Knöpfe, Spalten einklappen.
 - „Anmeldung vergessen“ heißt in manchen Texten noch so, der Knopf/das Ziel heißt „Keine Meldung“ (Vereinheitlichung der Texte offen).
@@ -88,6 +110,9 @@ Patches bisher als Python-Skripte im Scratchpad (CRLF erhalten, `python -X utf8`
 - Wer **Bench-Spieler einspringen** lassen will: in der Einteilung beim Ziel „Bench“ entfernen, dann der Gruppe zuweisen (links stehen nur nirgends Zugewiesene); in der Abwesenheit springt ein Bench-Spieler mit einem Klick auf „✓ Bench“ in die aktive Gruppe ein. Entscheid des Nutzers 22.10.2026: Wer irgendwo zugewiesen ist, erscheint in den anderen Rubriken nicht mehr.
 - Die Einteilung hat kein Nachholen für Spieler, die sie verpasst haben (Einstellungen haben es); sie bekommen sie, wenn jemand mit Schreibrecht „Einteilung senden“ drückt.
 - Der Leitungs-Abgleich begrenzt eine Runde auf 600 Einträge je Spieler (`MAXEINTRAEGE`); große Rückstände brauchen mehrere Runden (nächste `V`-Meldung, spätestens nach 15 Minuten).
+- **OS-Standard seit 22.10.2026 1-99** (vorher 1-50, jetzt wie Garguls Voreinstellung): `Kern.BEREICHE`, `Erfassung.lua`, `Einstellungen.lua` (Knopf „Standardbereiche“). Bereits **gespeicherte** Bereiche (1-50) bleiben, bis die Gildenleitung „Standardbereiche“ klickt und die Einstellungen teilt (geht jetzt von selbst); alle Würfelfenster und Tests richten sich nach dem Bereich des Leiters.
+- **Gildenweiter Reset (22.10.2026, nicht committet, im Spiel ungetestet; Beschreibung und Szenario 60 in `AGENTS.md`):** `/fs reset gilde` / Einstellungen → Erfassung → „Für alle zurücksetzen“, nur Stufe 1 und 2. Reset-Marke `Z|` in den geteilten Einstellungen; Alt-Daten werden danach nicht mehr angenommen. **Im Spiel prüfen:** Reset als Gildenmeister, ein Offizier/Mitglied online sieht die Chatmeldung und eine leere Liste; ein Spieler, der beim Reset offline war, bekommt ihn beim Anmelden; `/fs reset undo` danach verweigert. Alle brauchen dieselbe Fassung.
+- **Anhebung (19.10.2026, nicht committet, im Spiel ungetestet):** Auf Entscheid des Nutzers ist die **automatische Anhebung abgeschafft** (`Kern.AUTO_ANHEBUNG = false`), es gibt eine **manuelle** (`Anwesenheit.AnhebungSetzen`, Einstellungen → Gruppen → Anhebung mit Namensfeld, `/fs anhebung <Name>`; nur Raid-/Gildenleitung). Der Neuling-Einstieg am 2. Abend bleibt. Beschreibung in `AGENTS.md`/`REGELWERK-ENTWURF.md` § 3. Das Google Doc „Fairshare Kurzanleitung“ und `ANLEITUNG.md` nennen die Anhebung noch automatisch und müssen angepasst werden.
 - Push von `origin/main` vorher mit `git fetch` prüfen (neben dem Nutzer schreibt `xqp`).
 
 **Stolperfallen, die uns Zeit gekostet haben:**

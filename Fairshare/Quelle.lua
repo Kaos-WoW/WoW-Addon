@@ -160,7 +160,7 @@ function Quelle.GargulBereiche()
     return { ok = haupt and zweit, haupt = haupt, zweit = zweit, bereiche = alle }
 end
 
---- Stellt Garguls Bereiche auf die von Fairshare (Standard 1-100 und 1-50).
+--- Stellt Garguls Bereiche auf die von Fairshare (Standard 1-100 und 1-99).
 --  ⚠️ Das ist eine Einstellung bei Gargul, kein Eingriff in seinen Code.
 --  Eigene weitere Bereiche gehen dabei verloren.
 function Quelle.GargulBereicheSetzen()
@@ -228,7 +228,7 @@ function Quelle.Wurf()
     end
 
     -- ⭐ Je Spieler zaehlt der ERSTE Wurf (nach Zeit, sonst nach Reihenfolge).
-    -- Die Art kommt aus dem Bereich des Wurfs (1-100 Haupt, 1-50 Zweit),
+    -- Die Art kommt aus dem Bereich des Wurfs (1-100 Haupt, 1-99 Zweit),
     -- hilfsweise aus dem Namen des Bereichs bei Gargul („MS"/„OS").
     local Alle = {}
     for schluessel, W in pairs(Aktuell.Rolls or {}) do
