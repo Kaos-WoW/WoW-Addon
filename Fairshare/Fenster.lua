@@ -47,7 +47,7 @@ local rahmen, kopfZeile, tafel, fuss, unterzeile, kopfTag
 local zeilen = {}
 local ansichtSeg, zeitSeg, abgleichBtn, einstellBtn, gruppeBtn, zurueckBtn, beispielBtn, probeBtn, nurBtn, wurfBtn, abschlussBtn, offeneBtn
 local syncBtn, tagBtn, sendenBtn      -- Ansicht „Einteilung“
-local probeLeiste, probeSpielerDropdown, probeRaidBtn, probeHauptBtn, probeOSBtn, probeBankBtn, probeAbmeldBtn, probeUnentBtn, probeScriptBtn, probeResetBtn
+local probeLeiste, probeSpielerDropdown, probeRaidBtn, probeHauptBtn, probeOSBtn, probeBankBtn, probeAbmeldBtn, probeUnentBtn, probeScriptBtn, probeResetBtn, inviteBtn, eigeneGruppeLabel, verlaufSuche
 local zustand = { wochen = 0, beispiel = false, probe = false, probeSpieler = "Anna", spieler = nil, versatz = 0, maxVersatz = 0,
                   ansicht = "liste", gruppe = nil, alleSpieler = false }
 
@@ -122,13 +122,13 @@ end
 --  Daten
 -- =====================================================================
 
---- Die Historie, eingeschraenkt auf die gewaehlte Gruppe.
+--- Die Historie (ungefiltert nach Gruppe, damit die Wertung gruppenuebergreifend global berechnet wird).
 local function historie()
     if zustand.probe then return (ns.Probe and ns.Probe.Historie and ns.Probe.Historie()) or {} end
     if zustand.beispiel then return Quelle.Beispiel() end
     local H, grund = Quelle.Historie()
     if not H then return nil, grund end
-    return Kern.NachGruppe(H, zustand.gruppe)
+    return H
 end
 
 local function wurf()
@@ -400,6 +400,51 @@ local function baueFenster()
         Fenster.Aktualisieren()
     end)
 
+    -- ⭐ Gruppe einladen (nur in Anwesenheit sichtbar)
+    inviteBtn = S.Knopf(rahmen, L["Gruppe einladen"], "primary", 24)
+    inviteBtn:SetPoint("RIGHT", abschlussBtn, "LEFT", -8, 0)
+    inviteBtn:Hide()
+    inviteBtn:SetScript("OnClick", function()
+        if zustand.beispiel or zustand.probe then return end
+        if not ns.Anwesenheit or not ns.Anwesenheit.GruppeEinladen then return end
+        local ok, n, drin, offline = ns.Anwesenheit.GruppeEinladen()
+        if not ok then
+            print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(n) .. "|r")
+        elseif n == 0 and drin > 0 and (not offline or offline == 0) then
+            print("|cff1B6B57Fairshare|r: " .. L["Alle anwesenden Spieler sind bereits in der Gruppe."])
+        elseif n == 0 and (offline and offline > 0) and drin == 0 then
+            print(string.format("|cff1B6B57Fairshare|r: " .. L["Keine Spieler eingeladen (%d offline)."], offline))
+        elseif offline and offline > 0 then
+            print(string.format("|cff1B6B57Fairshare|r: " .. L["%d Spieler eingeladen (%d bereits in der Gruppe, %d offline übersprungen)."], n, drin, offline))
+        else
+            print(string.format("|cff1B6B57Fairshare|r: " .. L["%d Spieler eingeladen (%d bereits in der Gruppe)."], n, drin))
+        end
+    end)
+
+    -- Eigene Gruppeneinteilung anzeigen (Reiter Spieler)
+    eigeneGruppeLabel = S.Text(rahmen, 12, C.mu, "RIGHT")
+    eigeneGruppeLabel:SetPoint("RIGHT", gruppeBtn, "LEFT", -16, 0)
+    eigeneGruppeLabel:Hide()
+
+    -- Suchfeld im Verlauf
+    verlaufSuche = S.Eingabe(rahmen, 200, 24)
+    verlaufSuche:SetPoint("TOPRIGHT", rahmen, "TOPRIGHT", -16, -(KOPF + 50))
+    verlaufSuche.hinweis = S.Text(verlaufSuche, 11, C.mu, "LEFT")
+    verlaufSuche.hinweis:SetPoint("LEFT", verlaufSuche, "LEFT", 8, 0)
+    verlaufSuche.hinweis:SetText(L["Spieler oder Item suchen..."])
+    verlaufSuche:SetScript("OnTextChanged", function(s)
+        local t = s:GetText():match("^%s*(.-)%s*$")
+        if t ~= "" then s.hinweis:Hide() else s.hinweis:Show() end
+        zustand.verlaufSuchText = (t ~= "") and t:lower() or nil
+        zustand.versatz = 0
+        Fenster.Aktualisieren()
+    end)
+    verlaufSuche:SetScript("OnEscapePressed", function(s)
+        s:SetText("")
+        s:ClearFocus()
+    end)
+    verlaufSuche:Hide()
+
     -- ⭐ Ansicht „Einteilung": Raidkader einlesen, Raid-ID wählen, Einteilung senden (der Rang ist in den Einstellungen)
     syncBtn = S.Knopf(rahmen, L["Raidkader synchronisieren"], "primary", 24)
     syncBtn:SetPoint("RIGHT", gruppeBtn, "LEFT", -8, 0)
@@ -441,6 +486,148 @@ local function baueFenster()
             print("|cff1B6B57Fairshare|r: " .. ROT .. L["Es gibt noch keine Einteilung zum Senden."] .. "|r")
         end
     end)
+
+    -- ⭐ Woche abschließen: prominenter Knopf in Zeile 2 (sowohl in Einteilung als auch in Anwesenheit)
+    rahmen.wocheBtn = S.Knopf(rahmen, L["Woche abschließen"], "secondary", 24)
+    rahmen.wocheBtn:Hide()
+    rahmen.wocheBtn:SetScript("OnClick", function()
+        if zustand.beispiel then
+            print("|cff1B6B57Fairshare|r: " .. string.format(L["Woche ab %s: %d Abende je Spieler, %d abgemeldet, %d Keine Meldung. Nochmal klicken zum Buchen."],
+                date("%d.%m.%Y"), 2, 2, 1))
+            return
+        end
+        local datum = (zustand.ansicht == "einteilung") and einteilungsTag() or (ns.Gruppen and ns.Gruppen.EinteilungTag and ns.Gruppen.EinteilungTag(0)) or date("%Y-%m-%d")
+        local gName = (zustand.ansicht == "einteilung" and zustand.gruppe and zustand.gruppe ~= ns.Gruppen.BENCH and zustand.gruppe ~= ns.Gruppen.KEINEMELDUNG and zustand.gruppe)
+                      or (ns.Gruppen and ns.Gruppen.AktivName and ns.Gruppen.AktivName())
+                      or (ns.Gruppen and ns.Gruppen.Namen and ns.Gruppen.Namen()[1])
+        local ue = ns.Anwesenheit and ns.Anwesenheit.WochenGruppenUebersicht and ns.Anwesenheit.WochenGruppenUebersicht(datum)
+        local jetzt = time()
+
+        if not ue or ue.gesamt <= 1 then
+            if zustand.wocheBestaetigung and (jetzt - zustand.wocheBestaetigung) <= 8 then
+                zustand.wocheBestaetigung = nil
+                local ok, status, v = ns.Anwesenheit.WocheGruppeSetzen(datum, gName or "Standard", "abgeschlossen")
+                if not ok and not v then
+                    local v2, grund2 = ns.Anwesenheit.WocheBuchen(datum)
+                    if v2 then
+                        print("|cff1B6B57Fairshare|r: " .. string.format(L["Woche gebucht: %d Zuschläge."], v2.gebucht or 0))
+                    else
+                        print("|cff1B6B57Fairshare|r: " .. ROT .. (L[grund2] or tostring(grund2)) .. "|r")
+                    end
+                end
+            else
+                local v, grund = ns.Anwesenheit.WocheVorschau(datum)
+                if v then
+                    zustand.wocheBestaetigung = jetzt
+                    print("|cff1B6B57Fairshare|r: " .. string.format(L["Woche ab %s: %d Abende je Spieler, %d abgemeldet, %d Keine Meldung. Nochmal klicken zum Buchen."],
+                        v.montag, v.n, #v.abgemeldet, #v.keineMeldung))
+                else
+                    print("|cff1B6B57Fairshare|r: " .. ROT .. (L[grund] or tostring(grund)) .. "|r")
+                end
+            end
+        else
+            if ns.Anwesenheit and ns.Anwesenheit.WocheIstGebucht and ns.Anwesenheit.WocheIstGebucht(datum) then
+                if zustand.wocheBestaetigung and (jetzt - zustand.wocheBestaetigung <= 8) then
+                    zustand.wocheBestaetigung = nil
+                    ns.Anwesenheit.WocheZuruecknehmen(datum)
+                else
+                    zustand.wocheBestaetigung = jetzt
+                    print("|cff1B6B57Fairshare|r: " .. L["Woche wiedereröffnen? Nochmal klicken zum Bestätigen."])
+                end
+            else
+                local gInfo = gName and ue.gruppen[gName]
+                local gStatus = gInfo and gInfo.status or "offen"
+                if gStatus == "abgeschlossen" or gStatus == "pausiert" then
+                    if zustand.wocheBestaetigung and (jetzt - zustand.wocheBestaetigung <= 8) then
+                        zustand.wocheBestaetigung = nil
+                        ns.Anwesenheit.WocheGruppeSetzen(datum, gName, "offen")
+                    else
+                        zustand.wocheBestaetigung = jetzt
+                        print("|cff1B6B57Fairshare|r: " .. string.format(L["Wochenabschluss für Gruppe '%s' wiedereröffnen? Nochmal klicken."], gName))
+                    end
+                else
+                    if zustand.wocheBestaetigung and (jetzt - zustand.wocheBestaetigung <= 8) then
+                        zustand.wocheBestaetigung = nil
+                        ns.Anwesenheit.WocheGruppeSetzen(datum, gName, "abgeschlossen")
+                    else
+                        zustand.wocheBestaetigung = jetzt
+                        print("|cff1B6B57Fairshare|r: " .. string.format(L["Woche für Gruppe '%s' abschließen? Nochmal klicken zum Bestätigen."], gName))
+                    end
+                end
+            end
+        end
+        Fenster.Aktualisieren()
+    end)
+
+    rahmen.wochePauseBtn = S.Knopf(rahmen, L["Gruppe pausiert"], "secondary", 24)
+    rahmen.wochePauseBtn:Hide()
+    rahmen.wochePauseBtn:SetScript("OnClick", function()
+        if zustand.beispiel then return end
+        local datum = (zustand.ansicht == "einteilung") and einteilungsTag() or (ns.Gruppen and ns.Gruppen.EinteilungTag and ns.Gruppen.EinteilungTag(0)) or date("%Y-%m-%d")
+        local gName = (zustand.ansicht == "einteilung" and zustand.gruppe and zustand.gruppe ~= ns.Gruppen.BENCH and zustand.gruppe ~= ns.Gruppen.KEINEMELDUNG and zustand.gruppe)
+                      or (ns.Gruppen and ns.Gruppen.AktivName and ns.Gruppen.AktivName())
+                      or (ns.Gruppen and ns.Gruppen.Namen and ns.Gruppen.Namen()[1])
+        if not gName then return end
+        local jetzt = time()
+        if zustand.wochePauseBestaetigung and (jetzt - zustand.wochePauseBestaetigung <= 8) then
+            zustand.wochePauseBestaetigung = nil
+            ns.Anwesenheit.WocheGruppeSetzen(datum, gName, "pausiert")
+        else
+            zustand.wochePauseBestaetigung = jetzt
+            print("|cff1B6B57Fairshare|r: " .. string.format(L["Gruppe '%s' als pausiert markieren? Nochmal klicken zum Bestätigen."], gName))
+        end
+        Fenster.Aktualisieren()
+    end)
+
+    rahmen.AktualisiereWoche = function(ankerRechts)
+        if not rahmen.wocheBtn then return end
+        local datum = (zustand.ansicht == "einteilung") and einteilungsTag() or (ns.Gruppen and ns.Gruppen.EinteilungTag and ns.Gruppen.EinteilungTag(0)) or date("%Y-%m-%d")
+        local gName = (zustand.ansicht == "einteilung" and zustand.gruppe and zustand.gruppe ~= ns.Gruppen.BENCH and zustand.gruppe ~= ns.Gruppen.KEINEMELDUNG and zustand.gruppe)
+                      or (ns.Gruppen and ns.Gruppen.AktivName and ns.Gruppen.AktivName())
+                      or (ns.Gruppen and ns.Gruppen.Namen and ns.Gruppen.Namen()[1])
+        local ue = ns.Anwesenheit and ns.Anwesenheit.WochenGruppenUebersicht and ns.Anwesenheit.WochenGruppenUebersicht(datum)
+        local darf = zustand.beispiel or zustand.probe or (ns.Gruppen and ns.Gruppen.EinteilungDarf and ns.Gruppen.EinteilungDarf())
+
+        rahmen.wocheBtn:Show()
+        rahmen.wocheBtn:SetPoint("RIGHT", ankerRechts, "LEFT", -8, 0)
+        rahmen.wocheBtn:SetAktiv(darf)
+        if rahmen.wochePauseBtn then rahmen.wochePauseBtn:Hide() end
+
+        if zustand.beispiel or not ue or ue.gesamt <= 1 then
+            local bestaetigen = zustand.wocheBestaetigung and (time() - zustand.wocheBestaetigung <= 8)
+            rahmen.wocheBtn:SetLabel(bestaetigen and (GELB .. L["Wirklich buchen?"] .. "|r") or L["Woche abschließen"])
+        elseif ns.Anwesenheit and ns.Anwesenheit.WocheIstGebucht and ns.Anwesenheit.WocheIstGebucht(datum) then
+            local bestaetigen = zustand.wocheBestaetigung and (time() - zustand.wocheBestaetigung <= 8)
+            rahmen.wocheBtn:SetLabel(bestaetigen and (GELB .. L["Wirklich wiedereröffnen?"] .. "|r") or L["Woche gebucht"])
+        else
+            local gInfo = gName and ue.gruppen[gName]
+            local gStatus = gInfo and gInfo.status or "offen"
+            if gStatus == "abgeschlossen" or gStatus == "pausiert" then
+                local bestaetigen = zustand.wocheBestaetigung and (time() - zustand.wocheBestaetigung <= 8)
+                if bestaetigen then
+                    rahmen.wocheBtn:SetLabel(GELB .. L["Gruppe wiedereröffnen?"] .. "|r")
+                else
+                    rahmen.wocheBtn:SetLabel(string.format(L["%s fertig (%d/%d)"], gName or "", ue.bereit, ue.gesamt))
+                end
+            else
+                if rahmen.wochePauseBtn and gName then
+                    rahmen.wochePauseBtn:Show()
+                    rahmen.wochePauseBtn:SetAktiv(darf)
+                    local pauseBest = zustand.wochePauseBestaetigung and (time() - zustand.wochePauseBestaetigung <= 8)
+                    rahmen.wochePauseBtn:SetLabel(pauseBest and (GELB .. L["Wirklich pausieren?"] .. "|r") or L["Gruppe pausiert"])
+                    rahmen.wochePauseBtn:SetPoint("RIGHT", rahmen.wocheBtn, "LEFT", -6, 0)
+                end
+                local bestaetigen = zustand.wocheBestaetigung and (time() - zustand.wocheBestaetigung <= 8)
+                if bestaetigen then
+                    rahmen.wocheBtn:SetLabel(GELB .. L["Gruppe abschließen?"] .. "|r")
+                elseif ue.bereit > 0 then
+                    rahmen.wocheBtn:SetLabel(string.format(L["Woche: %d/%d bereit"], ue.bereit, ue.gesamt))
+                else
+                    rahmen.wocheBtn:SetLabel(L["Woche abschließen"])
+                end
+            end
+        end
+    end
 
     -- Probe-Modus Bedienleiste
     probeLeiste = CreateFrame("Frame", nil, rahmen)
@@ -567,31 +754,6 @@ local function baueFenster()
     nurBtn = S.Knopf(f, L["Alle Spieler zeigen"], "link", 22)
     nurBtn:SetPoint("RIGHT", beispielBtn, "LEFT", -16, 0)
     nurBtn:SetScript("OnClick", function()
-        if zustand.ansicht == "einteilung" then
-            -- ⭐ Wochenabschluss: erster Klick zeigt die Vorschau im Chat, zweiter (binnen 8 s) bucht
-            local datum = einteilungsTag()
-            local jetzt = time()
-            if zustand.wocheBestaetigung and (jetzt - zustand.wocheBestaetigung) <= 8 then
-                zustand.wocheBestaetigung = nil
-                local v, grund = ns.Anwesenheit.WocheBuchen(datum)
-                if v then
-                    print("|cff1B6B57Fairshare|r: " .. string.format(L["Woche gebucht: %d Zuschläge."], v.gebucht or 0))
-                else
-                    print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(grund) .. "|r")
-                end
-            else
-                local v, grund = ns.Anwesenheit.WocheVorschau(datum)
-                if v then
-                    zustand.wocheBestaetigung = jetzt
-                    print("|cff1B6B57Fairshare|r: " .. string.format(L["Woche ab %s: %d Abende je Spieler, %d abgemeldet, %d Keine Meldung. Nochmal klicken zum Buchen."],
-                        v.montag, v.n, #v.abgemeldet, #v.keineMeldung))
-                else
-                    print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(grund) .. "|r")
-                end
-            end
-            Fenster.Aktualisieren()
-            return
-        end
         zustand.alleSpieler = not zustand.alleSpieler
         zustand.versatz = 0
         Fenster.Aktualisieren()
@@ -742,7 +904,12 @@ local function zeigeListe(H)
     -- (sonst aktiven) Gruppe stehen in jedem Fall drin.
     local nur = nurGruppe()
     local pflicht = {}
-    if nur then
+    if zustand.gruppe and zustand.gruppe ~= "" then
+        -- ⭐ Wenn eine Gruppe im Dropdown gewählt wurde: eingeteilte Mitglieder dieser Gruppe zeigen
+        local gMitglieder = ns.Gruppen and ns.Gruppen.EinteilungListe and ns.Gruppen.EinteilungListe(nil, zustand.gruppe) or {}
+        for _, n in ipairs(gMitglieder) do pflicht[#pflicht + 1] = n end
+        nur = gMitglieder
+    elseif nur then
         for _, n in ipairs(nur) do pflicht[#pflicht + 1] = n end
     else
         if W and W.namen then for _, n in ipairs(W.namen) do pflicht[#pflicht + 1] = n end end
@@ -1016,7 +1183,28 @@ end
 local function zeigeVerlauf(H)
     setzeKopf(L["Wann"], L["Spieler"], L["Art"], L["Gegenstand"], nil)
 
-    local liste = Kern.Verlauf(H, seit(), nil)
+    -- ⭐ Verlauf zeigt immer die vollständige Historie (ungefiltert nach Gruppen)
+    local volleH = (zustand.probe and ns.Probe and ns.Probe.Historie and ns.Probe.Historie())
+        or (zustand.beispiel and Quelle.Beispiel())
+        or (Quelle.Historie and Quelle.Historie()) or H or {}
+
+    local liste = Kern.Verlauf(volleH, seit(), nil)
+
+    -- ⭐ Suchfilter nach Spieler oder Gegenstand
+    if zustand.verlaufSuchText and zustand.verlaufSuchText ~= "" then
+        local q = zustand.verlaufSuchText
+        local gefiltert = {}
+        for _, e in ipairs(liste) do
+            local spMatch = e.name and e.name:lower():find(q, 1, true)
+            local itemStr = (Quelle.Gegenstandstext and Quelle.Gegenstandstext(e.eintrag)) or (e.eintrag and e.eintrag.itemLink) or ""
+            local itMatch = itemStr:lower():find(q, 1, true)
+            if spMatch or itMatch then
+                gefiltert[#gefiltert + 1] = e
+            end
+        end
+        liste = gefiltert
+    end
+
     zustand.maxVersatz = math.max(0, #liste - zeilenSicht)
     if zustand.versatz > zustand.maxVersatz then zustand.versatz = zustand.maxVersatz end
 
@@ -1046,6 +1234,9 @@ local function zeigeVerlauf(H)
     leereZeilen(gezeigt + 1)
 
     local text = string.format(L["%d Vergaben, neueste zuerst"], #liste)
+    if zustand.verlaufSuchText and zustand.verlaufSuchText ~= "" then
+        text = string.format(L["%d Treffer für „%s“"], #liste, zustand.verlaufSuchText)
+    end
     if #liste > zeilenSicht then text = text .. "   |   " .. L["Mausrad blättert"] end
     fuss:SetText(text)
     unterzeile:SetText("")
@@ -1549,19 +1740,40 @@ function Fenster.Aktualisieren()
     elseif zustand.gruppe and not (ns.Gruppen and ns.Gruppen.Holen(zustand.gruppe)) then
         zustand.gruppe = nil     -- die Gruppe wurde inzwischen geloescht
     end
-    -- ⭐ Ausklappliste: je nach Ansicht Filter (Spieler/Verlauf), aktive Gruppe (Abwesenheit) oder Ziel (Einteilung)
-    local optionen, wahl = gruppenOptionen()
-    local gruppenName
-    if zustand.ansicht == "einteilung" and not zustand.spieler and not zustand.beispiel then
-        gruppenName = zielBeschriftung(wahl) or L["keine"]
-    elseif zustand.ansicht == "bank" and not zustand.spieler and not zustand.beispiel then
-        gruppenName = ns.Gruppen.AktivName() or L["keine"]
+    -- ⭐ Ausklappliste & Suchfeld je nach Ansicht
+    if zustand.ansicht == "verlauf" and not zustand.spieler then
+        gruppeBtn:Hide()
+        verlaufSuche:Show()
+        eigeneGruppeLabel:Hide()
+        if inviteBtn then inviteBtn:Hide() end
     else
-        gruppenName = zustand.gruppe or (#Namen > 0 and L["Alle"] or L["keine"])
+        verlaufSuche:Hide()
+        gruppeBtn:Show()
+        local optionen, wahl = gruppenOptionen()
+        local gruppenName
+        if zustand.ansicht == "einteilung" and not zustand.spieler and not zustand.beispiel then
+            gruppenName = zielBeschriftung(wahl) or L["keine"]
+        elseif zustand.ansicht == "bank" and not zustand.spieler and not zustand.beispiel then
+            gruppenName = ns.Gruppen.AktivName() or L["keine"]
+        else
+            gruppenName = zustand.gruppe or (#Namen > 0 and L["Alle"] or L["keine"])
+        end
+        gruppeBtn:SetLabel(string.format(L["Gruppe: %s"], gruppenName))
+        gruppeBtn:SetOptionen(optionen, wahl, Fenster.GruppeWaehlen)
+        gruppeBtn:SetAktiv(#Namen > 0 and not zustand.beispiel and not zustand.probe)
+
+        if zustand.ansicht == "liste" and not zustand.spieler then
+            local eingeteilt = ns.Gruppen and ns.Gruppen.MeineEinteilungText and ns.Gruppen.MeineEinteilungText()
+            if eingeteilt then
+                eigeneGruppeLabel:SetText(L["Deine Einteilung: "] .. HELL .. eingeteilt .. "|r")
+            else
+                eigeneGruppeLabel:SetText(L["Deine Einteilung: "] .. GRAU .. L["Keine Einteilung"] .. "|r")
+            end
+            eigeneGruppeLabel:Show()
+        else
+            eigeneGruppeLabel:Hide()
+        end
     end
-    gruppeBtn:SetLabel(string.format(L["Gruppe: %s"], gruppenName))
-    gruppeBtn:SetOptionen(optionen, wahl, Fenster.GruppeWaehlen)
-    gruppeBtn:SetAktiv(#Namen > 0 and not zustand.beispiel and not zustand.probe)
 
     -- Abgleich: auffaellig, wenn Mitspieler abweichen
     local abw = ns.Abgleich and ns.Abgleich.Abweichend or {}
@@ -1588,15 +1800,8 @@ function Fenster.Aktualisieren()
         if links + 10 + (zeitSeg:GetWidth() or 0) + rechts + 16 > breite then zeigen = false end
         zeitSeg:SetShown(zeigen)
     end
-    nurBtn:SetShown((imGruppe and not zustand.beispiel and not zustand.probe and zustand.ansicht == "liste" and zustand.spieler == nil)
-                    or (not zustand.beispiel and not zustand.probe and zustand.ansicht == "einteilung" and zustand.spieler == nil))
-    if zustand.ansicht == "einteilung" then
-        local bestaetigen = zustand.wocheBestaetigung and (time() - zustand.wocheBestaetigung) <= 8
-        nurBtn:SetLabel(bestaetigen and (GELB .. L["Wirklich buchen?"] .. "|r") or L["Woche abschließen"])
-        nurBtn:SetAktiv(ns.Gruppen.EinteilungDarf())
-    else
-        nurBtn:SetLabel(zustand.alleSpieler and L["Nur Gruppe zeigen"] or L["Alle Spieler zeigen"])
-    end
+    nurBtn:SetShown(imGruppe and not zustand.beispiel and not zustand.probe and zustand.ansicht == "liste" and zustand.spieler == nil)
+    nurBtn:SetLabel(zustand.alleSpieler and L["Nur Gruppe zeigen"] or L["Alle Spieler zeigen"])
 
     zurueckBtn:SetShown(zustand.spieler ~= nil)
     unterzeile:ClearAllPoints()
@@ -1606,13 +1811,20 @@ function Fenster.Aktualisieren()
         unterzeile:SetPoint("LEFT", rahmen, "TOPLEFT", 16, -(KOPF + 61))
     end
 
-    for _, b in ipairs({ syncBtn, tagBtn, sendenBtn }) do b:Hide() end
+    for _, b in ipairs({ syncBtn, tagBtn, sendenBtn, inviteBtn, rahmen.wocheBtn, rahmen.wochePauseBtn }) do if b then b:Hide() end end
     if zustand.ansicht == "einteilung" and not zustand.spieler then
         zustand.abschlussBestaetigung = nil
         abschlussBtn:Hide()
         offeneBtn:Hide()
+        if inviteBtn then inviteBtn:Hide() end
         for _, b in ipairs({ syncBtn, tagBtn, sendenBtn }) do b:Show() end
-        unterzeile:SetPoint("RIGHT", sendenBtn, "LEFT", -10, 0)
+        if rahmen.AktualisiereWoche then
+            rahmen.AktualisiereWoche(sendenBtn)
+            local linksVomBtn = (rahmen.wochePauseBtn and rahmen.wochePauseBtn:IsShown()) and rahmen.wochePauseBtn or rahmen.wocheBtn
+            unterzeile:SetPoint("RIGHT", linksVomBtn, "LEFT", -10, 0)
+        else
+            unterzeile:SetPoint("RIGHT", sendenBtn, "LEFT", -10, 0)
+        end
     elseif zustand.ansicht == "bank" and not zustand.spieler then
         abschlussBtn:Show()
         local istGeschlossen = false
@@ -1677,7 +1889,21 @@ function Fenster.Aktualisieren()
             end
         end)
         offeneBtn:SetShown(istGeschlossen and not zustand.beispiel and darfSchliessen and true or false)
-        if offeneBtn:IsShown() then
+        local darfInvite = not istGeschlossen and not zustand.beispiel and not zustand.probe and darfSchliessen
+        if inviteBtn then inviteBtn:SetShown(darfInvite) end
+
+        if rahmen.AktualisiereWoche then
+            local anker = (inviteBtn and inviteBtn:IsShown()) and inviteBtn or abschlussBtn
+            rahmen.AktualisiereWoche(anker)
+        end
+
+        if rahmen.wochePauseBtn and rahmen.wochePauseBtn:IsShown() then
+            unterzeile:SetPoint("RIGHT", rahmen.wochePauseBtn, "LEFT", -10, 0)
+        elseif rahmen.wocheBtn and rahmen.wocheBtn:IsShown() then
+            unterzeile:SetPoint("RIGHT", rahmen.wocheBtn, "LEFT", -10, 0)
+        elseif inviteBtn and inviteBtn:IsShown() then
+            unterzeile:SetPoint("RIGHT", inviteBtn, "LEFT", -10, 0)
+        elseif offeneBtn:IsShown() then
             unterzeile:SetPoint("RIGHT", offeneBtn, "LEFT", -10, 0)
         else
             unterzeile:SetPoint("RIGHT", abschlussBtn, "LEFT", -10, 0)
@@ -1686,7 +1912,14 @@ function Fenster.Aktualisieren()
         zustand.abschlussBestaetigung = nil
         abschlussBtn:Hide()
         offeneBtn:Hide()
-        unterzeile:SetPoint("RIGHT", gruppeBtn, "LEFT", -10, 0)
+        if inviteBtn then inviteBtn:Hide() end
+        if zustand.ansicht == "verlauf" and verlaufSuche:IsShown() then
+            unterzeile:SetPoint("RIGHT", verlaufSuche, "LEFT", -10, 0)
+        elseif zustand.ansicht == "liste" and eigeneGruppeLabel:IsShown() then
+            unterzeile:SetPoint("RIGHT", eigeneGruppeLabel, "LEFT", -10, 0)
+        else
+            unterzeile:SetPoint("RIGHT", gruppeBtn, "LEFT", -10, 0)
+        end
     end
 
     if probeLeiste then
@@ -1768,7 +2001,7 @@ function Fenster.Aktualisieren()
     if ns.Rolle and not zustand.beispiel and not zustand.probe then
         local darf, warum = ns.Rolle.IchSchreibe()
         local text = fuss:GetText() or ""
-        local zusatz = darf and (L["Du zeichnest auf"] .. " (" .. tostring(warum) .. ")") or tostring(warum)
+        local zusatz = darf and (L["Du zeichnest auf"] .. " (" .. (L[warum] or tostring(warum)) .. ")") or (L[warum] or tostring(warum))
         fuss:SetText(text .. "   |   " .. zusatz)
     end
 end
@@ -1786,6 +2019,16 @@ function Fenster.Zeigen(beispiel)
     zustand.spieler = nil
     zustand.versatz = 0
     zustand.ansicht = "liste"
+
+    if IsInGuild and IsInGuild() and not zustand.beispiel and not zustand.probe then
+        if ns.Gruppen and #ns.Gruppen.Namen() == 0 and ns.Konfig and ns.Konfig.Anfragen then
+            pcall(ns.Konfig.Anfragen, "GUILD")
+        end
+        if ns.Gruppen and not ns.Gruppen.EinteilungVorhanden() and ns.Gruppen.EinteilungAnfragen then
+            pcall(ns.Gruppen.EinteilungAnfragen, "GUILD")
+        end
+    end
+
     rahmen:Show()
     Fenster.Aktualisieren()
 end
@@ -1895,8 +2138,35 @@ function Fenster.AktuelleAnsicht()
     return zustand.ansicht
 end
 
+function Fenster.InviteBtnSichtbar()
+    return inviteBtn and inviteBtn:IsShown() and true or false
+end
+
+function Fenster.WocheBtnSichtbar()
+    return rahmen.wocheBtn and rahmen.wocheBtn:IsShown() and true or false
+end
+
+function Fenster.WochePauseBtnSichtbar()
+    return rahmen.wochePauseBtn and rahmen.wochePauseBtn:IsShown() and true or false
+end
+
 --- Diagnose/Prüfstand: Wie viele Zeilenknöpfe jeder Art sind in den sichtbaren Zeilen gerade da? Die Zeilen werden
 --  von allen Ansichten mitbenutzt; ein Knopf einer anderen Ansicht darf nicht stehen bleiben.
+function Fenster.SichtbareZeilen()
+    local liste = {}
+    for i = 1, zeilenSicht or 0 do
+        local r = zeilen[i]
+        if r and r:IsShown() and r.spielername then
+            liste[#liste + 1] = {
+                name = r.spielername,
+                wertung = r.b and r.b:GetText() or "",
+                zweit = r.c and r.c:GetText() or "",
+            }
+        end
+    end
+    return liste
+end
+
 function Fenster.ZeilenKnoepfe()
     local z = { bank = 0, unent = 0, vergessen = 0, abmeld = 0, teil = 0, entf = 0 }
     local feld = { bank = "bankBtn", unent = "unentBtn", vergessen = "vergessenBtn", abmeld = "abmeldBtn", teil = "teilBtn",

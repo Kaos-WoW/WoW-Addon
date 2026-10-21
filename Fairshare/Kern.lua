@@ -774,7 +774,7 @@ end
 --  @param eingehend  Liste aus { id =, e = }
 --  @return neu, doppelt, vorhanden, abgelehnt, zurueckgenommen
 function Kern.Zusammenfuehren(historie, alias, eingehend, fenster)
-    fenster = fenster or 180
+    fenster = fenster or 15
     local neu, doppelt, vorhanden, abgelehnt, zurueckgenommen = 0, 0, 0, 0, 0
 
     -- Index Spieler:Gegenstand -> { { id, zeit }, ... }
@@ -806,8 +806,12 @@ function Kern.Zusammenfuehren(historie, alias, eingehend, fenster)
             end
         else
             local treffer
+            local idSuffix = id:match("#(%d+)$")
             for _, B in ipairs(Index[schluessel(e)] or {}) do
-                if math.abs((B.zeit or 0) - e.timestamp) <= fenster then
+                local bSuffix = B.id:match("#(%d+)$")
+                local beideFS = id:match("^[^:]+:%d+:%d+") and B.id:match("^[^:]+:%d+:%d+")
+                local maxDelta = beideFS and 2 or fenster
+                if (idSuffix == bSuffix) and math.abs((B.zeit or 0) - e.timestamp) <= maxDelta then
                     treffer = B.id
                     break
                 end
@@ -818,7 +822,6 @@ function Kern.Zusammenfuehren(historie, alias, eingehend, fenster)
                 doppelt = doppelt + 1
             else
                 historie[id] = e
-                merke(id, e)
                 neu = neu + 1
             end
         end

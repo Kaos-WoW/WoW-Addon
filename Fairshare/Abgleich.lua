@@ -548,7 +548,7 @@ local function einfuehren(zeilen, herkunft)
         end
     end
 
-    local neu, doppelt, vorhanden, abg, zurueck = Kern.Zusammenfuehren(hist(), alias(), liste, 180)
+    local neu, doppelt, vorhanden, abg, zurueck = Kern.Zusammenfuehren(hist(), alias(), liste, 15)
     Zaehler.neu = Zaehler.neu + neu
     Zaehler.doppelt = Zaehler.doppelt + doppelt
     Zaehler.vorhanden = Zaehler.vorhanden + vorhanden
@@ -816,6 +816,14 @@ function Abgleich.Empfangen(text, sender, kanalName)
         return
     end
 
+    -- ⭐ Gruppenweiser Wochenabschluss: W;<Montag>;<Gruppe>;<Status>;<Zeit>;<Autor>
+    if typ == "W" then
+        if ns.Anwesenheit and ns.Anwesenheit.WochenGruppeEmpfangen then
+            ns.Anwesenheit.WochenGruppeEmpfangen(rest, sender, kanalName)
+        end
+        return
+    end
+
     -- ⭐ Stand eines Berechtigten in der Gilde (Leitungs-Abgleich)
     if typ == "V" then
         Abgleich.LeitungBeaconEmpfangen(rest, sender)
@@ -1047,7 +1055,7 @@ rahmen:SetScript("OnEvent", function(_, ereignis, praefix, text, kanalName, send
         end
         -- Ebenso die Meldungen der Gilde: geteilte Einstellungen (K, A) und die Einteilung (T) hängen nicht an der
         -- Beutemethode (sonst kämen sie nie bei jemandem an, der gerade nicht im Raid ist).
-        if ereignis == "CHAT_MSG_ADDON" and praefix == PRAEFIX and type(text) == "string" and (text:match("^[UKATV];") or kanalName == "WHISPER") then
+        if ereignis == "CHAT_MSG_ADDON" and praefix == PRAEFIX and type(text) == "string" and (text:match("^[UKATVW];") or kanalName == "WHISPER") then
             Abgleich.Empfangen(text, sender, kanalName)
             return
         end

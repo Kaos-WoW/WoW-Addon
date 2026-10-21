@@ -36,6 +36,7 @@ local function hilfe()
     print(L["  |cffffff78/fs liste|r        – dieselbe Auswertung im Chat, |cffffff78liste 4|r für 4 Wochen"])
     print(L["  |cffffff78/fs <Name>|r       – Einzelvergaben eines Spielers im Chat"])
     print(L["  |cffffff78/fs abgleich|r     – Historien der Gruppe zusammenführen (|cffffff78abgleich status|r zeigt den Stand)"])
+    print(L["  |cffffff78/fs invite|r       – Anwesende Spieler der Gruppe in den Raid einladen"])
     print(L["  |cffffff78/fs nutzung|r      – Fairshare für diese Gruppe nutzen? (|cffffff78nutzung ja|r, |cffffff78nutzung nein|r, |cffffff78nutzung fragen|r)"])
     print(L["  |cffffff78/fs rolle|r        – wer zeichnet gerade auf, und warum"])
     print(L["  |cffffff78/fs rueckgaengig|r – die letzte Vergabe zurücknehmen (mit Rückfrage; einzelne Vergaben im Verlauf)"])
@@ -424,6 +425,26 @@ befehle["absence"] = befehle["bank"]
 --  setzt alle noch offenen Spieler als abgemeldet.
 --- ⭐ Einteilung je Tag und Gruppe: `/fs einteilung` oeffnet die Ansicht, `/fs einteilung status` zeigt die
 --  letzten Meldungen, `/fs raidkader [Rangnummer]` liest den Raidkader bis zum Rang ein.
+befehle["invite"] = function(rest)
+    if not ns.Anwesenheit or not ns.Anwesenheit.GruppeEinladen then
+        print("|cff1B6B57Fairshare|r: " .. ROT .. L["Anwesenheit nicht verfügbar."] .. "|r")
+        return
+    end
+    local ok, n, drin, offline = ns.Anwesenheit.GruppeEinladen()
+    if not ok then
+        print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(n) .. "|r")
+    elseif n == 0 and drin > 0 and (not offline or offline == 0) then
+        print("|cff1B6B57Fairshare|r: " .. L["Alle anwesenden Spieler sind bereits in der Gruppe."])
+    elseif n == 0 and (offline and offline > 0) and drin == 0 then
+        print(string.format("|cff1B6B57Fairshare|r: " .. L["Keine Spieler eingeladen (%d offline)."], offline))
+    elseif offline and offline > 0 then
+        print(string.format("|cff1B6B57Fairshare|r: " .. L["%d Spieler eingeladen (%d bereits in der Gruppe, %d offline übersprungen)."], n, drin, offline))
+    else
+        print(string.format("|cff1B6B57Fairshare|r: " .. L["%d Spieler eingeladen (%d bereits in der Gruppe)."], n, drin))
+    end
+end
+befehle["einladen"] = befehle["invite"]
+
 befehle["einteilung"] = function(rest)
     rest = rest and rest:match("^%s*(.-)%s*$") or ""
     if rest:lower() == "status" then

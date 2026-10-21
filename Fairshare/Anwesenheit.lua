@@ -854,15 +854,51 @@ function Anwesenheit.KandidatenListe(abend, mitRaid)
 end
 
 -- =====================================================================
---  Automatik über Encounter-Ereignisse
+--  Automatik über Encounter-Ereignisse & Gruppen-Konvertierung
 -- =====================================================================
+
+local anwesenheitAutoRaid = false
+
+local function konvertiereZuRaid()
+    if C_PartyInfo and C_PartyInfo.ConvertToRaid then
+        pcall(C_PartyInfo.ConvertToRaid)
+    elseif ConvertToRaid then
+        pcall(ConvertToRaid)
+    end
+end
 
 local frame = CreateFrame and CreateFrame("Frame")
 if frame then
     pcall(function() frame:RegisterEvent("ENCOUNTER_END") end)
     pcall(function() frame:RegisterEvent("BOSS_KILL") end)
+    pcall(function() frame:RegisterEvent("GROUP_ROSTER_UPDATE") end)
 
     frame:SetScript("OnEvent", function(_, ereignis, a1, a2, _, _, a5)
+        if ereignis == "GROUP_ROSTER_UPDATE" then
+            if IsInGroup and IsInGroup() and not (IsInRaid and IsInRaid()) then
+                local istLeiter = not UnitIsGroupLeader or UnitIsGroupLeader("player")
+                local aktGruppe = ns.Gruppen and ns.Gruppen.AktivName and ns.Gruppen.AktivName()
+                if istLeiter and (anwesenheitAutoRaid or aktGruppe) then
+                    konvertiereZuRaid()
+                    if anwesenheitAutoRaid then
+                        local timer = C_Timer and C_Timer.After
+                        if timer then
+                            timer(0.5, function()
+                                if anwesenheitAutoRaid then
+                                    Anwesenheit.GruppeEinladen(true)
+                                end
+                            end)
+                        else
+                            Anwesenheit.GruppeEinladen(true)
+                        end
+                    end
+                end
+            elseif not IsInGroup or not IsInGroup() then
+                anwesenheitAutoRaid = false
+            end
+            return
+        end
+
         -- Nur aufzeichnen, wenn in einer Gruppe und Aufzeichner
         if not (IsInGroup and IsInGroup()) then return end
         if ns.Rolle and ns.Rolle.IchSchreibe and not ns.Rolle.IchSchreibe() then return end
@@ -1540,6 +1576,9 @@ function Anwesenheit.WocheZuruecknehmen(datum, autorName)
             zahl = zahl + 1
         end
     end
+    if d.wochenGruppen and d.wochenGruppen[montag] then
+        d.wochenGruppen[montag] = nil
+    end
     if #liste > 0 then Anwesenheit.BuchVerteilen(liste) end
     return zahl
 end
@@ -1625,6 +1664,181 @@ function Anwesenheit.WocheBuchen(datum, autorName)
     Anwesenheit.BuchVerteilen(ids)
     v.gebucht = gebucht
     return v
+end
+
+--- Ist die Woche (die Pseudo-Abende <Montag>_wb1...) bereits verbindlich gebucht?
+function Anwesenheit.WocheIstGebucht(datum)
+    local montag = Anwesenheit.WochenTage(datum)[1]
+    if not montag then return false end
+    local id = wochenId(montag, 1)
+    local ab = db().abende and db().abende[id]
+    return (ab and ab.abgeschlossen and istWochenbuchung(ab)) and true or false
+end
+
+--- Liefert alle Gruppen, die in dieser Woche relevant sind (aktiv/eingeteilt/Raidtage/Abende).
+function Anwesenheit.WochenGruppen(datum)
+    local tage = Anwesenheit.WochenTage(datum)
+    if #tage == 0 then return {} end
+    local imTag = {}
+    for _, tg in ipairs(tage) do imTag[tg] = true end
+    local alleNamen = (ns.Gruppen and ns.Gruppen.Namen) and ns.Gruppen.Namen() or {}
+    if #alleNamen <= 1 then
+        return alleNamen
+    end
+
+    local relevant = {}
+    local gefunden = false
+    for _, gName in ipairs(alleNamen) do
+        local hatAktivitaet = false
+        local G = ns.Gruppen.Holen(gName)
+        if G and G.raidtage then
+            for tg, aktiv in pairs(G.raidtage) do
+                if aktiv and imTag[tg] then hatAktivitaet = true; break end
+            end
+        end
+        if not hatAktivitaet and ns.Gruppen.EinteilungListe then
+            for _, tg in ipairs(tage) do
+                local liste = ns.Gruppen.EinteilungListe(tg, gName)
+                if liste and next(liste) then hatAktivitaet = true; break end
+            end
+        end
+        if not hatAktivitaet then
+            local gKennung = Anwesenheit.GruppenKennung(gName)
+            for _, ab in pairs(db().abende or {}) do
+                if ab.datum and imTag[ab.datum] and abendGruppenKennung(ab) == gKennung and not istWochenbuchung(ab) then
+                    hatAktivitaet = true
+                    break
+                end
+            end
+        end
+        if hatAktivitaet then
+            relevant[#relevant + 1] = gName
+            gefunden = true
+        end
+    end
+
+    if not gefunden then
+        return alleNamen
+    end
+    table.sort(relevant, function(a, b) return a:lower() < b:lower() end)
+    return relevant
+end
+
+--- Status-Uebersicht aller relevanten Gruppen einer Woche.
+function Anwesenheit.WochenGruppenUebersicht(datum)
+    local montag = Anwesenheit.WochenTage(datum)[1]
+    if not montag then return { gruppen = {}, gesamt = 0, bereit = 0, alleBereit = false, ausstehend = {} } end
+    local gruppen = Anwesenheit.WochenGruppen(datum)
+    local d = db()
+    d.wochenGruppen = d.wochenGruppen or {}
+    local sWoche = d.wochenGruppen[montag] or {}
+
+    local res = { gruppen = {}, gesamt = #gruppen, bereit = 0, alleBereit = false, montag = montag, ausstehend = {} }
+    for _, gName in ipairs(gruppen) do
+        local info = sWoche[gName]
+        local status = info and info.status or "offen"
+        local istBereit = (status == "abgeschlossen" or status == "pausiert")
+        if istBereit then
+            res.bereit = res.bereit + 1
+        else
+            res.ausstehend[#res.ausstehend + 1] = gName
+        end
+        res.gruppen[gName] = {
+            name = gName,
+            status = status,
+            istBereit = istBereit,
+            zeit = info and info.zeit,
+            autor = info and info.autor,
+        }
+    end
+    res.alleBereit = (res.gesamt > 0 and res.bereit >= res.gesamt)
+    return res
+end
+
+--- Setzt den Wochen-Status einer Gruppe ("abgeschlossen", "pausiert" oder "offen").
+--  Wenn danach alle Gruppen bereit sind, wird der Wochenabschluss automatisch gebucht!
+function Anwesenheit.WocheGruppeSetzen(datum, gruppe, status, autorName)
+    local autor = autorName or ichName()
+    if not (ns.Gruppen and ns.Gruppen.EinteilungDarf and ns.Gruppen.EinteilungDarf(autor)) then
+        return nil, L["Keine Berechtigung (nur Gildenränge mit Schreibrecht)."]
+    end
+    local montag = Anwesenheit.WochenTage(datum)[1]
+    if not montag then return nil, L["Ungültiges Datum."] end
+    if not gruppe or gruppe == "" then return nil, L["Diese Gruppe gibt es nicht."] end
+
+    local d = db()
+    d.wochenGruppen = d.wochenGruppen or {}
+    d.wochenGruppen[montag] = d.wochenGruppen[montag] or {}
+    local jetzt = time()
+
+    if status == "offen" then
+        d.wochenGruppen[montag][gruppe] = nil
+        if Anwesenheit.WocheIstGebucht(montag) then
+            Anwesenheit.WocheZuruecknehmen(datum, autor)
+        end
+    else
+        d.wochenGruppen[montag][gruppe] = { status = status, zeit = jetzt, autor = autor }
+    end
+
+    if ns.Abgleich and ns.Abgleich.Senden then
+        local msg = string.format("W;%s;%s;%s;%d;%s", montag, gruppe, status, jetzt, autor)
+        ns.Abgleich.Senden(msg, false, "GUILD")
+    end
+
+    local ue = Anwesenheit.WochenGruppenUebersicht(datum)
+    if status == "offen" then
+        print("|cff1B6B57Fairshare|r: " .. string.format(L["Wochenabschluss für Gruppe '%s' wiedereröffnet."], gruppe))
+        return true, "offen"
+    end
+
+    if ue.alleBereit then
+        local v, grund = Anwesenheit.WocheBuchen(datum, autor)
+        if v then
+            print("|cff1B6B57Fairshare|r: " .. string.format(L["Alle Gruppen bereit (%d/%d)! Wochenabschluss für Woche ab %s gebucht: %d Zuschläge."],
+                ue.bereit, ue.gesamt, montag, v.gebucht or 0))
+            return true, "gebucht", v
+        else
+            print("|cff1B6B57Fairshare|r: " .. string.format(L["Alle Gruppen bereit (%d/%d), aber Buchung fehlgeschlagen: %s"],
+                ue.bereit, ue.gesamt, L[grund] or tostring(grund)))
+            return false, grund
+        end
+    else
+        local ausstTxt = table.concat(ue.ausstehend, ", ")
+        if status == "pausiert" then
+            print("|cff1B6B57Fairshare|r: " .. string.format(L["Gruppe '%s' pausiert diese Woche (%d von %d Gruppen bereit)."],
+                gruppe, ue.bereit, ue.gesamt))
+        else
+            if #ue.ausstehend > 0 then
+                print("|cff1B6B57Fairshare|r: " .. string.format(L["Woche für Gruppe '%s' abgeschlossen (%d von %d Gruppen bereit). Ausstehend: %s."],
+                    gruppe, ue.bereit, ue.gesamt, ausstTxt))
+            else
+                print("|cff1B6B57Fairshare|r: " .. string.format(L["Woche für Gruppe '%s' abgeschlossen (%d von %d Gruppen bereit)."],
+                    gruppe, ue.bereit, ue.gesamt))
+            end
+        end
+        return true, status
+    end
+end
+
+--- Empfängt die Wochenstatus-Meldung einer Gruppe über die Gilde (W;<Montag>;<Gruppe>;<Status>;<Zeit>;<Autor>).
+function Anwesenheit.WochenGruppeEmpfangen(rest, sender, kanalName)
+    if type(rest) ~= "string" or Kern.GleicherSpieler(sender, ichName()) then return end
+    local montag, gruppe, status, zeit, autor = rest:match("^([^;]+);([^;]+);([^;]+);(%d+);([^;]*)$")
+    if not montag or not gruppe or not status then return end
+    if not (ns.Gruppen and ns.Gruppen.EinteilungDarf and ns.Gruppen.EinteilungDarf(sender)) then return end
+
+    local d = db()
+    d.wochenGruppen = d.wochenGruppen or {}
+    d.wochenGruppen[montag] = d.wochenGruppen[montag] or {}
+    if status == "offen" then
+        d.wochenGruppen[montag][gruppe] = nil
+    else
+        d.wochenGruppen[montag][gruppe] = { status = status, zeit = tonumber(zeit) or time(), autor = autor or sender }
+    end
+
+    if ns.Fenster and ns.Fenster.Aktualisieren and ns.Fenster.Sichtbar and ns.Fenster.Sichtbar() then
+        ns.Fenster.Aktualisieren()
+    end
 end
 
 --- Prüft, ob der heutige (oder ein angegebener) Raidabend bereits abgeschlossen ist.
@@ -2803,7 +3017,7 @@ function Probe.FertigerAblauf(ausgeben)
 
     if ausgeben then
         local OK_TAG = "|cff55ff55[OK]|r"
-        local ERR_TAG = "|cffff5555[FEHLER]|r"
+        local ERR_TAG = "|cffff5555" .. L["[FEHLER]"] .. "|r"
         print("|cff1B6B57Fairshare|r: |cffffff78" .. L["Probe-Abend (Wegwerf-Datenbank, keine echten Daten):"] .. "|r")
         print(string.format(L["  Abendschnitt: %.2f (%d Main-Items / %d Spieler im Raid)"],
             vorschau and vorschau.schnitt or 0, 10, 10))
@@ -2849,6 +3063,159 @@ function Anwesenheit.ProbeStandardAbend(ausgeben)
     return ok, res
 end
 
+--- Lädt alle anwesenden Spieler der aktuellen/aktiven Gruppe in den Raid ein.
+function Anwesenheit.GruppeEinladen(leise)
+    local abend = ns.Anwesenheit.AktiverAbend and ns.Anwesenheit.AktiverAbend(false) or nil
+    local gruppe = (abend and abend.gruppe) or (ns.Gruppen and ns.Gruppen.AktivName and ns.Gruppen.AktivName())
+    local datum = (abend and abend.datum) or (ns.Gruppen and ns.Gruppen.EinteilungTag and ns.Gruppen.EinteilungTag(0)) or (date and date("%Y-%m-%d", time()))
+
+    local pool = {}
+    local gesehen = {}
+    if gruppe and ns.Gruppen and ns.Gruppen.EinteilungListe then
+        local namen = ns.Gruppen.EinteilungListe(datum, gruppe)
+        for _, n in ipairs(namen or {}) do
+            local k = Kern.Schluessel(n)
+            if k and not gesehen[k] then
+                gesehen[k] = true
+                pool[#pool + 1] = n
+            end
+        end
+    end
+    if #pool == 0 and gruppe and ns.Gruppen and ns.Gruppen.Pflicht then
+        local pflicht = ns.Gruppen.Pflicht(gruppe)
+        for _, n in ipairs(pflicht or {}) do
+            local k = Kern.Schluessel(n)
+            if k and not gesehen[k] then
+                gesehen[k] = true
+                pool[#pool + 1] = n
+            end
+        end
+    end
+    if #pool == 0 then
+        local kand = ns.Anwesenheit.KandidatenListe and ns.Anwesenheit.KandidatenListe(abend, true) or {}
+        for _, e in ipairs(kand) do
+            local k = Kern.Schluessel(e.name)
+            if k and not gesehen[k] then
+                gesehen[k] = true
+                pool[#pool + 1] = e.name
+            end
+        end
+    end
+
+    if #pool == 0 then
+        return false, L["Keine Spieler in der Gruppe gefunden."]
+    end
+
+    -- Online-Status der Gildenmitglieder ermitteln
+    local onlineMap = {}
+    local gildeGeladen = false
+    if ns.Gruppen and ns.Gruppen.GildenMitglieder then
+        local GM = ns.Gruppen.GildenMitglieder()
+        if GM and #GM > 0 then
+            gildeGeladen = true
+            for _, m in ipairs(GM) do
+                local k = Kern.Schluessel(m.name)
+                if k then onlineMap[k] = m.online and true or false end
+            end
+        end
+    end
+
+    local drinnen = {}
+    if Anwesenheit.AnwesendeNamen then
+        for _, n in ipairs(Anwesenheit.AnwesendeNamen()) do
+            local k = Kern.Schluessel(n)
+            if k then drinnen[k] = true end
+        end
+    end
+
+    local ich = ichName()
+    local eingeladen = 0
+    local bereitsDrin = 0
+    local offline = 0
+
+    local brauchtRaid = (#pool > 5) or (gruppe and true or false)
+    if brauchtRaid and not (IsInRaid and IsInRaid()) and (IsInGroup and IsInGroup()) then
+        konvertiereZuRaid()
+    end
+
+    -- Wenn noch nicht im Raid: AutoRaid-Flag setzen, damit bei Gruppenbildung sofort ConvertToRaid erfolgt
+    if brauchtRaid and not (IsInRaid and IsInRaid()) then
+        anwesenheitAutoRaid = true
+    end
+
+    for _, name in ipairs(pool) do
+        local k = Kern.Schluessel(name)
+        local ausgeschlossen = false
+        if abend then
+            if (abend.bank and abend.bank[k]) or
+               (abend.abgemeldet and abend.abgemeldet[k]) or
+               (abend.unentschuldigt and abend.unentschuldigt[k]) or
+               (abend.vergessen and abend.vergessen[k]) then
+                ausgeschlossen = true
+            end
+        end
+        if not ausgeschlossen and ns.Gruppen and ns.Gruppen.BenchListe then
+            local bench = ns.Gruppen.BenchListe(datum)
+            for _, bn in ipairs(bench or {}) do
+                if Kern.GleicherSpieler(bn, name) then
+                    ausgeschlossen = true
+                    break
+                end
+            end
+        end
+
+        if not ausgeschlossen and not Kern.GleicherSpieler(name, ich) then
+            local schonDa = drinnen[k]
+            if not schonDa and UnitInRaid and UnitInRaid(name) then schonDa = true end
+            if not schonDa and UnitInParty and UnitInParty(name) then schonDa = true end
+            if not schonDa and ns.Rolle and ns.Rolle.IstDabei and ns.Rolle.IstDabei(name) then schonDa = true end
+
+            if schonDa then
+                bereitsDrin = bereitsDrin + 1
+            else
+                local istOnline = true
+                if gildeGeladen then
+                    local st = onlineMap[k]
+                    if st ~= nil then
+                        istOnline = (st == true)
+                    end
+                end
+
+                if not istOnline then
+                    offline = offline + 1
+                else
+                    local ok = false
+                    if C_PartyInfo and C_PartyInfo.InviteUnit then
+                        ok = pcall(C_PartyInfo.InviteUnit, name)
+                    elseif InviteUnit then
+                        ok = pcall(InviteUnit, name)
+                    end
+                    if ok then
+                        eingeladen = eingeladen + 1
+                    end
+                    -- Falls die Gruppe durch die Einladung sofort als Gruppe existiert:
+                    if brauchtRaid and not (IsInRaid and IsInRaid()) and (IsInGroup and IsInGroup()) then
+                        konvertiereZuRaid()
+                    end
+                end
+            end
+        end
+    end
+
+    if brauchtRaid and not (IsInRaid and IsInRaid()) and (IsInGroup and IsInGroup()) then
+        konvertiereZuRaid()
+    end
+
+    if (bereitsDrin + eingeladen + offline + 1) >= #pool then
+        anwesenheitAutoRaid = false
+    end
+
+    return true, eingeladen, bereitsDrin, offline
+end
+
 Probe.StandardAbend = Anwesenheit.ProbeStandardAbend
+Probe.KonvertiereZuRaid = konvertiereZuRaid
+Probe.GetAutoRaid = function() return anwesenheitAutoRaid end
+Probe.SetAutoRaid = function(an) anwesenheitAutoRaid = an end
 
 return Anwesenheit

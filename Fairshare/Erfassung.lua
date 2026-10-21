@@ -273,7 +273,7 @@ function Erfassung.WurfMerken(name, wert, min, max, art, link)
     local S = r.Spieler[k]
 
     -- Wer gepasst hat, hat sich entschieden: ein späterer Wurf ändert das nicht.
-    if S and S.art == "pass" and art ~= "pass" then return false, "passt" end
+    if S and S.art == "pass" and art ~= "pass" then return false, L["passt"] end
 
     -- ⭐ Der ERSTE Wurf gilt. Wer fuenfmal wuerfelt, bekommt den ersten Wurf
     -- gewertet — sonst wuerfe man so lange, bis es passt (Nutzerhinweis
@@ -282,7 +282,7 @@ function Erfassung.WurfMerken(name, wert, min, max, art, link)
     -- wann eine neue Runde beginnt; dort zaehlt ein Wurf nach 60 s als neu.
     if S and S.wert > 0 then
         local neueRunde = (r.link == nil) and S.zeit and (time() - S.zeit) > 60
-        if not neueRunde then return false, "schon gewürfelt" end
+        if not neueRunde then return false, L["schon gewürfelt"] end
     end
 
     r.zeit = time()
@@ -451,7 +451,7 @@ function Erfassung.Zaehlenswert(link, name)
     -- ⚠️ Aus gutem Grund nicht Standard: Teilt die Leitung ohne Wurf zu,
     -- ginge die Vergabe verloren.
     if d.nurGewuerfelt and name and not Erfassung.BedarfVon(name) then
-        return false, "kein Bedarfswurf"
+        return false, L["kein Bedarfswurf"]
     end
 
     -- Wo darf aufgezeichnet werden?
@@ -461,9 +461,9 @@ function Erfassung.Zaehlenswert(link, name)
     if d.ort ~= "ueberall" then
         local _, typ = IsInInstance()
         if d.ort == "raid" and typ ~= "raid" then
-            return false, "kein Schlachtzug"
+            return false, L["kein Schlachtzug"]
         elseif d.ort == "instanz" and typ ~= "raid" and typ ~= "party" then
-            return false, "keine Instanz"
+            return false, L["keine Instanz"]
         end
     end
 
@@ -479,7 +479,7 @@ function Erfassung.Zaehlenswert(link, name)
     end
 
     if qualitaet < d.mindestQualitaet then
-        return false, "Qualität zu niedrig"
+        return false, L["Qualität zu niedrig"]
     end
     return true
 end
@@ -509,7 +509,7 @@ end
 --  Doppelzaehlen waere schlimmer.
 function Erfassung.SchonErfasst(name, id, zeit, fenster)
     if not id then return false end
-    fenster = fenster or 180
+    fenster = fenster or 5
     local k = Kern.Schluessel(name)
     if not k then return false end
 
@@ -703,7 +703,7 @@ end
 --  ⭐ Nur der gewaehlte Schreiber (Rolle.lua) traegt ein. Alle anderen
 --  bekommen die Eintraege ueber den Abgleich.
 function Erfassung.Eintragen(name, link, zeit, art, kennung, extra)
-    if not name or not link then return false, "unvollständig" end
+    if not name or not link then return false, L["unvollständig"] end
 
     if ns.Rolle then
         local darf, grund = ns.Rolle.IchSchreibe()
@@ -715,8 +715,47 @@ function Erfassung.Eintragen(name, link, zeit, art, kennung, extra)
     kennung = kennung or Erfassung.Kennung(name, id or link, jetzt)
 
     local V = Erfassung.Historie()
-    if V[kennung] or db().alias[kennung] then return false, "schon vorhanden" end
-    if Erfassung.SchonErfasst(name, id, jetzt) then return false, "schon vorhanden" end
+    local istWurf = extra and (extra.herkunft == "wurf")
+    local istBlizz = (kennung and kennung:find("^blizz:")) or (extra and extra.herkunft == "blizzard")
+    local istGargul = extra and (extra.herkunft == "gargul")
+
+    if istWurf then
+        -- Explizite Vergabe aus Wurf.lua / Handelsfenster:
+        -- Kollisionen bei identischer Sekunde durch Suffix auflösen (#2, #3, ...).
+        -- Wird niemals durch SchonErfasst unterdrückt, da gewollte Vergabe durch den Plündermeister.
+        if V[kennung] or (db().alias and db().alias[kennung]) then
+            local basis = kennung
+            local idx = 2
+            while V[basis .. "#" .. idx] or (db().alias and db().alias[basis .. "#" .. idx]) do
+                idx = idx + 1
+            end
+            kennung = basis .. "#" .. idx
+        end
+    elseif istBlizz or istGargul then
+        -- Blizzard (lootListKey) und Gargul (checksum) haben je Drop eindeutige Schlüssel.
+        if V[kennung] or (db().alias and db().alias[kennung]) then
+            return false, L["schon vorhanden"]
+        end
+    else
+        -- Chat-Beutemeldung:
+        -- Echo-Prüfung: Wurde derselbe Gegenstand vor wenigen Sekunden (<= 5s) bereits
+        -- strukturiert über Wurf, Blizzard oder Gargul erfasst?
+        local schon, _, e = Erfassung.SchonErfasst(name, id, jetzt, 5)
+        if schon and e and (e.herkunft == "wurf" or e.herkunft == "blizzard" or e.herkunft == "gargul") and not e.chatEcho then
+            e.chatEcho = true
+            return false, L["schon vorhanden"]
+        end
+
+        -- Wenn echte Chat-Vergabe und Kennung existiert bereits in dieser Sekunde:
+        if V[kennung] or (db().alias and db().alias[kennung]) then
+            local basis = kennung
+            local idx = 2
+            while V[basis .. "#" .. idx] or (db().alias and db().alias[basis .. "#" .. idx]) do
+                idx = idx + 1
+            end
+            kennung = basis .. "#" .. idx
+        end
+    end
 
     art = art or Erfassung.BedarfVon(name)
 
@@ -905,7 +944,7 @@ function Erfassung.GargulVergabe(A)
     if not zaehlt then return false, grund end
 
     local gegenstand = A.itemLink or (A.itemID and ("item:" .. A.itemID))
-    if not gegenstand then return false, "ohne Gegenstand" end
+    if not gegenstand then return false, L["ohne Gegenstand"] end
 
     local ok, warum = Erfassung.Zaehlenswert(gegenstand, nil)
     if not ok then return false, warum end
@@ -923,12 +962,12 @@ function Erfassung.GargulVergabe(A)
     local zeit = tonumber(A.timestamp) or (GetServerTime and GetServerTime()) or time()
 
     -- Schon durch die Beutemeldung erfasst? Dann berichtigen.
-    local da, eid, e = Erfassung.SchonErfasst(A.awardedTo, itemID, zeit)
-    if da and e then
+    local da, eid, e = Erfassung.SchonErfasst(A.awardedTo, itemID, zeit, 5)
+    if da and e and e.herkunft == "chat" then
         e.OS = A.OS and true or nil
         e.wurf = wurf or e.wurf
         e.herkunft = "gargul"
-        return false, "berichtigt"
+        return false, L["berichtigt"]
     end
 
     return Erfassung.Eintragen(A.awardedTo, gegenstand, zeit,

@@ -10,8 +10,8 @@ Im Chat **`/fs`** eingeben. Alle Befehle: `/fs hilfe`.
 
 - **Spieler**: Liste aller Spieler mit ihrer **Wertung** (je niedriger, desto früher bist du dran), den Zweitbedarf-Items und wann sie zuletzt etwas bekommen haben. Ein Klick auf einen Namen zeigt jede einzelne Vergabe und die Zuschläge.
 - **Verlauf**: wer was wann bekommen hat, neueste zuerst.
-- **Gruppe: …** (oben rechts): nur eine Gruppe anzeigen, z. B. den 40er-Raid.
-- **Abwesenheit** und **Einteilung**: nur für die Gildenleitung (Schreibrecht), sie stellt hier die Gruppen ein und schließt Raidabende ab.
+- **Gruppe: …** (oben): filtert die angezeigten Spieler nach Gruppe (z. B. 10er oder 40er). Die Wertung jedes Spielers ist dabei immer global und raidübergreifend.
+- **Anwesenheit** und **Einteilung**: nur für die Gildenleitung (Schreibrecht), sie stellt hier die Gruppen ein, lädt mit 1 Klick ein und schließt Raidabende sowie die Woche ab.
 
 ## Würfeln
 

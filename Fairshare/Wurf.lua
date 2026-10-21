@@ -1042,7 +1042,7 @@ local function rangliste(link)
     end
     local erfasst = 0
     for _ in pairs(R.Wuerfe) do erfasst = erfasst + 1 end
-    return zeilen, probe, (#zeilen == 0 and erfasst > 0) and string.format("%d rolls recorded, none ranked", erfasst) or nil
+    return zeilen, probe, (#zeilen == 0 and erfasst > 0) and string.format(L["%d Würfe erfasst, keiner wertbar"], erfasst) or nil
 end
 
 --- Eine Vergabe in die Historie schreiben (nur der Aufzeichner darf).
@@ -1057,7 +1057,7 @@ local function eintragen(name, link, z)
     if ok then
         sag(GRUEN .. string.format(L["Eingetragen: %s für %s"], link, voll) .. "|r")
     else
-        sag(ROT .. string.format(L["Nicht eingetragen: %s"], tostring(grund)) .. "|r")
+        sag(ROT .. string.format(L["Nicht eingetragen: %s"], L[grund] or tostring(grund)) .. "|r")
     end
     return ok
 end
@@ -1344,7 +1344,7 @@ function Wurf.Zuteilen(z)
         -- Eingetragen wird ueber die Beutemeldung; Kennzeichen und Anhebung merkt sich Erfassung bis dahin.
         ns.Erfassung.ZusatzMerken(name, link, { kennzeichen = z.kennzeichen })
         local ok, grund = ausBeutefenster(name, ort, link)
-        if not ok then sag(ROT .. tostring(grund) .. "|r") return end
+        if not ok then sag(ROT .. (L[grund] or tostring(grund)) .. "|r") return end
     else
         vormerken(name, link, ort.id, z)
         if handelAnfragen(name) then
@@ -1597,7 +1597,7 @@ function Wurf.Entzaubern(name, link)
         local ok, grund = ausBeutefenster(name, ort, link)
         if not ok then
             ns.Erfassung.EntzauberungPruefen(name, link)      -- Merker wieder weg
-            sag(ROT .. tostring(grund) .. "|r")
+            sag(ROT .. (L[grund] or tostring(grund)) .. "|r")
             return false
         end
         ns.Erfassung.EntzauberAnsagen(name, link)

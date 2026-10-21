@@ -31,8 +31,7 @@ AUSNAHMEN = {"Tests.lua", "Locale.lua", "Kern.lua"}
 # interne Gruende, Beispieldaten, Entwicklerdiagnose.
 ERLAUBT = {
     "überall", "löschen", "zurück", "wiedereröffnen", " · Forever",
-    "kein Bedarfswurf", "kein Schlachtzug", "keine Instanz", "Qualität zu niedrig",
-    "unvollständig", "ohne Gegenstand", "schon gewürfelt", "übernehmen",
+    "übernehmen",
     "Järgerlie", "Zorn des Verräters", "Fairshare äöü",
     "keine Seite", "alle",
     "  %s  |cff8E9A94(%s, %s)|r",

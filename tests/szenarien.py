@@ -3861,6 +3861,314 @@ fest("Anna" not in list(ns66_1.Gruppen.EinteilungListe(heute66, "ZulGurub").valu
 fest("Anna" in list(ns66_1.Gruppen.EinteilungListe(heute66, "Kara 2").values()), "Client 1: Kara 2 aktiv")
 fest("Anna" in list(ns66_1.Gruppen.EinteilungListe(heute66, "MoltenCore").values()), "Client 1: MoltenCore aktiv")
 
+print("== 67. Einteilung anfragen & anzeigen, Verlauf-Suche, Gruppe einladen ==")
+
+# 1. MeineEinteilungText
+txt_anna = str(ns66_0.Gruppen.MeineEinteilungText("Anna", heute66))
+fest("[10er] Kara 2" in txt_anna and "[40er] MoltenCore" in txt_anna, "MeineEinteilungText enthaelt 10er und 40er Zuweisungen")
+
+# 2. Client 1 fragt Einteilung an (Gruppen.EinteilungAnfragen)
+tup(ns66_1.Gruppen.EinteilungAnfragen())
+w66.weiter(5)
+fest("Anna" in list(ns66_1.Gruppen.EinteilungListe(heute66, "Kara 2").values()), "Client 1 hat Einteilung erhalten")
+
+# 3. Gruppe einladen (Anwesenheit.GruppeEinladen) mit Online-Filter & Auto-Raid
+# Setze aktive Gruppe und weise Anna (online) und Ben (offline) zu
+ns66_0.Gruppen.Aktivieren("Kara 2")
+ns66_0.Gruppen.EinteilungSetzen(heute66, "Ben", "Kara 2")
+
+w66.clients[0]["lua"].execute("""
+__converted_to_raid = false
+__invited = {}
+C_PartyInfo = {
+    InviteUnit = function(name)
+        __invited[#__invited + 1] = name
+        return true
+    end,
+    ConvertToRaid = function()
+        __converted_to_raid = true
+    end,
+}
+ConvertToRaid = function()
+    __converted_to_raid = true
+end
+-- Anna ist online (presence 1), Ben ist offline (presence 3)
+__gilde[10] = { name = "Anna", guildRank = "Raider", guildRankOrder = 3, presence = 1 }
+__gilde[11] = { name = "Ben", guildRank = "Raider", guildRankOrder = 3, presence = 3 }
+""")
+res = ns66_0.Anwesenheit.GruppeEinladen()
+ok_inv, anz_inv, anz_drin, anz_off = tup(res)
+inv_list = list(w66.clients[0]["lua"].eval("__invited").values())
+fest(ok_inv and "Anna" in inv_list, "Gruppe einladen hat Online-Spieler (Anna) eingeladen")
+fest("Ben" not in inv_list, "Gruppe einladen hat Offline-Spieler (Ben) uebersprungen")
+fest(anz_off == 1, "Offline-Spieler als offline gezaehlt")
+
+# Pruefe Auto-Raid-Konvertierung sobald Gruppe geformt ist
+w66.clients[0]["lua"].execute("""
+IsInGroup = function() return true end
+IsInRaid = function() return false end
+UnitIsGroupLeader = function() return true end
+""")
+ns66_0.Anwesenheit.GruppeEinladen()
+fest(w66.clients[0]["lua"].eval("__converted_to_raid"), "Gruppe wurde automatisch in Raid konvertiert")
+
+# 4. Verlauf-Suche & Ungefilterte Historie
+w66.clients[0]["ns"].Erfassung.Eintragen("Anna", "|cffa335ee|Hitem:19019::::::::80:::::|h[Donnerzorn]|h|r", 1700000100, "haupt")
+w66.clients[0]["ns"].Erfassung.Eintragen("Ben", "|cffa335ee|Hitem:18803::::::::80:::::|h[Fichtenrinde]|h|r", 1700000200, "haupt")
+w66.weiter(5)
+
+# Fenster oeffnen und Verlauf anzeigen
+w66.clients[0]["ns"].Fenster.ZeigenAnsicht("verlauf")
+w66.clients[0]["ns"].Fenster.Aktualisieren()
+fest(w66.clients[0]["ns"].Fenster.AktuelleAnsicht() == "verlauf", "Fenster ist im Verlauf-Modus")
+
+# 5. Sichtbarkeit von inviteBtn pruefen: darf nur in bank sichtbar sein
+w66.clients[0]["ns"].Fenster.ZeigenAnsicht("einteilung")
+w66.clients[0]["ns"].Fenster.Aktualisieren()
+fest(not w66.clients[0]["ns"].Fenster.InviteBtnSichtbar(), "inviteBtn ist in einteilung ausgeblendet")
+
+w66.clients[0]["ns"].Fenster.ZeigenAnsicht("verlauf")
+w66.clients[0]["ns"].Fenster.Aktualisieren()
+fest(not w66.clients[0]["ns"].Fenster.InviteBtnSichtbar(), "inviteBtn ist in verlauf ausgeblendet")
+
+w66.clients[0]["ns"].Fenster.ZeigenAnsicht("liste")
+w66.clients[0]["ns"].Fenster.Aktualisieren()
+fest(not w66.clients[0]["ns"].Fenster.InviteBtnSichtbar(), "inviteBtn ist in liste ausgeblendet")
+
+w66.clients[0]["ns"].Fenster.ZeigenAnsicht("bank")
+w66.clients[0]["ns"].Fenster.Aktualisieren()
+fest(w66.clients[0]["ns"].Fenster.InviteBtnSichtbar(), "inviteBtn ist in bank sichtbar")
+fest(w66.clients[0]["ns"].Fenster.WocheBtnSichtbar(), "wocheBtn ist in bank sichtbar")
+w66.clients[0]["ns"].Fenster.ZeigenAnsicht("einteilung")
+w66.clients[0]["ns"].Fenster.Aktualisieren()
+fest(w66.clients[0]["ns"].Fenster.WocheBtnSichtbar(), "wocheBtn ist in einteilung sichtbar")
+w66.clients[0]["ns"].Fenster.ZeigenAnsicht("liste")
+w66.clients[0]["ns"].Fenster.Aktualisieren()
+fest(not w66.clients[0]["ns"].Fenster.WocheBtnSichtbar(), "wocheBtn ist in liste ausgeblendet")
+
+# Auch in Demo/Beispiel sichtbar:
+w66.clients[0]["ns"].Fenster.ZeigenAnsicht("bank")
+w66.clients[0]["ns"].Fenster.Aktualisieren()
+fest(w66.clients[0]["ns"].Fenster.WocheBtnSichtbar(), "wocheBtn ist in bank sichtbar (vor Demo)")
+w66.clients[0]["g"]["SlashCmdList"]["FAIRSHARE"]("demo")
+w66.clients[0]["ns"].Fenster.ZeigenAnsicht("bank")
+w66.clients[0]["ns"].Fenster.Aktualisieren()
+fest(w66.clients[0]["ns"].Fenster.WocheBtnSichtbar(), "wocheBtn ist auch in Demo sichtbar")
+w66.clients[0]["ns"].Fenster.Zeigen(False)
+
+print("== 68. Mehrfachvergabe desselben Gegenstands & Konsistente Lokalisierung ==")
+w68 = gruppe(2)
+w68.ereignis("PLAYER_ENTERING_WORLD")
+w68.weiter(15)
+c0, c1 = w68.clients[0], w68.clients[1]
+ns0, ns1 = c0["ns"], c1["ns"]
+lua0, lua1 = c0["lua"], c1["lua"]
+link_dagger = "|cffa335ee|Hitem:50412::::::::80:::::|h[Blasphemischer Dolch]|h|r"
+t0 = int(w68.t)
+
+# 1. Erste Vergabe via Wurf an Timo
+res1 = tup3(ns0.Erfassung.Eintragen("Timo", link_dagger, t0, "haupt", None, lua0.table_from({"herkunft": "wurf", "wurf": 88})))
+fest(res1[0] is True, "Erster Dolch an Timo vergeben")
+
+# 2. Zweite Vergabe desselben Gegenstands in der exakt selben Sekunde via Wurf (z. B. Dual Wield)
+res2 = tup3(ns0.Erfassung.Eintragen("Timo", link_dagger, t0, "haupt", None, lua0.table_from({"herkunft": "wurf", "wurf": 74})))
+fest(res2[0] is True, "Zweiter Dolch an Timo in derselben Sekunde nicht blockiert (ok=True)")
+
+# 3. Dritte Vergabe desselben Gegenstands 10 Sekunden spaeter via Wurf
+res3 = tup3(ns0.Erfassung.Eintragen("Timo", link_dagger, t0 + 10, "haupt", None, lua0.table_from({"herkunft": "wurf", "wurf": 95})))
+fest(res3[0] is True, "Dritter Dolch an Timo 10s spaeter nicht blockiert (ok=True)")
+
+# 4. Pruefen, dass genau 3 Eintraege fuer Timo in der Historie sind
+timo_dolche = [k for k, v in ns0.Erfassung.Historie().items() if v["awardedTo"] == "Timo" and v["itemID"] == 50412]
+fest(len(timo_dolche) == 3, "Genau 3 Dolche in Timos Historie (gefunden: %d)" % len(timo_dolche))
+
+# 5. Chat-Beutemeldungen (Echo) fuer den Dolch erzeugen keine 4. Vergabe
+ns0.Erfassung.Beutemeldung("Timo erhält Beute: " + link_dagger + ".")
+fest(len([k for k, v in ns0.Erfassung.Historie().items() if v["awardedTo"] == "Timo" and v["itemID"] == 50412]) == 3, "Chat-Echo erzeugt keinen doppelten Eintrag")
+
+# 6. Abgleich an Client 1 uebertraegt alle 3 Dolche sauber
+w68.weiter(15)
+c0["ns"].Abgleich.Starten()
+w68.weiter(90)
+timo_c1 = [k for k, v in ns1.Erfassung.Historie().items() if v["awardedTo"] == "Timo" and v["itemID"] == 50412]
+fest(len(timo_c1) == 3, "Client 1 hat nach Abgleich alle 3 Dolche (gefunden: %d)" % len(timo_c1))
+
+# 7. Lokalisierung: Auf englischem Client sind Fehlermeldungen und Systemtexte uebersetzt
+EN_TABLE = ns1.EN
+fest(EN_TABLE["schon vorhanden"] == "already present", "Locale hat 'schon vorhanden' -> 'already present'")
+fest(EN_TABLE["unvollständig"] == "incomplete", "Locale hat 'unvollständig' -> 'incomplete'")
+fest(EN_TABLE["kein Bedarfswurf"] == "not a main roll", "Locale hat 'kein Bedarfswurf' -> 'not a main roll'")
+fest(EN_TABLE["%d Würfe erfasst, keiner wertbar"] == "%d rolls recorded, none ranked", "Locale hat '%d rolls recorded, none ranked'")
+fest(EN_TABLE["[FEHLER]"] == "[ERROR]", "Locale hat '[FEHLER]' -> '[ERROR]'")
+
+print("== 69. Gruppenweiser Wochenabschluss: Jede Gruppe schließt einzeln ab ==")
+w69 = gruppe(2)
+for c_ in w69.clients:
+    c_["lua"].execute("""
+__gilde = {
+  [1] = { name = "Leiter Kaos", guildRank = "Gildenleiter", guildRankOrder = 1 },
+  [2] = { name = "Timo", guildRank = "Raider", guildRankOrder = 3 },
+  [3] = { name = "Lina", guildRank = "Raider", guildRankOrder = 3 },
+  [4] = { name = "Protti", guildRank = "Raider", guildRankOrder = 3 },
+  [5] = { name = "Moe", guildRank = "Raider", guildRankOrder = 3 },
+  [6] = { name = "Zora", guildRank = "Neuling", guildRankOrder = 5 },
+}
+C_Club = {
+  GetGuildClubId = function() return 1 end,
+  GetClubMembers = function() local t = {} for id in pairs(__gilde) do t[#t + 1] = id end table.sort(t) return t end,
+  GetMemberInfo = function(club, id) return __gilde[id] end,
+}
+""")
+    c_["ns"].Gruppen.Anlegen("Gruppe A", 40)
+    c_["ns"].Gruppen.Anlegen("Gruppe B", 40)
+
+w69.ereignis("PLAYER_ENTERING_WORLD")
+w69.weiter(15)
+c0, c1 = w69.clients[0], w69.clients[1]
+ns0, ns1 = c0["ns"], c1["ns"]
+lua0 = c0["lua"]
+
+heute69 = str(ns0.Gruppen.EinteilungTag(0))
+ns0.Gruppen.RaidkaderSync(5)
+
+# Einteilung: Timo in Gruppe A, Lina in Gruppe B, Moe bei Keine Meldung, Zora nirgends (abgemeldet)
+ns0.Gruppen.EinteilungSetzen(heute69, "Leiter Kaos", "Gruppe A", "System")
+ns0.Gruppen.EinteilungSetzen(heute69, "Timo", "Gruppe A", "System")
+ns0.Gruppen.EinteilungSetzen(heute69, "Lina", "Gruppe B", "System")
+ns0.Gruppen.EinteilungSetzen(heute69, "Protti", "Gruppe B", "System")
+ns0.Gruppen.EinteilungSetzen(heute69, "Moe", "Keine Meldung", "System")
+
+# Relevante Gruppen pruefen: beide haben Zuweisungen
+rel_gruppen = list(ns0.Anwesenheit.WochenGruppen(heute69).values())
+fest("Gruppe A" in rel_gruppen and "Gruppe B" in rel_gruppen, "beide Gruppen fuer die Woche relevant")
+
+# Abend fuer Gruppe A abhalten und abschliessen (Schnitt 1.0)
+ns0.Gruppen.Aktivieren("Gruppe A")
+ns0.Anwesenheit.AktiverAbend(True)
+ns0.Anwesenheit.BossBuchen("Lucifron", 5001, True, lua0.table_from(["Leiter Kaos", "Timo"]))
+w69.eintragen(0, "Timo", 9801, int(w69.t))
+w69.eintragen(0, "Leiter Kaos", 9802, int(w69.t) + 1)
+tup3(ns0.Anwesenheit.AbendAbschliessen(None, "System"))
+
+# Gruppe A schliesst ihre Woche ab
+ok_a, stat_a = tup(ns0.Anwesenheit.WocheGruppeSetzen(heute69, "Gruppe A", "abgeschlossen", "System"))
+fest(ok_a is True and stat_a == "abgeschlossen", "Gruppe A erfolgreich als abgeschlossen markiert")
+fest(not ns0.Anwesenheit.WocheIstGebucht(heute69), "Woche noch nicht gebucht: Gruppe B fehlt noch")
+
+ue = ns0.Anwesenheit.WochenGruppenUebersicht(heute69)
+fest(ue["gesamt"] == 2 and ue["bereit"] == 1 and not ue["alleBereit"], "Uebersicht: 1 von 2 Gruppen bereit")
+
+# Pruefe UI-Button-Zustand waehrend Gruppe A fertig und Gruppe B offen
+ns0.Gruppen.Aktivieren("Gruppe B")
+ns0.Fenster.ZeigenAnsicht("bank")
+ns0.Fenster.Aktualisieren()
+fest(ns0.Fenster.WocheBtnSichtbar(), "wocheBtn sichtbar")
+fest(ns0.Fenster.WochePauseBtnSichtbar(), "wochePauseBtn sichtbar da mehrere Gruppen und Gruppe B offen")
+
+# Abend fuer Gruppe B abhalten und abschliessen
+ns0.Anwesenheit.AktiverAbend(True)
+ns0.Anwesenheit.BossBuchen("Magmadar", 5002, True, lua0.table_from(["Lina", "Protti"]))
+w69.eintragen(0, "Lina", 9803, int(w69.t) + 2)
+w69.eintragen(0, "Lina", 9804, int(w69.t) + 3)
+w69.eintragen(0, "Protti", 9805, int(w69.t) + 4)
+w69.eintragen(0, "Protti", 9806, int(w69.t) + 5)
+tup3(ns0.Anwesenheit.AbendAbschliessen(None, "System"))
+
+# Gruppe B schliesst ihre Woche ab -> Alle Gruppen bereit -> automatischer Wochenabschluss!
+ok_b, stat_b, res_v = tup3(ns0.Anwesenheit.WocheGruppeSetzen(heute69, "Gruppe B", "abgeschlossen", "System"))
+fest(ok_b is True and stat_b == "gebucht", "Gruppe B fertig -> automatischer Wochenabschluss ausgeloest")
+fest(ns0.Anwesenheit.WocheIstGebucht(heute69), "Woche ist nun verbindlich gebucht")
+
+# Zuschlag Zora (abgemeldet): Staffel 0,7 x Schnitt 1,0 = 0,7
+w69.weiter(15)
+fest(abs(zuschlag_von(w69, 0, "zora") - 0.7) < 1e-9, "Zora hat Zuschlag 0,7 erhalten (%s)" % (zuschlag_von(w69, 0, "zora"),))
+fest(abs(zuschlag_von(w69, 1, "zora") - 0.7) < 1e-9, "Client 1 hat Zuschlag uebernommen")
+# Pruefe Pausieren-Logik: nach Zuruecknehmen Gruppe A pausieren
+ns0.Anwesenheit.WocheZuruecknehmen(heute69, "System")
+fest(not ns0.Anwesenheit.WocheIstGebucht(heute69), "Woche zurueckgenommen")
+ok_p, stat_p = tup(ns0.Anwesenheit.WocheGruppeSetzen(heute69, "Gruppe A", "pausiert", "System"))
+fest(ok_p is True and stat_p == "pausiert", "Gruppe A als pausiert markiert")
+ue_p = ns0.Anwesenheit.WochenGruppenUebersicht(heute69)
+fest(ue_p["gruppen"]["Gruppe A"]["status"] == "pausiert" and ue_p["gruppen"]["Gruppe A"]["istBereit"], "pausierte Gruppe gilt als bereit")
+
+print("== 70. Globale gruppenuebergreifende Wertung: Wertung im Hauptfenster unabhaengig von 10er/40er ==")
+w70 = gruppe(3)
+w70.ereignis("PLAYER_ENTERING_WORLD")
+w70.weiter(15)
+cl0 = w70.clients[0]
+ns70_0, g70_0 = cl0["ns"], cl0["g"]
+
+# Gruppen "10er" und "40er" anlegen
+ns70_0.Gruppen.Anlegen("10er", 10)
+ns70_0.Gruppen.Anlegen("40er", 40)
+heute70 = str(ns70_0.Gruppen.EinteilungTag(0))
+
+# Timo und Lina in 10er einteilen, Timo und Peter in 40er
+ns70_0.Gruppen.EinteilungSetzen(heute70, "Timo", "10er", "System")
+ns70_0.Gruppen.EinteilungSetzen(heute70, "Lina", "10er", "System")
+ns70_0.Gruppen.EinteilungSetzen(heute70, "Timo", "40er", "System")
+ns70_0.Gruppen.EinteilungSetzen(heute70, "Peter", "40er", "System")
+w70.weiter(5)
+
+# 1. Beute in der 10er Gruppe: Timo erhaelt ein Item
+ns70_0.Gruppen.Aktivieren("10er")
+w70.eintragen(0, "Timo", 7001, int(w70.t))
+
+# 2. Beute in der 40er Gruppe: Timo erhaelt ein weiteres Item, Lina erhaelt ein Item
+ns70_0.Gruppen.Aktivieren("40er")
+w70.weiter(2)
+w70.eintragen(0, "Timo", 7002, int(w70.t))
+w70.eintragen(0, "Lina", 7003, int(w70.t) + 1)
+
+# Abgleich an Client 1
+w70.weiter(15)
+fest(anz(w70, 0) == 3, "Client 0 hat 3 Vergaben (1x 10er, 2x 40er)")
+fest(anz(w70, 1) == 3, "Client 1 hat 3 Vergaben")
+
+# 3. Hauptfenster oeffnen und Gruppe "10er" im Dropdown auswaehlen
+ns70_0.Fenster.Zeigen(False)
+ns70_0.Fenster.ZeigenAnsicht("liste")
+ns70_0.Fenster.GruppeWaehlen("10er")
+ns70_0.Fenster.Aktualisieren()
+
+# Pruefe: Es werden nur die eingeteilten Mitglieder der 10er Gruppe gezeigt (Timo, Lina)
+zeilen = list(ns70_0.Fenster.SichtbareZeilen().values())
+namen_sichtbar = [z["name"] for z in zeilen]
+fest("Timo" in namen_sichtbar and "Lina" in namen_sichtbar, "Timo und Lina sind in 10er-Ansicht sichtbar")
+fest("Peter" not in namen_sichtbar, "Peter (nur 40er) ist in 10er-Ansicht ausgeblendet")
+
+# Pruefe Wertung: Obwohl die Ansicht auf "10er" steht, hat Timo Wertung 2 (1x 10er + 1x 40er)!
+# Und Lina hat Wertung 1 (aus der 40er Gruppe)!
+timo_zeile = next((z for z in zeilen if z["name"] == "Timo"), None)
+lina_zeile = next((z for z in zeilen if z["name"] == "Lina"), None)
+fest(timo_zeile is not None, "Timo-Zeile gefunden")
+fest(lina_zeile is not None, "Lina-Zeile gefunden")
+
+# In der Wertungspalte steht bei Timo "2" (GELB .. "2" .. "|r") und bei Lina "1"
+fest("2" in str(timo_zeile["wertung"]), "Timos Wertung in 10er-Ansicht ist 2 (gruppenuebergreifend!): %s" % (timo_zeile["wertung"],))
+fest("1" in str(lina_zeile["wertung"]), "Linas Wertung in 10er-Ansicht ist 1 (obwohl Item im 40er gewonnen): %s" % (lina_zeile["wertung"],))
+
+# 4. Umschalten auf "40er": Timo und Peter sichtbar, Lina ausgeblendet
+ns70_0.Fenster.GruppeWaehlen("40er")
+ns70_0.Fenster.Aktualisieren()
+zeilen_40 = list(ns70_0.Fenster.SichtbareZeilen().values())
+namen_40 = [z["name"] for z in zeilen_40]
+fest("Timo" in namen_40 and "Peter" in namen_40, "Timo und Peter in 40er-Ansicht sichtbar")
+fest("Lina" not in namen_40, "Lina (nur 10er eingeteilt) ist in 40er-Ansicht ausgeblendet")
+timo_40 = next((z for z in zeilen_40 if z["name"] == "Timo"), None)
+peter_40 = next((z for z in zeilen_40 if z["name"] == "Peter"), None)
+fest("2" in str(timo_40["wertung"]), "Timos Wertung in 40er-Ansicht ist weiterhin 2: %s" % (timo_40["wertung"],))
+fest("0" in str(peter_40["wertung"]), "Peters Wertung in 40er-Ansicht ist 0: %s" % (peter_40["wertung"],))
+
+# 5. Umschalten auf "Alle": Alle sichtbar, Timo hat Wertung 2, Lina 1, Peter 0
+ns70_0.Fenster.GruppeWaehlen("")
+ns70_0.Fenster.Aktualisieren()
+zeilen_alle = list(ns70_0.Fenster.SichtbareZeilen().values())
+namen_alle = [z["name"] for z in zeilen_alle]
+fest("Timo" in namen_alle and "Lina" in namen_alle and "Leiter Kaos" in namen_alle, "Raidmitglieder in Gesamtansicht sichtbar")
+timo_alle = next((z for z in zeilen_alle if z["name"] == "Timo"), None)
+fest("2" in str(timo_alle["wertung"]), "Timos Wertung in Gesamtansicht ist 2: %s" % (timo_alle["wertung"],))
+
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")
 sys.exit(0 if alle_ok else 1)

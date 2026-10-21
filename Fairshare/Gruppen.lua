@@ -647,6 +647,7 @@ end
 
 --- Das Datum (JJJJ-MM-TT) des ersten Tages der Raid-ID, in der `datum` liegt.
 function Gruppen.IdStart(datum)
+    datum = datum or date("%Y-%m-%d", time())
     local y, m, d = tostring(datum):match("^(%d+)-(%d+)-(%d+)$")
     if not y then return datum end
     local t = time({ year = tonumber(y), month = tonumber(m), day = tonumber(d), hour = 12 })
@@ -694,6 +695,40 @@ end
 
 --- In welcher Gruppe ist der Spieler an diesem Tag?
 --  @param kat  Optionale Raid-Größe (10, 20 oder 40). Wenn angegeben, wird die Gruppe dieser Größe geliefert.
+--- Liefert die Einteilungen eines Spielers als Tabelle { [10] = gruppe, [20] = gruppe, [40] = gruppe }
+function Gruppen.MeineEinteilung(name, datum)
+    name = name or ichName()
+    local res = {}
+    for _, kat in ipairs({ 10, 20, 40 }) do
+        local g = Gruppen.EinteilungVon(datum, name, kat)
+        if g and g ~= "" then res[kat] = g end
+    end
+    return res
+end
+
+--- Formatierter Text der eigenen Einteilungen für die Anzeige (z. B. "[10er] Kara 1  ·  [40er] MC").
+function Gruppen.MeineEinteilungText(name, datum)
+    name = name or ichName()
+    local res = Gruppen.MeineEinteilung(name, datum)
+    local teile = {}
+    for _, kat in ipairs({ 10, 20, 40 }) do
+        if res[kat] then
+            local label = Gruppen.IstBench(res[kat]) and L["Bench"] or res[kat]
+            teile[#teile + 1] = string.format(L["[%der] %s"], kat, label)
+        end
+    end
+    if #teile > 0 then
+        return table.concat(teile, "  ·  ")
+    end
+    return nil
+end
+
+--- Fragt die aktuelle Einteilung über den Kanal an (z. B. beim Fenster öffnen).
+function Gruppen.EinteilungAnfragen(kanalName)
+    if not ns.Abgleich or not ns.Abgleich.Senden then return false end
+    return ns.Abgleich.Senden("T;?", false, kanalName or "GUILD")
+end
+
 --  @return Gruppenname, Eintrag  oder nil (nicht eingeteilt)
 function Gruppen.EinteilungVon(datum, name, kat)
     local T = einteilungen()[Gruppen.IdStart(datum)]
@@ -1046,6 +1081,17 @@ end
 --- Eine Einteilungsmeldung ist eingetroffen (Gilde oder Gruppe).
 function Gruppen.EinteilungEmpfangen(rest, sender, kanalName)
     if type(rest) ~= "string" or Kern.GleicherSpieler(sender, ichName()) then return end
+
+    -- ⭐ Frage nach aktueller Einteilung (z. B. wenn jemand das Addon frisch öffnet)
+    if rest:find("^%?") then
+        if Gruppen.EinteilungDarf() then
+            local datum = Gruppen.IdStart()
+            if Gruppen.EinteilungVorhanden(datum) then
+                Gruppen.EinteilungSenden(datum)
+            end
+        end
+        return
+    end
     local function merke(text)
         eMerke[#eMerke + 1] = date("%H:%M:%S", time()) .. "  " .. text
         if #eMerke > 8 then table.remove(eMerke, 1) end

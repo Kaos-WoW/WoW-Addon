@@ -22,12 +22,19 @@ Agents dieselbe Datei gleichzeitig ändern oder die Arbeit des anderen überschr
 
 ## Belegt
 
-| Agent | Bereich | Dateien | Seit | Stand |
-|---|---|---|---|---|
-
 ## Erledigt, nicht committet
 
 *(derzeit keine)*
+
+## Erledigt
+- **Antigravity (20.–21.10.2026 - Globale Wertung, Wochenabschluss, Einladung & Mehrfachvergabe):**
+  - **Globale Wertung:** Wertungsberechnung (`haupt` und `wertung`) ist universell und raidübergreifend (10er, 20er, 40er). Gruppen-Dropdown steuert nur die Zeilenauswahl.
+  - **Gruppenweiser Wochenabschluss:** Jede Gruppe schließt ihre Woche eigenständig ab (`[Woche abschließen]`). Automatischer Endabschluss und Zuschlagsverteilung, sobald alle relevanten Gruppen bereit sind; Pausier-Option (`[Gruppe pausiert]`) für ausgefallene Raids.
+  - **1-Klick-Gruppeneinladung:** Knopf `[Gruppe einladen]` in Anwesenheit lädt anwesende/eingeteilte Spieler ein, filtert Offline-Spieler via C_Club heraus und konvertiert ab 6 Spielern automatisch in einen Raid.
+  - **Mehrfachvergabe & Lokalisierung:** Mehrfachvergabe desselben Gegenstands an denselben Spieler wird nicht mehr fälschlich blockiert. Durchgängige englische Lokalisierung auf nicht-deutschen Clients ohne Sprachmischung.
+  - **Verlauf-Suche & Persönliche Einteilung:** Ungefilterte Historie mit Suchfeld im Verlauf; persönliche Einteilung oben rechts im Reiter „Spieler“.
+  - **Dateien:** `Anwesenheit.lua`, `Abgleich.lua`, `Befehle.lua`, `Erfassung.lua`, `Fenster.lua`, `Gruppen.lua`, `Kern.lua`, `Locale.lua`, `Wurf.lua`, `tests/szenarien.py`, `tests/texte.py`.
+  - **Tests:** Alle 70 Szenarien, 478 Rechenkern-Tests, 827 Locale-Schlüssel und Luacheck fehlerfrei. `deploy.ps1` ausgeführt.
 
 ## Erledigt (alles committet und gepusht, `origin/main` = `81eb59c`)
 
