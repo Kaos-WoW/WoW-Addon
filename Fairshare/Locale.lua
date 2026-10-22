@@ -418,6 +418,7 @@ local EN = {
     ["Gegenstand liegt im Beutefenster."] = "The item is in the loot window.",
     ["Gegenstand liegt im Rucksack."] = "The item is in your bags.",
     ["Niemand hat gewürfelt."] = "Nobody rolled.",
+    ["Im Probe-Modus nicht möglich: erst den Probe-Modus beenden."] = "Not possible in practice mode: end practice mode first.",
     ["Anheben"] = "Raise",
     ["%s angehoben: +%.1f auf %.1f."] = "%s raised: +%.1f to %.1f.",
     ["Name des Spielers eintragen und „Anheben“ klicken."] = "Enter the player's name and click \"Raise\".",

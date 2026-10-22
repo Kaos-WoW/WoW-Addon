@@ -23,7 +23,7 @@ Startet der Plündermeister einen Wurf, geht ein kleines Fenster auf: **Haupt (1
 
 | Situation | Zuschlag |
 |---|---|
-| Am Abendende im Raid | keiner |
+| Anwesend (eingeteilt, nicht anders markiert) | keiner |
 | Bench (von der Leitung eingeteilt) | 0 |
 | Abgemeldet | klein (0,7 beim ersten Mal, später bis 1,5 × Schnitt des Abends) |
 | Unentschuldigt gefehlt | mindestens 2 Punkte |

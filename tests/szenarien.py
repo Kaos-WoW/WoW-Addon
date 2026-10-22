@@ -4169,6 +4169,37 @@ fest("Timo" in namen_alle and "Lina" in namen_alle and "Leiter Kaos" in namen_al
 timo_alle = next((z for z in zeilen_alle if z["name"] == "Timo"), None)
 fest("2" in str(timo_alle["wertung"]), "Timos Wertung in Gesamtansicht ist 2: %s" % (timo_alle["wertung"],))
 
+print("== 71. Probe-Modus schuetzt die echten Daten: gildenweiter Reset und Einstellungen-Senden gesperrt ==")
+w = welt36()
+n0, l0 = w.clients[0]["ns"], w.clients[0]["lua"]
+for c_ in w.clients:
+    c_["lua"].execute("""
+__gilde = {
+  [1] = { name = "Leiter Kaos", guildRank = "Gildenleiter", guildRankOrder = 1 },
+  [2] = { name = "Timo", guildRank = "Offizier", guildRankOrder = 2 },
+  [3] = { name = "Lina", guildRank = "Rekrut", guildRankOrder = 5 },
+}
+C_Club = {
+  GetGuildClubId = function() return 1 end,
+  GetClubMembers = function() local t = {} for id in pairs(__gilde) do t[#t + 1] = id end table.sort(t) return t end,
+  GetMemberInfo = function(club, id) return __gilde[id] end,
+}
+""")
+w.eintragen(0, "Leiter Kaos", 9101, int(w.t))
+w.weiter(5)
+fest(anz(w, 0) == 1, "Ausgangslage: ein echter Eintrag")
+n0.Fenster.ProbeModus(True)
+r = tup(n0.Erfassung.GildenReset())
+fest(r[0] is None, "im Probe-Modus laesst sich nicht gildenweit zuruecksetzen (%s)" % (r,))
+echt = int(l0.eval("(function() local n = 0 for _ in pairs(FairshareDB.vergaben) do n = n + 1 end return n end)()"))
+fest(echt == 1 and float(l0.eval("FairshareDB.resetZeit or 0")) == 0, "die echten Daten (%d) und die Reset-Marke bleiben unveraendert" % echt)
+r2 = tup(n0.Konfig.Senden())
+fest(r2[0] is None, "und Einstellungen senden ist im Probe-Modus gesperrt (%s)" % (r2,))
+fest(not n0.Konfig.AutoSenden(), "ebenso das automatische Senden")
+n0.Fenster.ProbeModus(False)
+r3 = tup(n0.Erfassung.GildenReset())
+fest(r3[0] == 1, "nach dem Beenden geht der Reset wieder (%s)" % (r3,))
+
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")
 sys.exit(0 if alle_ok else 1)

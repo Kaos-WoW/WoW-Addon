@@ -35,7 +35,7 @@ Gegenüber dem Schnitt der Anwesenden gilt: **Faktor unter 1 = Vorteil, 1,0 = ne
 
 | Situation am Abend | Zuschlag |
 |---|---|
-| **Im Raid** (am Abendende in der Gruppe, oder vorher ein Main-Item bekommen) | keiner, es zählen nur die erhaltenen Main-Items |
+| **Anwesend** (in der Einteilung der Gruppe und nicht anders markiert; das ist der Standard, auch wer die Gruppe vor dem Abschluss verlässt) | keiner, es zählen nur die erhaltenen Main-Items |
 | **Bench** (in der Einteilung gesetzt; steht in der Abwesenheit jeder Gruppe, kann einspringen) | **Faktor 0** |
 | **Abgemeldet** (im Raidkader, aber **in der Woche nirgends eingeteilt** – das Addon erkennt es von selbst, gebucht wird mit „Woche abschließen“, für **zwei Abende**) | **1. Fehlen 0,7 · 2. bis 4. Fehlen 1,0 · 5. Fehlen 1,3 · ab 6. Fehlen 1,5** |
 | **Unentschuldigt** (eingeteilt, ohne Info nicht gekommen; Raidleiter oder Gildenleitung markiert in der Abwesenheit) | **sofort Faktor 1,5, mindestens 2 Wertungspunkte** |
@@ -79,7 +79,7 @@ Gegenüber dem Schnitt der Anwesenden gilt: **Faktor unter 1 = Vorteil, 1,0 = ne
 
 | Was | Wer | Wie |
 |---|---|---|
-| Anwesenheit | automatisch | Am Abendende: wer dann im Raid steht, ist anwesend; Bosskämpfe zählen nicht. Wer früher geht, gilt als abwesend (außer er hat vorher ein Main-Item bekommen) und kann als unentschuldigt markiert werden |
+| Anwesenheit | automatisch | **Standard = anwesend:** Wer in der Einteilung der Gruppe steht und nicht als Bank, Abwesend oder Unentschuldigt markiert ist, gilt als anwesend und zählt im Schnitt mit. Die Raidleitung muss nur die Ausnahmen markieren (Entscheid des Nutzers 22.10.2026: weniger zu verwalten, kein Zeitdruck beim Abschluss); es gibt keine „offenen“ Spieler mehr, der Abend lässt sich jederzeit abschließen |
 | **Bench** | wer einteilen darf | Ziel „Bench“ in der **Einteilung**; in der Abwesenheit holt ein Klick den Spieler in die Gruppe |
 | **Einteilen, Woche abschließen** | Stufe 1 und 2 (Gildenmeister, Offiziere) und die weiteren Ränge bis zur eingestellten Grenze | Ansicht „Einteilung“ |
 | **Unentschuldigt** | Gildenleitung | Eintrag mit Name und Zeit in der Abwesenheit, für alle sichtbar; zurücknehmen darf die Gildenleitung |
@@ -100,7 +100,7 @@ Die Gruppen setzen sich Woche für Woche neu zusammen. Darum gibt es keine feste
 - **Bench:** Spieler auf der Bench haben **Faktor 0** und stehen in der Abwesenheit jeder Gruppe, damit man sie einspringen lassen kann. Ein Klick holt sie in die aktive Gruppe; in der Einteilung nimmt man sie bei der Bench heraus und weist sie dann einer Gruppe zu.
 - **Abgemeldet:** Wer in der Woche nirgends eingeteilt ist, braucht keinen Eintrag: Das Addon erkennt ihn als abgemeldet.
 - **Wochenabschluss:** Nach dem letzten Gruppenabend der Woche bucht die Gildenleitung mit **„Woche abschließen“** (zweimal klicken, die Vorschau steht im Chat) die Abmeldungen und die „Keine Meldung“ der Woche. **Jeder dieser Spieler bekommt Zuschläge für zwei Abende.** Der Schnitt je Abend ist das **Mittel der Schnitte der Gruppen** für diese Abend-Nummer: der erste Abend jeder Gruppe zusammen, dann der zweite. Wer an einem Gruppenabend dabei war oder irgendwo (Gruppe, Bench) eingeteilt war, bekommt nichts.
-- **Abwesenheit einer Gruppe:** Man wählt die Gruppe in der Ausklappliste. Sie zeigt die Eingeteilten dieser Gruppe und die Bench, mit ihrem Status (im Raid, online, offen). Wer eingeteilt war und ohne Info nicht kommt, wird mit **Unentschuldigt** markiert. Wer noch offen ist, verhindert den Abschluss.
+- **Anwesenheit einer Gruppe:** Man wählt die Gruppe in der Ausklappliste. Sie zeigt die Eingeteilten dieser Gruppe und die Bench, mit ihrem Status (anwesend, Bench, abwesend, unentschuldigt). Jede Zeile hat drei Knöpfe: **Bank/Bench**, **Abwesend** und **Unentschuldigt**. Wer nicht markiert ist, gilt als anwesend. Eingeteilte sind nie „offen“, der Abschluss geht jederzeit.
 - **Neuen Abend beginnen:** Nach dem Abschluss macht dieser Knopf die Liste frei, ohne die gebuchten Wertungen anzutasten. „Abend wiedereröffnen“ nimmt dagegen den Abschluss samt Zuschlägen zurück.
 
 ## 7. Einstellungen (setzt eine Person der Gildenleitung, werden an alle geteilt)

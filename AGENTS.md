@@ -141,7 +141,7 @@ Speziell für die Gilde **Resurrected** (Thunderstrike EU) entwickeltes Regelwer
   - ⭐ **Probe-Modus / Probe-Abend (`/fs probe abend`, `Anwesenheit.ProbeStandardAbend` und `/fs probe` UI-Modus):**
     Simuliert einen vollen Standardabend in einer Wegwerf-Datenbank mit 14 erfundenen Spielern (Anna, Ben, Chris, David, Elena, Frank, Greta, Hanna, Igor [1. Abend Proberaid], Jonas [2. Abend Neuling], Kevin & Lisa [abgemeldet], Max [weder an- noch abgemeldet = Keine Meldung], Nora [Bench]). Prüft die 6 Rechenregeln (Raid, Bench, Keine Meldung, Abgemeldet, Proberaid, Neuling) und gibt Zeile für Zeile „Erwartet / Ist“ im Chat aus (`/fs probe abend`, 6/6 Prüfungen grün).
     Interaktiver Modus (`/fs probe` bzw. Knopf „Probe“): Zeigt die gelbe Hinweisleiste „PROBE – keine echten Daten“ und eine Steuerungsleiste (`probeLeiste`) zum Vergeben von Main-/OS-Items, Status-Toggles und fertigem Ablauf.
-    Isolation: `Anwesenheit._SetDB` und `_SetAnwesende` lenken alle Zugriffe um; `FairshareDB` bleibt unangetastet; jedes Senden (`Abgleich.Senden`, `BuchVerteilen`, `Konfig.Senden` etc.) ist gesperrt. Szenarien 63 und 64.
+    Isolation: `Erfassung.GildenReset`/`ResetAnwenden` sind im Probe-Modus gesperrt (21.10.2026, Szenario 71: sonst würde der gildenweite Reset die ECHTEN Daten löschen, der Probe-Modus lenkt nur Datenbuch und Historie um). Isolation: `Anwesenheit._SetDB` und `_SetAnwesende` lenken alle Zugriffe um; `FairshareDB` bleibt unangetastet; jedes Senden (`Abgleich.Senden`, `BuchVerteilen`, `Konfig.Senden` etc.) ist gesperrt. Szenarien 63 und 64.
 
 ---
 

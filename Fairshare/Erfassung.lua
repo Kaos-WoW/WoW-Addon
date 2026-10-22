@@ -867,6 +867,10 @@ end
 --- Den gildenweiten Reset auslösen (nur Stufe 1 und 2): leert hier und schickt die Reset-Marke an alle.
 --  @return Zahl der entfernten Einträge, oder nil und ein Grund
 function Erfassung.GildenReset()
+    -- ⭐ Im Probe-Modus nie: er würde die ECHTEN Daten löschen (der Probe-Modus lenkt nur das Datenbuch um)
+    if ns.Probe and ns.Probe.Aktiv and ns.Probe.Aktiv() then
+        return nil, L["Im Probe-Modus nicht möglich: erst den Probe-Modus beenden."]
+    end
     if not (ns.Konfig and ns.Konfig.DarfWurzel and ns.Konfig.DarfWurzel()) then
         return nil, L["Nur Gildenmeister und Offiziere (Stufe 1 und 2) dürfen die Daten gildenweit zurücksetzen."]
     end
@@ -881,6 +885,7 @@ end
 
 --- Die Reset-Marke einer geteilten Einstellung ist angekommen und neuer als die eigene: Daten leeren.
 function Erfassung.ResetAnwenden(zeit, von)
+    if ns.Probe and ns.Probe.Aktiv and ns.Probe.Aktiv() then return false end
     zeit = tonumber(zeit)
     if not zeit or zeit <= Erfassung.ResetZeit() then return false end
     allesLeeren(zeit)

@@ -36,7 +36,7 @@ Agents dieselbe Datei gleichzeitig ändern oder die Arbeit des anderen überschr
   - **Dateien:** `Anwesenheit.lua`, `Abgleich.lua`, `Befehle.lua`, `Erfassung.lua`, `Fenster.lua`, `Gruppen.lua`, `Kern.lua`, `Locale.lua`, `Wurf.lua`, `tests/szenarien.py`, `tests/texte.py`.
   - **Tests:** Alle 70 Szenarien, 478 Rechenkern-Tests, 827 Locale-Schlüssel und Luacheck fehlerfrei. `deploy.ps1` ausgeführt.
 
-## Erledigt (alles committet und gepusht, `origin/main` = `81eb59c`)
+## Erledigt (Claude, 22.10.2026; committet und gepusht)
 
 Claude, 22.10.2026: **Bedienung der Gruppen vereinfacht** („viel zu kompliziert“, vom Nutzer im Spiel als „viel einfacher und sauberer“ bestätigt). Wertung und Zuteilung sind unverändert. Alle Einzelheiten stehen in `AGENTS.md` (Abschnitt „Mehrere Gruppen“, „Einstellungen teilen“, „Abgleich“, „Leitungs-Abgleich“); hier nur die Landkarte:
 - **Raid-ID:** Einteilung einmal je Raid-ID (`Gruppen.IdStart/IdWechsel/IdListe`, Wechseltag geteilt, Standard Mittwoch, Konfigzeile `I|`). `Anwesenheit.WochenTage` = die sieben Tage der Raid-ID.
@@ -48,7 +48,7 @@ Claude, 22.10.2026: **Bedienung der Gruppen vereinfacht** („viel zu komplizier
 - **Fix:** Zugewiesene einer gelöschten Gruppe zählen in der Einteilung als frei.
 - **Zip:** `..\Fairshare-releases\Fairshare-0.2.0.zip` (`python release/bauen.py`, aus dem letzten Commit; `release/LIESMICH.txt` ist die Anleitung für die Gildenleitung). **Alle brauchen dieselbe Fassung** (Protokoll geändert).
 
-## Übergabe (Stand 22.10.2026 abends)
+## Übergabe (Stand 21.10.2026)
 
 **Commits auf `main` (alle gepusht):**
 
@@ -62,15 +62,20 @@ Claude, 22.10.2026: **Bedienung der Gruppen vereinfacht** („viel zu komplizier
 | `5eed540` | Ausklappliste zeichnet ihren Pfeil selbst |
 | `d51136d` | Auto-Senden, Leitungs-Abgleich, Abgleich-Meldungen, Fix gelöschte Gruppen |
 | `81eb59c` | LIESMICH für 0.2.0 |
+| `719ba45` | Gildenweiter Reset (`/fs reset gilde`, Reset-Marke `Z|`), manuelle Anhebung (automatische aus), OS 1-99, Handel-Fix, Selbsttest-Fix, Auto-Senden-Nachbesserung |
+| `fe784e8` | Antigravity: Raid-Größen 10er/20er/40er, einzelne Gildenränge im Raidkader, Reiter „Anwesenheit“ (Default = Anwesend, Knöpfe Bank/Abwesend/Unent.), Probe-Abend, `bauen.py --aktuell` |
+| `02f3df0` | Antigravity: Globale Wertung, gruppenweiser Wochenabschluss, 1-Klick-Einladung, Verlauf-Suche, Mehrfachvergabe |
 
 **Tests (immer vor dem Commit laufen lassen):**
-`python luacheck.py` · `python tests/rechenkern.py` (478) · `python tests/szenarien.py` (64 Szenarien; **ohne `-I`**, sonst findet Python `lupa` nicht) ·
-`python tests/texte.py --streng` (777 Schlüssel; ungenutzte Schlüssel aus `Locale.lua` entfernen) · danach `.\deploy.ps1` (rollt in `_classic_beta_` aus; Änderungen: `/reload`, neue Dateien: WoW-Neustart).
+`python luacheck.py` · `python tests/rechenkern.py` (478) · `python tests/szenarien.py` (72 Szenarien; **ohne `-I`**, sonst findet Python `lupa` nicht) ·
+`python tests/texte.py --streng` (828 Schlüssel; ungenutzte Schlüssel aus `Locale.lua` entfernen) · danach `.\deploy.ps1` (rollt in `_classic_beta_` aus; Änderungen: `/reload`, neue Dateien: WoW-Neustart).
 Patches bisher als Python-Skripte im Scratchpad (CRLF erhalten, `python -X utf8`); Lua-Text nie per Heredoc, sondern per Write-Werkzeug. Die Simulation (`tests/sim.py`) hat eine eigene Uhr, rechnet `time({Tabelle})` wie im Spiel und kennt Flüstern (`WHISPER`, nur der Empfänger bekommt es).
 
 **Im Spiel vom Nutzer bestätigt:** Regelwerk (Wertung, Zuschläge, Anhebung, Neuling, Gast, Rückgabe), Würfelfenster inkl. Passen und frühem Ende, „Fairshare nutzen?“ nur für den Plündermeister, geteilte Einstellungen mit Sperre/Selbstheilung, Raidkader per Rangsync, Einteilung, Bench, „Keine Meldung“, Abschluss je Gruppe, Gruppenwechsel = anderer Abend, schlanke Abwesenheit, Wochenabschluss (Buchung); **neu 22.10.:** die vereinfachte Bedienung (Ausklappliste mit gezeichnetem Pfeil, zwei Listen, Reiter nur mit Schreibrecht – ein Spieler ohne Recht sah nur „Spieler“/„Verlauf“), Gruppen kommen per „An alle senden“ bei den anderen an.
 
 **NOCH NICHT im Spiel gesehen (zuerst prüfen lassen):**
+0. **Antigravity 20.–21.10.:** Raid-Größen (10er/20er/40er, Einteilung je Größe), Globale Wertung, gruppenweiser Wochenabschluss mit `[Gruppe pausiert]`, `[Gruppe einladen]`, Verlauf-Suche, persönliche Einteilung im Reiter Spieler. ⚠️ Protokoll/Datenstruktur geändert (`S|`, Einteilung je Größe, `T;?`): **alle brauchen die neue Fassung; Zip neu bauen** (`python release/bauen.py` aus dem Commit oder `--aktuell`).
+0b. **Probe-Modus schützt die echten Daten** (21.10., Claude): `Erfassung.GildenReset/ResetAnwenden` sind im Probe-Modus gesperrt; `Konfig.Senden/AutoSenden` sperrt der Probe-Modus selbst (`Anwesenheit.lua`). Szenario 71.
 1. **Reiter „Anwesenheit“ & Default = Anwesend** (neu 22.10.): Eingeteilte Spieler ohne Eintrag sind automatisch anwesend (grün). 3 Knöpfe `[Bank/Bench] [Abwesend] [Unent.]` zum 1-Klick-Toggle. Kein Panik-Abschluss mehr vor dem Verlassen der Gruppe nötig.
 2. **Probe-Modus / Übungsmodus** (neu 22.10.): `/fs probe abend` (Chat-Simulation mit 14 Spielern, 6/6 Prüfungen) und `/fs probe` (UI-Leiste, Item-Vergabe, isolierte Wegwerf-DB).
 3. **Leitungs-Abgleich** (Nutzer testet am 23.10.2026): zwei Spieler mit Schreibrecht, nicht in einer Gruppe, auf unterschiedlichem Stand; nach 1–2 Minuten muss der andere „Mit der Leitung abgeglichen: …“ im Chat sehen. Falls nichts passiert: `/fs abgleich status` (Zeile „Leitungs-Abgleich: aktiv“), `Konfig.Darf` (Gildenliste geladen? Rang im Bereich?), ob Flüstern in Forever Addon-Nachrichten durchlässt (ungemessen).
@@ -81,7 +86,7 @@ Patches bisher als Python-Skripte im Scratchpad (CRLF erhalten, `python -X utf8`
 8. Das leere erste Öffnen nach dem Anmelden (Schrift vorladen, `Stil.SchriftVorladen`/`AuffrischenBisFertig`). Bleibt es leer: `/fs darstellung` ausgeben lassen.
 
 **Entscheide des Nutzers, die nicht offensichtlich sind (nicht neu aufrollen):**
-- Im Raid = wer am **Abendende** in der Gruppe steht bzw. wer laut Einteilung eingeteilt ist und nicht als abwesend/Bank/unentschuldigt markiert wurde; wer früher geht und kein Main-Item hatte, gilt als abwesend.
+- ✅ **Vom Nutzer bestätigt (22.10.2026):** Im Raid = wer in der Einteilung der Gruppe steht und nicht als Bank/Abwesend/Unentschuldigt markiert ist (**Standard = Anwesend**). Grund: weniger zu verwalten, kein Zeitdruck beim Abschluss. Der Knopf „Abwesend“ bleibt. Die ältere Regel „Im Raid = am Abendende in der Gruppe“ (17.10.) gilt nicht mehr.
 - Abgemeldete werden **nirgends eingeteilt**: Wer im Raidkader steht und in der **Raid-ID (Woche ab dem Wechseltag, Standard Mittwoch)** nirgends eingeteilt war, ist abgemeldet; Buchung per
   „Woche abschließen“, **zwei Zuschläge je Spieler**, Schnitt = Mittel der Gruppen-Schnitte je Abend-Nummer. „Keine Meldung“ ist ein Ziel der Einteilung.
 - (seit 22.10.2026) Die Einteilung gilt **einmal je Raid-ID** (eine Woche ab einstellbarem Wechseltag, Standard Mittwoch); Raidleitung baut die Gruppen so, dass an beiden Tagen dieselben Spieler stehen, Teilzeit-Spieler kommen auf die Bank. Die Raidtage je Gruppe stehen nicht mehr in der Oberfläche.
@@ -112,8 +117,8 @@ Patches bisher als Python-Skripte im Scratchpad (CRLF erhalten, `python -X utf8`
 - Die Einteilung hat kein Nachholen für Spieler, die sie verpasst haben (Einstellungen haben es); sie bekommen sie, wenn jemand mit Schreibrecht „Einteilung senden“ drückt.
 - Der Leitungs-Abgleich begrenzt eine Runde auf 600 Einträge je Spieler (`MAXEINTRAEGE`); große Rückstände brauchen mehrere Runden (nächste `V`-Meldung, spätestens nach 15 Minuten).
 - **OS-Standard seit 22.10.2026 1-99** (vorher 1-50, jetzt wie Garguls Voreinstellung): `Kern.BEREICHE`, `Erfassung.lua`, `Einstellungen.lua` (Knopf „Standardbereiche“). Bereits **gespeicherte** Bereiche (1-50) bleiben, bis die Gildenleitung „Standardbereiche“ klickt und die Einstellungen teilt (geht jetzt von selbst); alle Würfelfenster und Tests richten sich nach dem Bereich des Leiters.
-- **Gildenweiter Reset (22.10.2026, nicht committet, im Spiel ungetestet; Beschreibung und Szenario 60 in `AGENTS.md`):** `/fs reset gilde` / Einstellungen → Erfassung → „Für alle zurücksetzen“, nur Stufe 1 und 2. Reset-Marke `Z|` in den geteilten Einstellungen; Alt-Daten werden danach nicht mehr angenommen. **Im Spiel prüfen:** Reset als Gildenmeister, ein Offizier/Mitglied online sieht die Chatmeldung und eine leere Liste; ein Spieler, der beim Reset offline war, bekommt ihn beim Anmelden; `/fs reset undo` danach verweigert. Alle brauchen dieselbe Fassung.
-- **Anhebung (19.10.2026, nicht committet, im Spiel ungetestet):** Auf Entscheid des Nutzers ist die **automatische Anhebung abgeschafft** (`Kern.AUTO_ANHEBUNG = false`), es gibt eine **manuelle** (`Anwesenheit.AnhebungSetzen`, Einstellungen → Gruppen → Anhebung mit Namensfeld, `/fs anhebung <Name>`; nur Raid-/Gildenleitung). Der Neuling-Einstieg am 2. Abend bleibt. Beschreibung in `AGENTS.md`/`REGELWERK-ENTWURF.md` § 3. Das Google Doc „Fairshare Kurzanleitung“ und `ANLEITUNG.md` nennen die Anhebung noch automatisch und müssen angepasst werden.
+- **Gildenweiter Reset (22.10.2026, committet `719ba45`, im Spiel bestätigt (kam bei Xalessa nach einiger Zeit an); Beschreibung und Szenario 60 in `AGENTS.md`):** `/fs reset gilde` / Einstellungen → Erfassung → „Für alle zurücksetzen“, nur Stufe 1 und 2. Reset-Marke `Z|` in den geteilten Einstellungen; Alt-Daten werden danach nicht mehr angenommen. **Im Spiel prüfen:** Reset als Gildenmeister, ein Offizier/Mitglied online sieht die Chatmeldung und eine leere Liste; ein Spieler, der beim Reset offline war, bekommt ihn beim Anmelden; `/fs reset undo` danach verweigert. Alle brauchen dieselbe Fassung.
+- **Anhebung (19.10.2026, committet `719ba45`, im Spiel ungetestet):** Auf Entscheid des Nutzers ist die **automatische Anhebung abgeschafft** (`Kern.AUTO_ANHEBUNG = false`), es gibt eine **manuelle** (`Anwesenheit.AnhebungSetzen`, Einstellungen → Gruppen → Anhebung mit Namensfeld, `/fs anhebung <Name>`; nur Raid-/Gildenleitung). Der Neuling-Einstieg am 2. Abend bleibt. Beschreibung in `AGENTS.md`/`REGELWERK-ENTWURF.md` § 3. Das Google Doc „Fairshare Kurzanleitung“ und `ANLEITUNG.md` nennen die Anhebung noch automatisch und müssen angepasst werden.
 - Push von `origin/main` vorher mit `git fetch` prüfen (neben dem Nutzer schreibt `xqp`).
 
 **Stolperfallen, die uns Zeit gekostet haben:**
