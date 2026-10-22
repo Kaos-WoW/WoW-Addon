@@ -482,6 +482,20 @@ fest(R is not None and sum(1 for _ in R.keys()) == 3, "drei Gildenraenge erkannt
 fest(R[1]["name"] == "Gildenmeister" and R[2]["name"] == "Raider" and R[3]["name"] == "Anwaerter",
      "Raenge vom hoechsten zum niedrigsten")
 
+# Sortierung nach Gildenrang und Klassenfarbe in den Listen
+lua.execute("""
+__gilde[11].classID = 1; __gilde[12].classID = 8
+C_CreatureInfo = { GetClassInfo = function(id) return { classFile = (id == 1) and "WARRIOR" or "MAGE" } end }
+RAID_CLASS_COLORS = { WARRIOR = { r = 0.78, g = 0.61, b = 0.43 }, MAGE = { r = 0.25, g = 0.78, b = 0.92 } }
+""")
+fest(G.RangVor("Gildenleiter", "Raider Eins") is True, "Gildenmeister steht vor Raider")
+fest(G.RangVor("Neuling", "Raider Eins") is False, "Anwaerter steht hinter Raider")
+fest(G.RangVor("Raider Eins", "Raider Zwei") is True, "gleicher Rang: nach Name")
+fest(G.RangVor("Raider Zwei", "Unbekannt") is True, "Unbekannte stehen zuletzt")
+fest(G.KlassenFarbe("Gildenleiter") == "|cffc79c6e", "Krieger: Klassenfarbe aus der Gildenliste")
+fest(G.KlassenFarbe("Raider Eins") == "|cff40c7eb", "Magier: Klassenfarbe aus der Gildenliste")
+fest(G.KlassenFarbe("Neuling") is None, "ohne bekannte Klasse: keine Farbe")
+
 G.RangSetzen("40er", 3, True)
 neu, weg = tup3(G.Synchronisieren("40er"))
 fest(neu == 2 and weg == 0, "gewaehlter Rang: zwei neu (%s neu, %s entfernt)" % (neu, weg))
@@ -4059,6 +4073,92 @@ fest(not n0.Konfig.AutoSenden(), "ebenso das automatische Senden")
 n0.Fenster.ProbeModus(False)
 r3 = tup(n0.Erfassung.GildenReset())
 fest(r3[0] == 1, "nach dem Beenden geht der Reset wieder (%s)" % (r3,))
+
+print("== 72. Kompaktfenster: Reihenfolge nach Wertung, Leiste, Wurf, Vorschau, gross und klein schliessen sich ==")
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+cl = w.clients[0]
+ns, g, lua = cl["ns"], cl["g"], cl["lua"]
+w.eintragen(0, "Timo", 8001)
+w.eintragen(0, "Timo", 8002)
+w.eintragen(0, "Lina", 8003)
+w.weiter(5)
+ns.Kompakt.Zeigen()
+w.weiter(1)
+kf = g["FairshareKompakt"]
+fest(ns.Kompakt.Sichtbar() and kf is not None, "/fs kompakt: das Fenster ist da")
+fest(bool(g["FairshareDB"]["kompakt"]["offen"]), "offen wird gemerkt")
+a1, a2, a3 = zeile_von("Leiter Kaos"), zeile_von("Lina"), zeile_von("Timo")
+fest(a1 and a2 and a3 and a1 < a2 < a3, "Wertung: niedrigste zuerst (Kaos 0, Lina 1, Timo 2)")
+fest(ns.Wurf.Laufend() is None, "ohne Wurf gibt es keinen Wurf-Zustand")
+
+# Leiste: eine Zeile
+h_voll = kf._h
+lua.execute("FairshareDB.kompakt.leiste = true")
+ns.Kompakt.Aktualisieren()
+fest(kf._h == 28 and h_voll > 28, "Leiste: nur noch die Kopfzeile (%s -> %s)" % (h_voll, kf._h))
+fest(len(texte_von(g, "Dran:")) > 0, "die Leiste nennt, wer dran ist")
+lua.execute("FairshareDB.kompakt.leiste = false")
+ns.Kompakt.Aktualisieren()
+fest(kf._h == h_voll, "zurueck auf die volle Hoehe")
+
+# Wurf starten im kleinen Fenster: nur wer darf (der Leiter), und nur ohne laufenden Wurf
+fest(ns.Wurf.DarfStarten(), "der Leiter darf starten")
+fest(g["__klick"]("Wurf starten") is True, "der Knopf ist klickbar")
+t1 = w.clients[1]
+t1["ns"].Kompakt.Zeigen()
+t1["ns"].Kompakt.Aktualisieren()
+fest(not t1["ns"].Wurf.DarfStarten(), "ein Mitglied darf nicht starten (kein Knopf)")
+fest(t1["g"]["__klick"]("Wurf starten") is False, "beim Mitglied gibt es keinen sichtbaren Knopf Wurf starten")
+
+# Ein laufender Wurf ersetzt die Reiter
+KL = "|cff0070dd|Hitem:7100::::::::60:::::|h[Schwert der Probe]|h|r"
+ok, grund = tup(ns.Wurf.Starten(KL))
+fest(ok is True, "Wurf gestartet (%s)" % grund)
+w.weiter(2)
+fest(not ns.Fenster.Sichtbar() and ns.Kompakt.Sichtbar(), "beim Wurfstart bleibt das grosse Fenster zu, das kleine offen")
+for c2 in w.clients:
+    c2["g"]["__ereignis"]("CHAT_MSG_SYSTEM", "Timo rolls 77 (1-100)")
+    c2["g"]["__ereignis"]("CHAT_MSG_SYSTEM", "Lina rolls 41 (1-100)")
+w.weiter(2)
+ns.Kompakt.Aktualisieren()
+W = ns.Wurf.Laufend()
+fest(W is not None and W["gesamt"] >= 1, "Wurf.Laufend liefert den Stand")
+fest(len(texte_von(g, "Schwert der Probe")) > 0, "der Gegenstand steht im Kompaktfenster")
+r1, r2 = zeile_von("Lina"), zeile_von("Timo")
+fest(r1 and r2 and r1 < r2, "Wuerfe in der Reihenfolge der Uebersicht: Lina (Wertung 1) vor Timo (2)")
+fest(len(texte_von(g, "77")) > 0 and len(texte_von(g, "41")) > 0, "die Wurfzahlen stehen daneben")
+lua.execute("FairshareDB.kompakt.leiste = true")
+ns.Kompakt.Aktualisieren()
+fest(kf._h == 28 and len(texte_von(g, "Schwert der Probe")) > 0, "Leiste im Wurf: Gegenstand und Zeit in einer Zeile")
+lua.execute("FairshareDB.kompakt.leiste = false")
+ns.Wurf.Abbrechen()
+w.weiter(2)
+ns.Kompakt.Aktualisieren()
+fest(ns.Wurf.Laufend() is None, "nach dem Abbruch ist wieder alles beim Alten")
+
+# Gross und klein schliessen sich gegenseitig
+ns.Fenster.Zeigen(False)
+fest(ns.Fenster.Sichtbar() and not ns.Kompakt.Sichtbar(), "das grosse Fenster oeffnen schliesst das kleine")
+ns.Kompakt.Zeigen()
+fest(ns.Kompakt.Sichtbar() and not ns.Fenster.Sichtbar(), "das kleine oeffnen schliesst das grosse")
+g["__klick"]("Groß")
+fest(ns.Fenster.Sichtbar() and not ns.Kompakt.Sichtbar(), "Knopf Gross im kleinen Fenster")
+ns.Fenster.Verstecken()
+ns.Kompakt.Zeigen()
+
+# Vorschau mit Beispieldaten (auch allein): Wertung, dann Wurf, dann aus
+fest(ns.Kompakt.Vorschau() == "wertung" and len(texte_von(g, "Vanity Zerath")) > 0, "Vorschau 1: Beispiel-Wertung")
+fest(ns.Kompakt.Vorschau() == "wurf" and len(texte_von(g, "Blade of Doom")) + len(texte_von(g, "Klinge der Verdammnis")) > 0, "Vorschau 2: Beispiel-Wurf")
+fest(len(texte_von(g, "87")) > 0, "mit Wurfzahlen")
+fest(ns.Kompakt.Vorschau() is None, "Vorschau 3: aus")
+fest(ns.Wurf.Laufend() is None, "die Vorschau startet keinen echten Wurf")
+
+ns.Kompakt.Verstecken()
+fest(not ns.Kompakt.Sichtbar() and not g["FairshareDB"]["kompakt"]["offen"], "zu: Fenster weg, Zustand gemerkt")
+ns.Kompakt.Umschalten()
+fest(ns.Kompakt.Sichtbar(), "Umschalten oeffnet es wieder")
 
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")

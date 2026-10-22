@@ -1,6 +1,6 @@
 # Fairshare – Regelwerk-Entwurf: Wertung und Vorrang
 
-Stand 22.10.2026 (Bedienung der Gruppen vereinfacht: Raid-ID, zwei Listen) · **Alles umgesetzt** (Addon 0.9.0 auf der Forever-Beta). Seit dem 16.10. dazugekommen: mehrere Gruppen mit Einteilung, Bench und Wochenabschluss (§ 2 und § 6a).
+Stand 22.10.2026 (Bedienung der Gruppen vereinfacht: Raid-ID, zwei Listen) · **Alles umgesetzt** (Addon 0.9.1 auf der Forever-Beta). Seit dem 16.10. dazugekommen: mehrere Gruppen mit Einteilung, Bench und Wochenabschluss (§ 2 und § 6a).
 Wie beim Golf: **Wer die niedrigste Wertung hat, hat Vorrang.** Gleichstand wird gewürfelt (höchster Wurf gewinnt).
 
 ## 0. Die Begriffe in einem Blick

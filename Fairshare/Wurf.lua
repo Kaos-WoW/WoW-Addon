@@ -323,6 +323,13 @@ local function wurfStand()
     return gewaehlt, #namen, gepasst
 end
 
+--- Der laufende Wurf fuer das Kompaktfenster: Gegenstand, Zeit und wer schon gewaehlt hat; nil ohne Wurf.
+function Wurf.Laufend()
+    if not aktiv then return nil end
+    local gw, gs, gp = wurfStand()
+    return { link = aktiv.link, ende = aktiv.ende, dauer = aktiv.dauer, gewaehlt = gw, gesamt = gs, gepasst = gp }
+end
+
 popupAktualisieren = function()
     if not popup or not aktiv then return end
     popup.itemText:SetText(aktiv.link)
@@ -1043,6 +1050,11 @@ local function rangliste(link)
     local erfasst = 0
     for _ in pairs(R.Wuerfe) do erfasst = erfasst + 1 end
     return zeilen, probe, (#zeilen == 0 and erfasst > 0) and string.format(L["%d Würfe erfasst, keiner wertbar"], erfasst) or nil
+end
+
+--- Die Wuerfe in der Reihenfolge der Uebersicht (fuer das Kompaktfenster).
+function Wurf.RangListe(link)
+    return (rangliste(link))
 end
 
 --- Eine Vergabe in die Historie schreiben (nur der Aufzeichner darf).

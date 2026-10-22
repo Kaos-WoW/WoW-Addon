@@ -259,6 +259,15 @@ function Gruppen.PraesenzOnline(p)
     return (p == 1 or p == 4 or p == 5) and true or false
 end
 
+--- Der Klassenschluessel (z. B. "WARRIOR") zu einer Klassen-ID, oder nil.
+function Gruppen.KlasseAusId(id)
+    local CI = rawget(_G, "C_CreatureInfo")
+    if not id or not CI or not CI.GetClassInfo then return nil end
+    local ok, info = pcall(CI.GetClassInfo, id)
+    if ok and type(info) == "table" and type(info.classFile) == "string" then return info.classFile end
+    return nil
+end
+
 --- Alle Gildenmitglieder.
 --  Forever liest ueber C_Club, Anniversary/Classic ueber GetGuildRosterInfo
 --  (so hat es schon die erste Fassung dieses Projekts gemessen).
@@ -282,6 +291,7 @@ function Gruppen.GildenMitglieder()
                             name = info.name,
                             rang = info.guildRank,
                             rangIndex = info.guildRankOrder,
+                            klasse = Gruppen.KlasseAusId(info.classID),
                             online = online and true or false,
                         }
                     end
@@ -295,12 +305,13 @@ function Gruppen.GildenMitglieder()
         local info = rawget(_G, "GetGuildRosterInfo")
         if anzahl and info then
             for i = 1, (anzahl() or 0) do
-                local name, rang, rangIndex, _, _, _, _, _, isOnline = info(i)
+                local name, rang, rangIndex, _, _, _, _, _, isOnline, _, klasse = info(i)
                 if name then
                     liste[#liste + 1] = {
                         name = name,
                         rang = rang,
                         rangIndex = rangIndex,
+                        klasse = type(klasse) == "string" and klasse ~= "" and klasse or nil,
                         online = isOnline and true or false,
                     }
                 end
@@ -310,6 +321,64 @@ function Gruppen.GildenMitglieder()
 
     if #liste == 0 then return nil, L["Die Gildenliste ist noch nicht geladen."] end
     return liste
+end
+
+-- ---------------------------------------------------------------------
+--  Rang und Klasse eines Spielers (Sortierung und Klassenfarbe in den Listen)
+-- ---------------------------------------------------------------------
+
+local infoCache = { t = -100, nach = {} }
+
+--- Rang (kleiner = hoeher) und Klasse eines Gildenmitglieds, oder nil.
+--  ⚠️ Fuenf Sekunden gemerkt: Die Listen fragen es je Zeile und je Vergleich.
+--  @return { rangIndex, klasse } oder nil
+function Gruppen.MitgliedInfo(name)
+    local k = Kern.Schluessel(name)
+    if not k then return nil end
+    local jetzt = (GetTime and GetTime()) or time()
+    if (jetzt - infoCache.t) >= 5 then
+        local nach = {}
+        local M = Gruppen.GildenMitglieder()
+        for _, m in ipairs(M or {}) do
+            local mk = Kern.Schluessel(m.name)
+            if mk then nach[mk] = { rangIndex = m.rangIndex, klasse = m.klasse } end
+        end
+        infoCache = { t = jetzt, nach = nach }
+    end
+    return infoCache.nach[k]
+end
+
+--- Der Rang als Zahl fuer die Sortierung (0 = Gildenmeister); unbekannte Spieler kommen zuletzt.
+function Gruppen.RangZahl(name)
+    local i = Gruppen.MitgliedInfo(name)
+    return (i and tonumber(i.rangIndex)) or 999
+end
+
+--- Sortierung: hoechster Gildenrang oben, bei gleichem Rang nach Name.
+function Gruppen.RangVor(a, b)
+    local ra, rb = Gruppen.RangZahl(a), Gruppen.RangZahl(b)
+    if ra ~= rb then return ra < rb end
+    return Kern.Anzeigename(a):lower() < Kern.Anzeigename(b):lower()
+end
+
+--- Der Farbcode "|cffRRGGBB" einer Klasse (Schluessel wie "WARRIOR"), oder nil.
+function Gruppen.KlasseFarbcode(klasse)
+    local tab = klasse and (rawget(_G, "CUSTOM_CLASS_COLORS") or rawget(_G, "RAID_CLASS_COLORS"))
+    local c = tab and tab[klasse]
+    if type(c) ~= "table" or not c.r then return nil end
+    return string.format("|cff%02x%02x%02x", math.floor(c.r * 255 + 0.5), math.floor(c.g * 255 + 0.5), math.floor(c.b * 255 + 0.5))
+end
+
+--- Die Klassenfarbe eines Spielers als Farbcode "|cffRRGGBB", oder nil, wenn die Klasse unbekannt ist.
+--  Gildenmitglieder kommen aus der Gildenliste, alle anderen aus der Gruppe.
+function Gruppen.KlassenFarbe(name)
+    local i = Gruppen.MitgliedInfo(name)
+    local klasse = i and i.klasse
+    if not klasse and UnitClass and name then
+        local ok, _, datei = pcall(UnitClass, name)
+        if ok and type(datei) == "string" then klasse = datei end
+    end
+    return Gruppen.KlasseFarbcode(klasse)
 end
 
 local rangCache = { t = -100 }

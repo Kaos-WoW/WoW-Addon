@@ -184,8 +184,46 @@ local function baueZeile(index)
 
     for _, k in ipairs(SPALTEN) do z[k] = spalte(z) end
 
-    z:SetScript("OnEnter", function(s) if s.spielername then s.hover:SetShown(true) end end)
-    z:SetScript("OnLeave", function(s) s.hover:SetShown(false) end)
+    -- ⭐ Tooltip des Gegenstands, solange die Maus auf dem Gegenstandstext (Spalte d) steht (Verlauf, Spielerdetail)
+    local function tippAus(s)
+        if s.tippOffen then
+            s.tippOffen = false
+            if GameTooltip and GameTooltip:IsOwned(s) then GameTooltip:Hide() end
+        end
+    end
+    z:SetScript("OnEnter", function(s)
+        if s.spielername then s.hover:SetShown(true) end
+        s.ueber = true
+    end)
+    z:SetScript("OnLeave", function(s)
+        s.hover:SetShown(false)
+        s.ueber = false
+        tippAus(s)
+    end)
+    z:SetScript("OnUpdate", function(s)
+        if not s.ueber then return end
+        local link = s.itemLink
+        local drauf = false
+        if link and GameTooltip and GetCursorPosition then
+            local x = GetCursorPosition() / s:GetEffectiveScale()
+            local l, w = s.d:GetLeft(), s.d:GetStringWidth()
+            drauf = l ~= nil and x >= l and x <= l + w
+        end
+        if drauf then
+            if not s.tippOffen or s.tippLink ~= link then
+                s.tippOffen, s.tippLink = true, link
+                GameTooltip:SetOwner(s, "ANCHOR_CURSOR_RIGHT")
+                if not pcall(GameTooltip.SetHyperlink, GameTooltip, link) then
+                    GameTooltip:Hide()
+                    s.tippOffen = false
+                    return
+                end
+                GameTooltip:Show()
+            end
+        else
+            tippAus(s)
+        end
+    end)
     if z.RegisterForClicks then z:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
     z:SetScript("OnClick", function(s, taste)
         if zustand.ansicht == "einteilung" then return end      -- dort arbeiten nur die Knöpfe
@@ -290,6 +328,11 @@ local function kopfBauen()
     zu:SetScript("OnEnter", function() S.Faerbe(x, C.tx) end)
     zu:SetScript("OnLeave", function() S.Faerbe(x, C.mu) end)
     zu:SetScript("OnClick", function() rahmen:Hide() end)
+
+    -- Das kleine Fenster fuer den Raid (Kompakt.lua)
+    local klein = S.Knopf(k, L["Kompakt"], "link", 20)
+    klein:SetPoint("RIGHT", zu, "LEFT", -8, 0)
+    klein:SetScript("OnClick", function() if ns.Kompakt then ns.Kompakt.Zeigen() end end)
 end
 
 --- ⭐ Die Raid-ID der Einteilung: diese oder die nächste (Entscheid 22.10.2026, einmal je Raid-ID).
@@ -971,7 +1014,8 @@ local function zeigeListe(H)
         z.hover:SetShown(false)
         z.markiert:SetShown(wuerfelt and true or false)
 
-        z.a:SetText((wuerfelt and HELL or "") .. e.name .. (wuerfelt and "|r" or ""))
+        local kf = ns.Gruppen.KlassenFarbe(e.name) or (wuerfelt and HELL) or ""
+        z.a:SetText(kf .. e.name .. (kf ~= "" and "|r" or ""))
         local w = (wuerfelt and e.effektiveWertung) or e.wertung or e.haupt or 0
         local wStr = (w == math.floor(w)) and tostring(w) or string.format("%.1f", w)
         if wuerfelt and e.dynamischeAnhebung and e.dynamischeAnhebung > 0 then
@@ -1118,6 +1162,7 @@ local function zeigeSpieler(H)
         end
 
         z.d:SetText(e.text or "")
+        z.itemLink = e.isItem and Quelle.Gegenstandslink(e.eintrag) or nil
         z.e:SetText("")
 
         if e.isItem then
@@ -1177,7 +1222,7 @@ local function zeigeSpieler(H)
     local zusatz = ""
     if statusText ~= "" then zusatz = "  " .. statusText end
     if anwText ~= "" then zusatz = zusatz .. "  " .. GRAU .. "—  " .. anwText .. "|r" end
-    unterzeile:SetText(HELL .. Kern.Anzeigename(zustand.spieler) .. "|r" .. zusatz)
+    unterzeile:SetText((ns.Gruppen.KlassenFarbe(zustand.spieler) or HELL) .. Kern.Anzeigename(zustand.spieler) .. "|r" .. zusatz)
 end
 
 local function zeigeVerlauf(H)
@@ -1225,9 +1270,11 @@ local function zeigeVerlauf(H)
         if z.teilBtn then z.teilBtn:Hide() end; if z.entfBtn then z.entfBtn:Hide() end
         if z.probeRaidBtn then z.probeRaidBtn:Hide() end
         z.a:SetText(GRAU .. date(L["%d.%m. %H:%M"], e.zeit) .. "|r")
-        z.b:SetText(e.name)
+        local kf = ns.Gruppen.KlassenFarbe(e.name)
+        z.b:SetText(kf and (kf .. e.name .. "|r") or e.name)
         z.c:SetText(e.zweit and (GRAU .. L["Zweit"] .. "|r") or L["Haupt"])
         z.d:SetText(Quelle.Gegenstandstext(e.eintrag))
+        z.itemLink = Quelle.Gegenstandslink(e.eintrag)
         z.e:SetText("")
         undoZeile(z, e.id)
     end
@@ -1264,6 +1311,10 @@ local function zeigeBank(H)
 
     -- ⭐ Ist der Abend abgeschlossen, zeigt die Liste nichts mehr (nur der Hinweis); „Neuen Abend beginnen“ macht sie frei
     if istGeschlossen and not zustand.beispiel then liste = {} end
+    -- ⭐ Nach Gildenrang: Gildenmeister oben, der niedrigste Rang unten (gleicher Rang nach Name)
+    if not zustand.beispiel then
+        table.sort(liste, function(a, b) return ns.Gruppen.RangVor(a.name, b.name) end)
+    end
     zustand.maxVersatz = math.max(0, #liste - zeilenSicht)
     if zustand.versatz > zustand.maxVersatz then zustand.versatz = zustand.maxVersatz end
 
@@ -1283,7 +1334,7 @@ local function zeigeBank(H)
         z.undo:Hide()
         if z.teilBtn then z.teilBtn:Hide() end; if z.entfBtn then z.entfBtn:Hide() end        -- ⭐ die Zeilen werden von allen Ansichten mitbenutzt
 
-        z.a:SetText(HELL .. Kern.Anzeigename(e.name) .. "|r")
+        z.a:SetText((ns.Gruppen.KlassenFarbe(e.name) or HELL) .. Kern.Anzeigename(e.name) .. "|r")
         if z.probeRaidBtn then z.probeRaidBtn:Hide() end
 
         if e.unentschuldigt then
@@ -1538,11 +1589,11 @@ local function zeigeEinteilung()
             end
         end
     end
-    table.sort(drin, function(a, b) return a.name:lower() < b.name:lower() end)
+    table.sort(drin, function(a, b) return G.RangVor(a.name, b.name) end)
     table.sort(verfuegbar, function(a, b)
         local oa, ob = ordnung(a), ordnung(b)
         if oa ~= ob then return oa < ob end
-        return a.name:lower() < b.name:lower()
+        return G.RangVor(a.name, b.name)
     end)
     zustand.einteilungListe, zustand.einteilungDrin = verfuegbar, drin
     zustand.maxVersatz = math.max(0, math.max(#verfuegbar, #drin) - zeilenSicht)
@@ -1570,18 +1621,19 @@ local function zeigeEinteilung()
         z.e:SetText("")
 
         if l then
+            local kf = G.KlassenFarbe(l.name)
             if l.gruppe == nil then
-                z.a:SetText(HELL .. Kern.Anzeigename(l.name) .. "|r")
+                z.a:SetText((kf or HELL) .. Kern.Anzeigename(l.name) .. "|r")
                 z.b:SetText(GRAU .. tostring(l.rang or "") .. "|r")
             elseif l.gruppe == G.BENCH then
-                z.a:SetText(AKZENT .. Kern.Anzeigename(l.name) .. "|r")
+                z.a:SetText((kf or AKZENT) .. Kern.Anzeigename(l.name) .. "|r")
                 z.b:SetText(AKZENT .. L["Bench"] .. "|r")           -- die Bench fällt auf: sie springt ein
             elseif l.gruppe == G.KEINEMELDUNG then
-                z.a:SetText(ROT .. Kern.Anzeigename(l.name) .. "|r")
+                z.a:SetText((kf or ROT) .. Kern.Anzeigename(l.name) .. "|r")
                 z.b:SetText(ROT .. L["Keine Meldung"] .. "|r")
             else
                 local farbe = gruppenFarbe(G, l.gruppe)
-                z.a:SetText(farbe .. Kern.Anzeigename(l.name) .. "|r")
+                z.a:SetText((kf or farbe) .. Kern.Anzeigename(l.name) .. "|r")
                 z.b:SetText(farbe .. l.gruppe .. "|r")
             end
             local verschieben = l.gruppe ~= nil and not G.IstBench(l.gruppe) and l.gruppe ~= G.KEINEMELDUNG
@@ -1604,7 +1656,7 @@ local function zeigeEinteilung()
 
         if r then
             local farbe = zielIstGruppe and gruppenFarbe(G, ziel) or (ziel == G.BENCH and AKZENT or ROT)
-            z.c:SetText(farbe .. Kern.Anzeigename(r.name) .. "|r")
+            z.c:SetText((G.KlassenFarbe(r.name) or farbe) .. Kern.Anzeigename(r.name) .. "|r")
             z.d:SetText(GRAU .. tostring(r.rang or "") .. "|r")
             z.entfBtn:ClearAllPoints()
             z.entfBtn:SetPoint("RIGHT", z, "RIGHT", 0, 0)
@@ -1694,6 +1746,7 @@ end
 
 function Fenster.Aktualisieren()
     if not rahmen then return end
+    for _, z in ipairs(zeilen) do z.itemLink = nil end        -- nur Verlauf und Spielerdetail setzen ihn wieder
 
     -- Kopf: Version, bei Beispieldaten eine Warnfarbe
     if zustand.probe then
@@ -1922,6 +1975,33 @@ function Fenster.Aktualisieren()
         end
     end
 
+    -- ⭐ Die Knopfreihe der zweiten Zeile wächst nach links (englische Texte sind länger): Reicht die Breite nicht,
+    -- ragten die Knöpfe über den Fensterrand (Nutzerfund 22.10.2026). Darum: Mindestbreite aus der Reihe rechnen.
+    do
+        local reihe = { gruppeBtn }
+        if not zustand.spieler and zustand.ansicht == "einteilung" then
+            reihe = { gruppeBtn, syncBtn, tagBtn, sendenBtn, rahmen.wocheBtn, rahmen.wochePauseBtn }
+        elseif not zustand.spieler and zustand.ansicht == "bank" then
+            reihe = { gruppeBtn, abschlussBtn, offeneBtn, inviteBtn, rahmen.wocheBtn, rahmen.wochePauseBtn }
+        end
+        local summe, n = 0, 0
+        for _, b in ipairs(reihe) do
+            if b and b:IsShown() then
+                summe = summe + (b:GetWidth() or 0)
+                n = n + 1
+            end
+        end
+        local noetig = math.ceil(32 + summe + 8 * math.max(0, n - 1) + 120)       -- 120: Platz für den Hinweistext links
+        local minB = math.min(math.max(880, noetig), 1300)       -- Grenzen wie in Verstellbar
+        if rahmen.SetResizeBounds then rahmen:SetResizeBounds(minB, 420, 1300, 1100) end
+        if (rahmen:GetWidth() or 0) < minB and not zustand.breiteAnpassen then
+            zustand.breiteAnpassen = true
+            rahmen:SetWidth(minB)
+            if rahmen.speichern then rahmen.speichern() end
+            zustand.breiteAnpassen = false
+        end
+    end
+
     if probeLeiste then
         probeLeiste:SetShown(zustand.probe and true or false)
     end
@@ -2012,6 +2092,7 @@ end
 
 function Fenster.Zeigen(beispiel)
     baueFenster()
+    if ns.Kompakt and ns.Kompakt.Sichtbar() then ns.Kompakt.Verstecken() end      -- gross und klein schliessen sich
     if zustand.probe then
         Fenster.ProbeModus(false)
     end

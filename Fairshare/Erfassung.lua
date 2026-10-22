@@ -242,7 +242,7 @@ end
 --- Fenster auffrischen, bei Bedarf (neue Runde) von selbst oeffnen.
 local function fensterAnstossen(oeffnen)
     if not ns.Fenster then return end
-    if oeffnen and ns.Fenster.AutoOeffnen() then
+    if oeffnen and ns.Fenster.AutoOeffnen() and not (ns.Kompakt and ns.Kompakt.Sichtbar()) then
         ns.Fenster.Zeigen(false)
     else
         ns.Fenster.Aktualisieren()

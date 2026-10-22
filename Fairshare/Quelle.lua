@@ -81,6 +81,14 @@ function Quelle.Kennzeichen(eintrag)
     return "(" .. table.concat(teile, ", ") .. ")"
 end
 
+--- Der Verweis fuer den Tooltip eines Gegenstands (Link oder "item:<Nummer>"), oder nil.
+function Quelle.Gegenstandslink(eintrag)
+    if type(eintrag) ~= "table" then return nil end
+    if eintrag.itemLink then return eintrag.itemLink end
+    if eintrag.itemID then return "item:" .. tostring(eintrag.itemID) end
+    return nil
+end
+
 function Quelle.Gegenstandstext(eintrag)
     local text = grundtext(eintrag)
     local zusatz = Quelle.Kennzeichen(eintrag)

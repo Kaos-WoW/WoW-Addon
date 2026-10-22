@@ -22,6 +22,10 @@ Agents dieselbe Datei gleichzeitig ändern oder die Arbeit des anderen überschr
 
 ## Belegt
 
+## ⭐ CurseForge 0.9.1 (Beta) (Stand 22.10.2026)
+
+0.9.0 ist hochgeladen (aus `13bcbec`, Projekt-ID 1759404, `## X-Curse-Project-ID` steht seit 0.9.1 in der TOC). **0.9.1** bringt Kompaktfenster (`/fs kompakt`, Knopf Wurf starten), Rang-Sortierung und Klassenfarben, Item-Tooltip im Verlauf, Breitenfix. Keine Protokolländerung, **kompatibel mit 0.9.0**. Texte: `..\Fairshare-releases\changelog-0.9.1-fairshare.md` (nach dem Upload löschen), Beschreibung `curseforge-description-fairshare.md` (Kompaktfenster ergänzt, auf CurseForge nachziehen). Zip: `python release/bauen.py --cf` → `..\Fairshare-releases\curseforge\Fairshare-0.9.1.zip`. Upload macht der Nutzer. Bei 1.0.0 (Ende der Forever-Beta): Version heben, Beta-Hinweis streichen.
+
 ## ⭐ CurseForge-Release 0.9.0 (Beta) vorbereiten (Auftrag des Nutzers, 22.10.2026)
 
 **Entscheide:** Version **0.9.0**, Typ **Beta** (die Forever-Beta endet in 2 Tagen, danach **1.0.0**); Lizenz **All Rights Reserved**; **nur CurseForge** (kein Wago, kein Discord vorerst); CurseForge-Projekt **existiert noch nicht**, der Nutzer legt es an (Name „Fairshare“) und gibt die Projekt-ID (`## X-Curse-Project-ID` in die TOC). Upload macht immer der Nutzer.
@@ -31,6 +35,8 @@ Agents dieselbe Datei gleichzeitig ändern oder die Arbeit des anderen überschr
 
 ## Erledigt, nicht committet
 
+- **Kompaktfenster (22.10.2026, Claude, nicht committet):** `Fairshare/Kompakt.lua`, `/fs kompakt` (`/fs compact`) und Knopf „Kompakt“ im Kopf des großen Fensters. 232 px breit, nur die Wertung (niedrigste oben, eigene Zeile markiert, Platz; Verlauf und Abend gestrichen, Entscheid 22.10.2026); während eines Wurfs ersetzt der Wurf-Zustand die Reiter (Gegenstand, Zeitbalken, Würfe in der Reihenfolge der Übersicht, `Wurf.Laufend`/`Wurf.RangListe`). Knopf „–“ klappt auf eine Zeile (Dran: Name Wertung, im Wurf Gegenstand und Restzeit). Offen/zu, Zustand und Lage werden gemerkt (`FairshareDB.kompakt`, `fenster.kompakt`). Groß und Klein schließen sich gegenseitig (`Fenster.Zeigen` ↔ `Kompakt.Zeigen`; Auto-Öffnen beim Wurf überspringt das große Fenster, solange das kleine offen ist). Der Knopf „Wurf starten“ (nur wer starten darf, nur ohne laufenden Wurf) öffnet den Starter-Dialog (`Wurf.Dialog`). Offen: Nutzer sah das große Fenster beim Wurfstart trotz offenem kleinen wieder aufgehen; in der Simulation nicht nachstellbar (Szenario 72 prüft es), Ablauf im Spiel erfragen. `/fs kompakt test` zeigt eine Vorschau mit Beispieldaten (Wertung → Wurf → aus), auch solo. Szenario 72. Außerdem: Item-Tooltip im Verlauf/Spielerdetail (`Quelle.Gegenstandslink`), dynamische Mindestbreite der Knopfreihe (Einteilung/Anwesenheit), Klassenfarben auch in Spieler/Verlauf. Im Spiel ungetestet.
+- **Rang-Sortierung und Klassenfarben (22.10.2026, Claude, nicht committet):** Einteilung und Anwesenheit sortieren nach Gildenrang (Gildenmeister oben, `Gruppen.RangVor`; Unbekannte zuletzt, gleicher Rang nach Name), Spielernamen in Klassenfarbe (`Gruppen.KlassenFarbe`: Klasse aus der Gildenliste, sonst aus der Gruppe via `UnitClass`). Die Gruppenfarbe steht weiter in der Gruppen-Spalte. Anwesenheit: reine Rang-Sortierung statt der bisherigen Statusgruppen. Szenario 65 prüft Reihenfolge und Farben. Im Spiel ungetestet.
 - **Gargul-Anbindung entfernt (22.10.2026, Claude, nicht committet):** Auf Wunsch des Nutzers (keine Absprache mit dem Entwickler) ist alles Gargul aus dem Addon entfernt: TOC-`OptionalDeps`, `Quelle.Gargul*`, `Erfassung.Gargul*`, `Fenster.GargulAnbinden`, `/fs import`, `/fs bereiche setzen/uebernehmen`, die Gargul-Karte in Einstellungen → Würfeln & Abgleich, die Texte in `Locale.lua`, die Gargul-Szenarien (9, 12, Teile von 6, 11, 17, 26). Das Addon liest Würfe und Beute nur aus den normalen Spielmeldungen. Einstellungsseite heißt intern `wuerfeln` (vorher `gargul`).
 
 *(derzeit keine)*

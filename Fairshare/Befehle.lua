@@ -44,6 +44,7 @@ local function hilfe()
     print(L["  |cffffff78/fs konfig|r       – Einstellungen teilen (|cffffff78konfig senden|r, |cffffff78nachfragen|r, |cffffff78zurueck|r)"])
     print(L["  |cffffff78/fs verzauberer|r  – Verzauberer fürs Entzaubern (|cffffff78verzauberer add Name, Name|r, |cffffff78verzauberer del Name|r)"])
     print(L["  |cffffff78/fs beutetest|r    – Diagnose: Beutefenster und Zuteilung durch den Plündermeister"])
+    print(L["  |cffffff78/fs kompakt|r      – kleines Fenster für den Raid (|cffffff78kompakt test|r = Vorschau)"])
     print(L["  |cffffff78/fs gruppe|r       – Kader und Raidgruppen (|cffffff78gruppe hilfe|r)"])
     print(L["  |cffffff78/fs anwesenheit|r  – Anwesenheit und Bosskämpfe des heutigen Abends"])
     print(L["  |cffffff78/fs abschluss|r     – Raidabend abschließen und Zuschläge festschreiben"])
@@ -248,6 +249,17 @@ end
 befehle["demo"] = function()
     Fenster.Zeigen(true)
 end
+
+--- Das kleine Fenster fuer den Raid ein- oder ausschalten.
+befehle["kompakt"] = function(arg)
+    arg = (arg or ""):lower():match("^%s*(.-)%s*$")
+    if arg == "test" or arg == "vorschau" or arg == "preview" then
+        ns.Kompakt.Vorschau()
+    else
+        ns.Kompakt.Umschalten()
+    end
+end
+befehle["compact"] = befehle["kompakt"]
 
 befehle["verlauf"] = function()
     Fenster.ZeigenAnsicht("verlauf")
