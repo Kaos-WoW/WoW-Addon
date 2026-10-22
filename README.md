@@ -1,79 +1,37 @@
 # Fairshare
 
-WoW-Addon für die Gilde **Resurrected**. Es zeigt, **wer über die Wochen wie
-viele Gegenstände bekommen hat** — und wer wann was bekam. Damit der
-Plündermeister im Moment der Vergabe schnell und fair entscheiden kann.
+WoW-Addon für die Gilde **Resurrected** (WoW Forever, Beta). Faire Beuteverteilung: Es hält fest, **wer welches Item bekommen hat**, rechnet für jeden Wurf eine **faire Reihenfolge** und bringt ein eigenes **Würfelfenster** mit. Wer die niedrigste Wertung hat, bekommt das Item zuerst; nur bei Gleichstand entscheidet der Wurf.
 
-Nur für **WoW Forever** (Beta). Für TBC wird es nicht gebraucht.
+Version **0.9.0** (Beta). Sprache: Deutsch und Englisch (nach dem Client).
 
-Das Addon spricht die **Sprache des Clients**: deutscher Client Deutsch, jeder andere Englisch.
+## Kurz erklärt
 
-## Wie es arbeitet
+* **Wertung** = erhaltene Main-Items + Zuschläge für verpasste Abende. Bank/Bench kostet nichts, Unentschuldigt mindestens 2 Punkte. Die Anhebung gibt es nur von Hand (`/fs anhebung <Name>`).
+* **Eigenes Würfelfenster:** Haupt (1-100), OS (1-99), Passen. Der erste Wurf zählt.
+* **Zuteilen** aus dem Beutefenster oder per Handel, Entzaubern, Rückgängig.
+* **Historie** für alle in der Gruppe, automatischer Abgleich (es kommt nur hinzu). Offiziere gleichen gildenweit ab.
+* **Gruppen** für 10, 20 und 40: Raidkader aus Gildenrängen, Einteilung einmal je Raid-ID, Reiter *Anwesenheit*, Wochenabschluss, Gruppe mit einem Klick einladen.
+* **Geteilte Einstellungen** (Gildenmeister und Offiziere), gildenweiter Reset (`/fs reset gilde`), Übungsmodus (`/fs probe`).
 
-* **Es führt eine eigene Historie** und braucht kein anderes Addon.
-* **Nur in einer Gruppe:** Allein unterwegs wird nichts aufgezeichnet.
-* **Nur einer zeichnet auf:** der **Plündermeister**; gibt es keinen, der
-  **Raidleiter** (Rückfall). Alle anderen empfangen und können die Historie
-  einsehen. Jeder im Raid sollte das Addon haben.
-* **Gargul** (für die Forever-Beta offiziell veröffentlicht) ist das Würfel-Addon: Seine Vergaben landen mit
-  Haupt-/Zweitbedarf und Wurf in der Historie. Gewürfelt wird
-  **100 = Hauptbedarf, 50 = Zweitbedarf** — das Addon prüft Garguls
-  Würfelbereiche und stellt sie auf Wunsch um.
-* **Abgleich ohne Überschreiben:** Weichen die Historien in einer Gruppe
-  voneinander ab, bekommen Leiter und Plündermeister einen Hinweis. Ein
-  Klick auf *Abgleichen* führt sie zusammen — es kommt nur hinzu, nichts wird
-  ersetzt.
-* **Gruppen** (z. B. „40er", „10er") sind eine Beschriftung mit einem Kader. **In einer Gruppe zeigt die
-  Übersicht nur die Spieler, die bei dir sind**; ohne Gruppe den Kader. Der **Member sync** gleicht den Kader mit den
-  gewählten **Gildenrängen** ab: Neue kommen dazu, Ausgetretene fallen weg, von Hand ergänzte Namen bleiben. Jede Vergabe merkt sich ihre
-  Gruppe, die Ansicht lässt sich umschalten.
-* **Der Abgleich läuft von selbst**: Wer mit dir in einer Gruppe steht, bekommt deine Daten, und du bekommst
-  seine — nur Hinzufügen, nichts wird überschrieben.
+Nur in einer Gruppe wird aufgezeichnet; **nur der Plündermeister braucht das Addon** (ohne ihn der Raidleiter). Alle anderen würfeln wie gewohnt mit `/roll`; wer das Addon hat, bekommt das Würfelfenster und kann Historie und Wertungen einsehen. Fairshare fragt erst, wenn die Beutemethode auf Plündermeister steht, ob es genutzt werden soll („Fairshare nutzen?“); mit Ja übernimmt es, bei jeder anderen Beutemethode bleibt es still.
 
 ## Benutzen
 
-`/fs` öffnet das Fenster. Oben: **Spieler** (Liste), **Verlauf** (wer bekam
-was, wann), **Gruppe**, **Abgleichen**, **Einstellungen** (eigenes Fenster im Look von
-KaosUI).
+`/fs` öffnet das Fenster, `/fs hilfe` zeigt alle Befehle. Eine kurze Anleitung für Spieler steht in [`ANLEITUNG.md`](ANLEITUNG.md), die Regeln in [`REGELWERK-ENTWURF.md`](REGELWERK-ENTWURF.md).
 
-| Befehl | Zweck |
-|---|---|
-| `/fs` | Fenster öffnen und schließen |
-| `/fs verlauf` | wer bekam was, wann |
-| `/fs einstellungen` | das Einstellungsfenster |
-| `/fs demo` | Beispieldaten ansehen — nichts wird gespeichert |
-| `/fs liste` | dieselbe Auswertung im Chat, `liste 4` für vier Wochen |
-| `/fs <Name>` | Einzelvergaben eines Spielers |
-| `/fs abgleich` | Historien der Gruppe zusammenführen (`abgleich status`: Stand) |
-| `/fs rolle` | wer zeichnet gerade auf, und warum |
-| `/fs gruppe` | Kader und Raidgruppen (`gruppe hilfe`) |
-| `/fs bereiche` | Garguls Würfelbereiche prüfen (`bereiche setzen`) |
-| `/fs reset` | Historie auf diesem Rechner leeren (mit Rückfrage und Sicherung; `reset undo` holt sie zurück) |
-| `/fs filter` | ab welcher Qualität und wo aufgezeichnet wird |
-| `/fs stand` | Diagnose |
-| `/fs test` | Selbsttests |
+## Für Entwickler
 
-**Hauptbedarf** bestimmt die Reihenfolge, **Zweitbedarf** steht daneben und
-zählt nicht mit — wer ein Stück für die Zweitrolle bekommt, hat keinen
-Anspruch verbraucht.
-
-## Einbauen
-
-```powershell
-.\deploy.ps1
-```
-
-Rollt in die Forever-Beta aus. Danach im Spiel `/reload`.
-
-## Mitarbeiten
-
-Entwicklungsnotizen, Begründungen und Fallstricke stehen in
-[`AGENTS.md`](AGENTS.md). Vor dem Ausrollen:
+Architektur, Protokoll und Entscheidungen: [`AGENTS.md`](AGENTS.md). Wer woran arbeitet: [`WORKBOARD.md`](WORKBOARD.md).
 
 ```
-python luacheck.py Fairshare/*.lua       # Blockstruktur
-pip install lupa                            # einmalig: Lua 5.1 für Python
-python tests/rechenkern.py                  # Selbsttests ohne Spiel
-python tests/szenarien.py                   # mehrere virtuelle Clients, Abgleich, Oberfläche, englischer Client
-python tests/texte.py --streng              # Übersetzung vollständig?
+python luacheck.py                  # Blockstruktur
+python tests/rechenkern.py          # Kern + Tests.lua in echtem Lua 5.1 (pip install lupa)
+python tests/szenarien.py           # mehrere virtuelle Clients (ohne -I starten)
+python tests/texte.py --streng      # Übersetzungen vollständig?
+.\deploy.ps1                        # in die Forever-Beta ausrollen
+python release/bauen.py --cf        # CurseForge-Zip aus dem letzten Commit
 ```
+
+## Lizenz
+
+All Rights Reserved. Schrift Inter (SIL OFL) und Symbole Tabler Icons (MIT), Lizenzen im Ordner `Fairshare/Media`.

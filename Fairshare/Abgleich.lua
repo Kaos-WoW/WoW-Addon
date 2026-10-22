@@ -11,7 +11,7 @@
         Improved History, CLM)
       * Empfaenger verwirft Unberechtigte still (CLM)
       * jeder Eintrag hat eine feste Kennung; Einfuegen ist idempotent
-        (Gargul, Sync-Erweiterungen)
+        (Sync-Erweiterungen)
 
     Ablauf eines Abgleichs:
       1. Hallo   jeder meldet Anzahl und Pruefsumme seiner Historie.
@@ -388,7 +388,7 @@ end
 -- =====================================================================
 
 --- Meldet eine frisch eingetragene Vergabe an die Gruppe.
---  ⚠️ Mit Verzoegerung: Gargul oder die Beutemeldung koennen den Eintrag
+--  ⚠️ Mit Verzoegerung: Blizzards Historie oder die Beutemeldung koennen den Eintrag
 --  in den ersten Sekunden noch berichtigen. Gesendet wird der Stand danach.
 function Abgleich.Verteilen(id)
     if Abgleich.LeitungBeaconSpaeter then Abgleich.LeitungBeaconSpaeter(20) end

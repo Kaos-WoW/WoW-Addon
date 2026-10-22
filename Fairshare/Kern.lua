@@ -24,7 +24,7 @@ ns.Kern = Kern
 Kern.WOCHE = 604800
 Kern.TAG   = 86400
 
--- Gargul traegt diesen Namen als Gewinner ein, wenn entzaubert wurde.
+-- Dieser Name steht als Gewinner, wenn entzaubert wurde.
 Kern.ENTZAUBERT = "||de||"
 
 -- =====================================================================
@@ -51,7 +51,7 @@ end
 
 --- Schluessel, unter dem ein Spieler gefuehrt wird.
 --
---  ⚠️ Gargul schreibt den Gewinner mal mit, mal ohne Realm — je nachdem,
+--  ⚠️ Der Gewinner steht mal mit, mal ohne Realm — je nachdem,
 --  ob die Vergabe lokal entstand oder ueber die Gruppe hereinkam. Ohne
 --  Vereinheitlichung steht derselbe Spieler zweimal in der Liste.
 --  Das setzt eine Gilde auf einem Realm voraus; zwei Gleichnamige von
@@ -79,7 +79,7 @@ end
 --  Zweitrolle bekommt, hat damit keinen Anspruch verbraucht. Er steht
 --  trotzdem da, weil die Leitung ihn sehen will.
 --
---  ⚠️ **Wer nichts bekommen hat, steht in Garguls Historie nicht.**
+--  ⚠️ **Wer nichts bekommen hat, steht in der Historie nicht.**
 --  Ausgerechnet der ist aber der Interessanteste, wenn gerade gewuerfelt
 --  wird. Darum nimmt `pflicht` Namen entgegen, die auch mit null
 --  Vergaben in der Liste auftauchen muessen.
@@ -209,7 +209,7 @@ end
 --- Verschiedene Kalendertage mit mindestens einer Vergabe.
 --
 --  ⚠️ Das ist NICHT Anwesenheit. Wer da war und nichts bekam, steht in
---  Garguls Daten nirgends. Die Zahl taugt als Bezugsgroesse fuer „viel"
+--  den Daten nirgends. Die Zahl taugt als Bezugsgroesse fuer „viel"
 --  und „wenig", nicht als Teilnahmenachweis.
 --
 --  @param tagOf  Funktion Zeitstempel -> Tagesschluessel (wegen date())
@@ -506,7 +506,7 @@ end
 --  Aus `"%s receives loot: %s."` wird `"^(.-) receives loot: (.-)%.$"`.
 --
 --  ⭐ **`%s` wird zu `(.-)`, nicht zu `(%S+)`.** Das ist der Unterschied,
---  an dem Gargul in Forever scheitert: Charakternamen duerfen dort ein
+--  an dem ein Addon in Forever scheitern kann: Charakternamen duerfen dort ein
 --  Leerzeichen enthalten („Yondaime Kaos"). Ein Muster, das am ersten
 --  Leerzeichen abbricht, verliert den Nachnamen.
 --

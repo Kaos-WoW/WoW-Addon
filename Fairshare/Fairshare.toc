@@ -1,10 +1,9 @@
 ## Interface: 16001, 120100, 120105
 ## Title: Fairshare
-## Notes: Fair loot distribution: who got what, and when. Own history, group sync, rosters from guild ranks. Command: /fs
-## Notes-deDE: Faire Beuteverteilung: wer bekam was, und wann. Eigene Historie, Abgleich in der Gruppe, Kader aus Gildenrängen. Befehl: /fs
+## Notes: Fair loot distribution for guild raids: own roll window, rating by items and surcharges, history for everyone. Command: /fs
+## Notes-deDE: Faire Beuteverteilung für Gildenraids: eigenes Würfelfenster, Wertung nach Items und Zuschlägen, Historie für alle. Befehl: /fs
 ## Author: Kaos, xqp
-## Version: 0.2.0
-## OptionalDeps: Gargul
+## Version: 0.9.0
 ## SavedVariables: FairshareDB
 
 Kern.lua

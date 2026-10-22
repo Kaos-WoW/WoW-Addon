@@ -1,8 +1,8 @@
 --[[----------------------------------------------------------------------
     Wurf.lua  —  Eigenes Wuerfelfenster: Hauptbedarf oder Zweitbedarf (OS)
 
-    ⭐ Warum es das gibt (Nutzer, 14.10.2026): Gargul ist in der Beta noch
-    verbuggt. Fairshare bietet deshalb selbst an, was die Gilde braucht:
+    ⭐ Warum es das gibt (Nutzer, 14.10.2026): Fairshare bietet selbst an,
+    was die Gilde braucht:
 
       1. Der Pluendermeister (Leiter, Assistent) startet einen Wurf fuer einen
          Gegenstand: `/fs wurf <Link>`, der Knopf *Wurf starten* oder
@@ -503,7 +503,7 @@ function Wurf.Abbrechen()
 end
 
 --- ⭐ Der Gegenstand ist vergeben (egal auf welchem Weg: Handel, Beutefenster,
---  Gargul, Chat): Der laufende Wurf dafuer endet, das Ergebnisfenster geht zu.
+--  Chat): Der laufende Wurf dafuer endet, das Ergebnisfenster geht zu.
 --  Sonst blieb „Wurf laeuft" stehen (Nutzerfund 14.10.2026).
 function Wurf.Vergeben(link)
     local id = link and tonumber(tostring(link):match("item:(%d+)"))
@@ -1709,7 +1709,7 @@ local function entzBauen()
     e.einst = S.Knopf(e, L["Einstellungen"], "secondary", 24)
     e.einst:SetPoint("TOPLEFT", e, "TOPLEFT", 22, -150)
     e.einst:SetScript("OnClick", function()
-        if ns.Einstellungen then ns.Einstellungen.Zeigen("gargul") end
+        if ns.Einstellungen then ns.Einstellungen.Zeigen("wuerfeln") end
     end)
 
     local zu = S.Knopf(e, L["Abbrechen"], "link", 22)

@@ -54,7 +54,7 @@ local function testZaehlt()
 end
 
 local function testNamen()
-    -- Gargul schreibt mal mit, mal ohne Realm. Beides muss derselbe
+    -- Der Name steht mal mit, mal ohne Realm. Beides muss derselbe
     -- Spieler sein, sonst steht er zweimal in der Liste.
     gleich("mit Realm", Kern.Schluessel("Kaos-Thunderstrike"), "kaos")
     gleich("ohne Realm", Kern.Schluessel("Kaos"), "kaos")
@@ -120,7 +120,7 @@ local function testBilanz()
 end
 
 local function testPflichtnamen()
-    -- ⭐ Wer nichts bekommen hat, steht in Garguls Historie nicht — und ist
+    -- ⭐ Wer nichts bekommen hat, steht in der Historie nicht — und ist
     -- beim Wurf der Interessanteste. Er muss trotzdem erscheinen.
     local H = { a = { awardedTo = "Kaos", timestamp = 1000 } }
 

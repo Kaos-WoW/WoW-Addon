@@ -1,21 +1,9 @@
 --[[----------------------------------------------------------------------
     Quelle.lua  —  Woher die Vergaben kommen
 
-    Die einzige Datei, die Gargul anfasst. Wir lesen ausschliesslich.
-
-    ⭐ Gargul oeffnet sich selbst fuer Fremdzugriff — in seiner
-    `bootstrap.lua` steht woertlich:
-
-        _G.Gargul = GL; -- Open Gargul up to other developer integrations
-
-    Und weil Gargul jede Vergabe an die Gruppe verteilt (beim Empfaenger
-    landet sie ueber `storeReceivedAward` in dessen eigener Historie),
-    waechst bei allen Raidleitern dieselbe Liste. Deshalb braucht dieses
-    Addon weder Abgleich noch Import.
-
-    ⚠️ Fremde Innereien sind ein Vertrag, den niemand unterschrieben hat:
-    Aendert Gargul die Struktur, faellt das hier auf — nicht in der
-    Anzeige. Darum liefert Vorhanden() einen benennbaren Grund.
+    Die Historie ist die EIGENE (Erfassung.lua). Hier stehen die Zugriffe
+    darauf, der laufende Wurf, die Anzeige der Gegenstaende und die
+    Beispieldaten.
 ------------------------------------------------------------------------]]
 
 local _, ns = ...
@@ -25,179 +13,13 @@ local Quelle = {}
 ns.Quelle = Quelle
 
 -- =====================================================================
---  Garguls Historie
+--  Die Historie
 -- =====================================================================
 
---- Garguls Vergabe-Historie.
---  @return tabelle (Pruefsumme -> Eintrag), oder nil und ein Grund
-function Quelle.Gargul()
-    local GL = rawget(_G, "Gargul")
-    if not GL then
-        return nil, L["Gargul ist nicht geladen"]
-    end
-    if type(GL.DB) ~= "table" then
-        return nil, L["Gargul ist noch nicht bereit"]
-    end
-    local H = GL.DB.AwardHistory
-    if type(H) ~= "table" then
-        return nil, L["Gargul hat noch keine Vergabe aufgezeichnet"]
-    end
-    return H
-end
-
---- Laeuft Gargul, und wie viele Eintraege liegen vor?
-function Quelle.Stand()
-    local H, grund = Quelle.Gargul()
-    if not H then return false, grund end
-    local n = 0
-    for _ in pairs(H) do n = n + 1 end
-    return true, n
-end
-
 --- Die Historie, aus der ausgewertet wird: die EIGENE.
---  Gargul ist nur noch Einfuhrquelle, nicht Datenhalter.
 function Quelle.Historie()
     if not ns.Erfassung then return nil, L["Erfassung nicht geladen"] end
     return ns.Erfassung.Historie()
-end
-
---- Uebernimmt Garguls Aufzeichnungen einmalig in die eigene Historie.
---
---  Schluessel bleibt Garguls Pruefsumme — dadurch ist der Import
---  beliebig oft wiederholbar, ohne dass sich etwas doppelt.
---
---  ⚠️ **Der eigentliche Doppelgaenger sind aber unsere eigenen
---  Eintraege:** Lief die Eigenerfassung mit, waehrend Gargul dieselbe
---  Vergabe aufzeichnete, liegen zwei Eintraege mit verschiedenen
---  Schluesseln fuer dasselbe Stueck vor. Darum wird jeder Gargul-Eintrag
---  gegen die eigenen geprueft: gleicher Spieler, gleicher Gegenstand,
---  nah beieinander in der Zeit — dann uebersprungen.
---
---  @return uebernommen, uebersprungen  oder nil und ein Grund
-function Quelle.GargulImport(fenster)
-    fenster = fenster or 300
-
-    local G, grund = Quelle.Gargul()
-    if not G then return nil, grund end
-    if not ns.Erfassung then return nil, L["Erfassung nicht geladen"] end
-
-    local eigen = ns.Erfassung.Historie()
-    local Kern = ns.Kern
-
-    -- Eigene Eintraege nach Spieler und Gegenstand vorsortieren
-    local Bekannt = {}
-    for _, e in pairs(eigen) do
-        if e.awardedTo and e.itemID then
-            local k = (Kern.Schluessel(e.awardedTo) or "?") .. ":" .. tostring(e.itemID)
-            Bekannt[k] = Bekannt[k] or {}
-            table.insert(Bekannt[k], e.timestamp or 0)
-        end
-    end
-
-    local neu, doppelt = 0, 0
-    for pruefsumme, e in pairs(G) do
-        if eigen[pruefsumme] then
-            -- schon eingefuehrt
-        elseif not Kern.Zaehlt(e) then
-            -- entzaubert, Bonus oder unvollstaendig: nicht uebernehmen
-        else
-            local k = (Kern.Schluessel(e.awardedTo) or "?") .. ":" .. tostring(e.itemID)
-            local schonDa = false
-            for _, zeit in ipairs(Bekannt[k] or {}) do
-                if math.abs(zeit - e.timestamp) <= fenster then schonDa = true break end
-            end
-
-            if schonDa then
-                doppelt = doppelt + 1
-            else
-                eigen[pruefsumme] = {
-                    awardedTo = e.awardedTo,
-                    itemID    = e.itemID,
-                    itemLink  = e.itemLink,
-                    timestamp = e.timestamp,
-                    OS        = e.OS or nil,
-                    ausGargul = true,
-                }
-                neu = neu + 1
-            end
-        end
-    end
-
-    return neu, doppelt
-end
-
--- =====================================================================
---  Garguls Wuerfelbereiche
--- =====================================================================
-
---- ⭐ Die Gilde wuerfelt 100 fuer Haupt- und 50 fuer Zweitbedarf. Gargul
---  bringt 100 und 99 mit. Weicht der Bereich ab, erkennt Gargul die Wuerfe
---  der Raider nicht (oder ordnet sie falsch ein), und unsere Erfassung
---  wuerde sich darauf verlassen.
---
---  Jeder Bereich bei Gargul: { Name, min, max, Rang, istZweitbedarf, +1 }
-
---- @return { ok = bool, haupt = bool, zweit = bool, bereiche = { ... } }
---          oder nil und ein Grund
-function Quelle.GargulBereiche()
-    local GL = rawget(_G, "Gargul")
-    if not (GL and GL.Settings and GL.Settings.get) then
-        return nil, L["Gargul ist nicht bereit"]
-    end
-
-    local ok, B = pcall(GL.Settings.get, GL.Settings, "RollTracking.Brackets", {})
-    if not ok or type(B) ~= "table" then return nil, L["Einstellung nicht lesbar"] end
-
-    local haupt, zweit, alle = false, false, {}
-    for _, b in ipairs(B) do
-        if type(b) == "table" then
-            alle[#alle + 1] = string.format("%s %s-%s", tostring(b[1]), tostring(b[2]), tostring(b[3]))
-            local art = ns.Kern.Bedarfsart(b[2], b[3])
-            if art == "haupt" then haupt = true end
-            if art == "zweit" then zweit = true end
-        end
-    end
-    return { ok = haupt and zweit, haupt = haupt, zweit = zweit, bereiche = alle }
-end
-
---- Stellt Garguls Bereiche auf die von Fairshare (Standard 1-100 und 1-99).
---  ⚠️ Das ist eine Einstellung bei Gargul, kein Eingriff in seinen Code.
---  Eigene weitere Bereiche gehen dabei verloren.
-function Quelle.GargulBereicheSetzen()
-    local GL = rawget(_G, "Gargul")
-    if not (GL and GL.Settings and GL.Settings.set) then return false, L["Gargul ist nicht bereit"] end
-
-    -- { Name, min, max, Rang, istZweitbedarf, +1 }
-    local H, Z = ns.Kern.BEREICHE.haupt, ns.Kern.BEREICHE.zweit
-    local kopie = {
-        { "MS", H[1], H[2], 2, false, false },
-        { "OS", Z[1], Z[2], 3, true,  false },
-    }
-    local ok, fehler = pcall(GL.Settings.set, GL.Settings, "RollTracking.Brackets", kopie)
-    if not ok then return false, tostring(fehler) end
-    return true
-end
-
---- ⭐ Der umgekehrte Weg: Garguls Bereiche fuer Hauptbedarf (MS) und
---  Zweitbedarf (OS) werden die von Fairshare. Massgeblich ist der erste
---  Bereich, der nicht als Zweitbedarf gilt, und der erste, der es tut.
---  @return true, oder false und ein Grund
-function Quelle.GargulBereicheUebernehmen()
-    local GL = rawget(_G, "Gargul")
-    if not (GL and GL.Settings and GL.Settings.get) then return false, L["Gargul ist nicht bereit"] end
-    local ok, B = pcall(GL.Settings.get, GL.Settings, "RollTracking.Brackets", {})
-    if not ok or type(B) ~= "table" then return false, L["Einstellung nicht lesbar"] end
-
-    local haupt, zweit
-    for _, b in ipairs(B) do
-        if type(b) == "table" and tonumber(b[2]) and tonumber(b[3]) then
-            if b[5] == true then zweit = zweit or b else haupt = haupt or b end
-        end
-    end
-    if not (haupt and zweit) then
-        return false, L["Gargul kennt keinen Bereich für Hauptbedarf und Zweitbedarf."]
-    end
-    return ns.Erfassung.BereicheSetzen(haupt[2], haupt[3], zweit[2], zweit[3])
 end
 
 -- =====================================================================
@@ -206,63 +28,13 @@ end
 
 --- Wird gerade um einen Gegenstand gewuerfelt?
 --
---  Gargul fuehrt den laufenden Wurf in `RollOff.CurrentRollOff` und setzt
---  `RollOff.inProgress`. Ein Wurf ist { player, class, amount, min, max,
---  time, classification, priority }.
+--  Die eigene Mitschrift (Erfassung.lua) kennt, wer gewuerfelt hat und mit
+--  welchem Bereich (Haupt oder Zweit) — und genau das ordnet die Liste.
+--  Ein Spieler kann mehrfach wuerfeln; gezaehlt wird der ERSTE Wurf.
 --
---  ⚠️ Ein Spieler kann mehrfach wuerfeln (Haupt- und Zweitbedarf, oder
---  versehentlich). Gezaehlt wird der HOECHSTE Wurf — alles andere waere
---  willkuerlich.
---
---  @return { link, name, Wuerfe = { Schluessel -> hoechster Wurf },
---            namen = { Name, ... } }  oder nil
+--  @return { link, name, Wuerfe = { Schluessel -> Wurf }, Arten, namen = { Name, ... } }  oder nil
 function Quelle.Wurf()
-    local GL = rawget(_G, "Gargul")
-    local R = GL and GL.RollOff
-    local Aktuell = (type(R) == "table" and R.inProgress) and R.CurrentRollOff or nil
-
-    -- Ohne Gargul: die eigene Mitschrift. Sie kennt den Gegenstand nicht,
-    -- aber wer gewuerfelt hat — und genau das ordnet die Liste.
-    if type(Aktuell) ~= "table" then
-        return ns.Erfassung and ns.Erfassung.AktuelleWuerfe() or nil
-    end
-
-    -- ⭐ Je Spieler zaehlt der ERSTE Wurf (nach Zeit, sonst nach Reihenfolge).
-    -- Die Art kommt aus dem Bereich des Wurfs (1-100 Haupt, 1-99 Zweit),
-    -- hilfsweise aus dem Namen des Bereichs bei Gargul („MS"/„OS").
-    local Alle = {}
-    for schluessel, W in pairs(Aktuell.Rolls or {}) do
-        if type(W) == "table" then
-            Alle[#Alle + 1] = { W = W, zeit = tonumber(W.time) or 0, nr = tonumber(schluessel) or 0 }
-        end
-    end
-    table.sort(Alle, function(a, b)
-        if a.zeit ~= b.zeit then return a.zeit < b.zeit end
-        return a.nr < b.nr
-    end)
-
-    local Wuerfe, Arten, namen = {}, {}, {}
-    for _, eintrag in ipairs(Alle) do
-        local W = eintrag.W
-        local k = W.player and ns.Kern.Schluessel(W.player)
-        if k and Wuerfe[k] == nil then
-            local art = ns.Kern.Bedarfsart(W.min, W.max)
-            if not art and type(W.classification) == "string" then
-                local c = W.classification:upper()
-                if c == "MS" then art = "haupt" elseif c == "OS" then art = "zweit" end
-            end
-            namen[#namen + 1] = W.player
-            Wuerfe[k], Arten[k] = tonumber(W.amount) or 0, art
-        end
-    end
-
-    return {
-        link  = Aktuell.itemLink,
-        name  = Aktuell.itemName,
-        Wuerfe = Wuerfe,
-        Arten = Arten,
-        namen = namen,
-    }
+    return ns.Erfassung and ns.Erfassung.AktuelleWuerfe() or nil
 end
 
 -- =====================================================================
@@ -349,7 +121,7 @@ local VERTEILUNG = {
 local GEGENSTAENDE = { 32235, 32505, 32837, 30883, 29434, 32369, 32256, 32332 }
 
 --- Baut eine Beispiel-Historie im Speicher.
---  ⚠️ Schreibt NICHTS — weder in Gargul noch in die SavedVariables.
+--  ⚠️ Schreibt NICHTS in die SavedVariables.
 --  Der Aufrufer reicht das Ergebnis in die Auswertung wie eine echte
 --  Historie; die Anzeige merkt keinen Unterschied.
 function Quelle.Beispiel()

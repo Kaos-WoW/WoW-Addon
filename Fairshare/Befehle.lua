@@ -53,9 +53,8 @@ local function hilfe()
     print(L["  |cffffff78/fs abmeldung|r    – ausdrücklich abgemeldet (|cffffff78/fs abmeldung <Name>|r, |cffffff78alle|r = alle Offenen)"])
     print(L["  |cffffff78/fs einteilung|r   – Raidkader und Einteilung je Raid-ID und Gruppe (|cffffff78/fs raidkader <Rang>|r liest den Raidkader ein)"])
     print(L["  |cffffff78/fs rueckgabe|r    – zurückgegebene Items, noch nicht neu vergeben (|cffffff78/fs rueckgabe <Nr>|r schließt ab)"])
-    print(L["  |cffffff78/fs bereiche|r     – Würfelbereiche (|cffffff78bereiche haupt 1 100|r, |cffffff78zweit|r, |cffffff78setzen|r in Gargul, |cffffff78uebernehmen|r aus Gargul)"])
+    print(L["  |cffffff78/fs bereiche|r     – Würfelbereiche (|cffffff78bereiche haupt 1 100|r, |cffffff78zweit 1 99|r)"])
     print(L["  |cffffff78/fs auto|r         – Fenster bei Wurfbeginn automatisch öffnen (an/aus)"])
-    print(L["  |cffffff78/fs import|r       – Garguls bisherige Aufzeichnungen übernehmen"])
     print(L["  |cffffff78/fs anhebung <Name>|r – Spieler manuell auf Niedrigster + 2 anheben (Raid- oder Gildenleitung)"])
     print(L["  |cffffff78/fs reset|r        – Historie auf diesem Rechner leeren (mit Rückfrage und Sicherung)"])
     print(L["  |cffffff78/fs reset gilde|r  – Daten bei ALLEN Gildenmitgliedern zurücksetzen (nur Stufe 1 und 2, mit Rückfrage)"])
@@ -69,19 +68,6 @@ local function hilfe()
 end
 
 -- =====================================================================
-
-befehle["import"] = function()
-    local neu, doppelt = Quelle.GargulImport()
-    if not neu then
-        sag(ROT .. tostring(doppelt) .. "|r")
-        return
-    end
-    sag(string.format(L["|cff55ff55%d Vergaben|r aus Gargul übernommen."], neu))
-    if doppelt > 0 then
-        print(string.format(L["  |cff8E9A94%d übersprungen – die hatte die Eigenerfassung schon.|r"], doppelt))
-    end
-    print(L["  |cff8E9A94Wiederholtes Einführen ändert nichts mehr.|r"])
-end
 
 --- ⭐ Historie leeren: erst fragen, dann tun, vorher sichern.
 local resetBereit, resetGildeBereit = nil, nil
@@ -186,7 +172,7 @@ befehle["stand"] = function()
     -- Woher stammen die Eintraege?
     local Herkunft = {}
     for _, e in pairs(eigen) do
-        local h = e.herkunft or (e.ausGargul and "gargul-import") or L["unbekannt"]
+        local h = e.herkunft or L["unbekannt"]
         Herkunft[h] = (Herkunft[h] or 0) + 1
     end
     local teile = {}
@@ -207,13 +193,6 @@ befehle["stand"] = function()
     print(string.format(L["  Aufzeichner: %s |cff8E9A94(%s)|r"],
         darf and (GRUEN .. L["du zeichnest auf"] .. "|r") or (GELB .. L["du zeichnest nicht auf"] .. "|r"),
         tostring(warum)))
-
-    local ok, wert = Quelle.Stand()
-    if not ok then
-        print("  " .. GRAU .. tostring(wert) .. " – " .. L["nichts zu übernehmen."] .. "|r")
-        return
-    end
-    print(string.format(L["  |cff8E9A94Garguls Bestand: %d Einträge – |r|cffffff78/fs import|r|cff8E9A94 übernimmt ihn.|r"], wert))
 end
 
 befehle["state"] = befehle["stand"]
@@ -994,12 +973,10 @@ befehle["abgleich"] = function(arg)
 end
 befehle["sync"] = befehle["abgleich"]
 
---- Die Wuerfelbereiche: anzeigen, aendern, mit Gargul abgleichen.
---    /fs bereiche                 zeigt eigene und die von Gargul
+--- Die Wuerfelbereiche: anzeigen und aendern.
+--    /fs bereiche                 zeigt die Bereiche
 --    /fs bereiche haupt 1 100     Bereich fuer Hauptbedarf
 --    /fs bereiche zweit 1 99      Bereich fuer Zweitbedarf (OS)
---    /fs bereiche setzen          Fairshare -> Gargul
---    /fs bereiche uebernehmen     Gargul -> Fairshare
 befehle["bereiche"] = function(arg)
     local was, a, z = (arg or ""):lower():match("^(%S*)%s*(%d*)%s*(%d*)")
     was = was or ""
@@ -1017,32 +994,7 @@ befehle["bereiche"] = function(arg)
         return
     end
 
-    if was == "uebernehmen" or was == "übernehmen" or was == "adopt" then
-        local ok, grund = Quelle.GargulBereicheUebernehmen()
-        if not ok then sag(ROT .. tostring(grund) .. "|r") return end
-        local B = ns.Erfassung.Bereiche()
-        sag(GRUEN .. string.format(L["Aus Gargul übernommen: Hauptbedarf %d-%d, Zweitbedarf %d-%d."],
-            B.haupt[1], B.haupt[2], B.zweit[1], B.zweit[2]) .. "|r")
-        return
-    end
-
-    if was == "setzen" or was == "set" then
-        local ok, grund = Quelle.GargulBereicheSetzen()
-        if not ok then sag(ROT .. tostring(grund) .. "|r") return end
-        local B = ns.Erfassung.Bereiche()
-        sag(GRUEN .. string.format(L["Bei Gargul eingestellt: MS %d-%d, OS %d-%d."],
-            B.haupt[1], B.haupt[2], B.zweit[1], B.zweit[2]) .. "|r")
-        return
-    end
-
     eigene()
-    local B, grund = Quelle.GargulBereiche()
-    if not B then sag(GRAU .. tostring(grund) .. "|r") return end
-    sag(B.ok and (GRUEN .. L["Würfelbereiche stimmen."] .. "|r") or (ROT .. L["Würfelbereiche passen nicht."] .. "|r"))
-    print(string.format(L["  |cff8E9A94Gargul kennt: %s|r"], table.concat(B.bereiche, ", ")))
-    if not B.ok then
-        print(L["  |cffffff78/fs bereiche setzen|r|cff8E9A94 überträgt die Bereiche von Fairshare zu Gargul, |r|cffffff78uebernehmen|r|cff8E9A94 holt sie von dort.|r"])
-    end
 end
 befehle["brackets"] = befehle["bereiche"]
 

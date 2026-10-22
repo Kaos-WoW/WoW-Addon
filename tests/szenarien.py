@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Szenarien fuer Abgleich, Rolle, Gruppen, Gargul-Anbindung und Oberflaeche.
+"""Szenarien fuer Abgleich, Rolle, Gruppen und Oberflaeche.
 
 Mehrere virtuelle Clients (je ein Lua-5.1-Zustand) tauschen Nachrichten ueber
 einen gemeinsamen Kanal. Voraussetzung: pip install lupa
@@ -190,10 +190,6 @@ fest(ok is False, "auch bei „immer“ nicht allein")
 r = tup3(w.eintragen(0, "Solo", 6002, int(w.t)))
 fest(r[0] is False and sum(1 for _ in w.hist(0).keys()) == 0, "und es entsteht auch dann kein Eintrag")
 link = "|cff0070dd|Hitem:6003::::::::60:::::|h[Ding]|h|r"
-lua = w.clients[0]["lua"]
-rg = tup3(ns.Erfassung.GargulVergabe(lua.table_from({"checksum": "SOLO1", "awardedTo": "Solo", "itemLink": link,
-                                                      "itemID": 6003, "timestamp": int(w.t)})))
-fest(rg[0] is False and sum(1 for _ in w.hist(0).keys()) == 0, "eine Gargul-Vergabe allein bleibt ohne Wirkung")
 ns.Erfassung.MusterBauen()
 ns.Erfassung.Einstellungen()["schreiben"] = "auto"
 ns.Erfassung.Beutemeldung("You receive loot: " + link + ".")
@@ -224,48 +220,6 @@ w.ereignis("PLAYER_ENTERING_WORLD")
 w.weiter(15)
 ok0, g0 = tup(w.clients[0]["ns"].Rolle.IchSchreibe())
 fest(ok0 is True, "Leiter schreibt als Rueckfall (%s)" % g0)
-
-print("== 9. Gargul-Vergabe ==")
-w = gruppe(2)
-w.ereignis("PLAYER_ENTERING_WORLD")
-w.weiter(15)
-lua = w.clients[0]["lua"]
-link = "|cff0070dd|Hitem:555::::::::60:::::|h[Schwert]|h|r"
-A = lua.table_from({"checksum": "GARG1", "awardedTo": "Timo", "itemLink": link, "itemID": 555,
-                    "timestamp": int(w.t), "OS": True,
-                    "Rolls": lua.table_from({1: lua.table_from({"player": "Timo", "amount": 47}),
-                                             2: lua.table_from({"player": "Lina", "amount": 91})})})
-r = tup3(w.clients[0]["ns"].Erfassung.GargulVergabe(A))
-e = w.hist(0)["GARG1"]
-fest(r[0] is True and e is not None, "Gargul-Vergabe eingetragen unter Garguls Kennung")
-fest(e["OS"] is True, "Zweitbedarf uebernommen")
-fest(e["wurf"] == 47, "Wurf des Gewinners (nicht der hoechste insgesamt): %s" % e["wurf"])
-fest(e["herkunft"] == "gargul", "Herkunft vermerkt")
-
-# Beutemeldung kommt zuerst, Gargul danach: berichtigen statt doppelt
-link2 = "|cff0070dd|Hitem:556::::::::60:::::|h[Axt]|h|r"
-w.clients[0]["ns"].Erfassung.Eintragen("Lina", link2, int(w.t), "haupt")
-vorher = anz(w, 0)
-A2 = lua.table_from({"checksum": "GARG2", "awardedTo": "Lina", "itemLink": link2, "itemID": 556,
-                     "timestamp": int(w.t) + 3, "OS": True})
-w.clients[0]["ns"].Erfassung.GargulVergabe(A2)
-fest(anz(w, 0) == vorher, "kein zweiter Eintrag fuer dieselbe Vergabe")
-berichtigt = [v for v in w.hist(0).values() if v["itemID"] == 556][0]
-fest(berichtigt["OS"] is True, "Haupt wurde zu Zweitbedarf berichtigt")
-
-# Entzaubert und Bonus zaehlen nicht
-A3 = lua.table_from({"checksum": "GARG3", "awardedTo": "||de||", "itemLink": link, "itemID": 555,
-                     "timestamp": int(w.t) + 500})
-fest(tup3(w.clients[0]["ns"].Erfassung.GargulVergabe(A3))[0] is False, "entzaubert wird nicht eingetragen")
-
-# Aenderung und Rueckgabe
-w.clients[0]["ns"].Erfassung.GargulAenderung(lua.table_from({"checksum": "GARG1", "awardedTo": "Moe", "OS": False}))
-fest(w.hist(0)["GARG1"]["awardedTo"] == "Moe" and not w.hist(0)["GARG1"]["OS"], "Aenderung wird nachgezogen")
-w.clients[0]["ns"].Erfassung.GargulZurueck(lua.table_from({"checksum": "GARG1"}))
-fest(w.hist(0)["GARG1"]["zurueck"] is True, "Rueckgabe markiert den Eintrag")
-liste = tup(w.clients[0]["ns"].Kern.Bilanz(w.hist(0), 0))[0]
-namen = [liste[i]["name"] for i in range(1, sum(1 for _ in liste.keys()) + 1)]
-fest("Moe" not in namen, "zurueckgenommene Vergabe zaehlt nicht mehr (%s)" % namen)
 
 print("== 10. Gruppen ==")
 w = gruppe(3)
@@ -341,8 +295,7 @@ g["__klick"]("Schlachtzug")
 for seite in ("Würfeln & Abgleich", "Gruppen", "Erfassung"):
     fest(g["__klick"](seite) is True, "Seite %s" % seite)
 g["__klick"]("Würfeln & Abgleich")
-fest(len(list(g["__text"]("Bei Wurfbeginn selbst öffnen").values())) > 0, "Gargul-Seite baut sich auf")
-fest(g["__klick"]("Übernehmen") is True, "Import-Knopf (ohne Gargul ohne Absturz)")
+fest(len(list(g["__text"]("Bei Wurfbeginn selbst öffnen").values())) > 0, "Würfeln-Seite baut sich auf")
 fest(g["__klick"]("Abgleichen") is True, "Abgleich-Knopf")
 g["__klick"]("Gruppen")
 ns.Gruppen.Anlegen("40er"); ns.Gruppen.Anlegen("10er")
@@ -383,41 +336,6 @@ for befehl in ["", "verlauf", "rolle", "gruppe", "gruppe hilfe", "gruppe neu 20e
 keinFehler("alle Befehle")
 fest(any("Prüfungen" in x and "0 fehlgeschlagen" in x for x in ausgabe()), "/fs test: alles bestanden")
 
-print("== 12. Gargul-Anbindung (Attrappe von Gargul) ==")
-w = gruppe(2)
-w.ereignis("PLAYER_ENTERING_WORLD")
-w.weiter(15)
-cl = w.clients[0]
-ns, g, lua = cl["ns"], cl["g"], cl["lua"]
-lua.execute("""
-Gargul = {
-  _cfg = { ["RollTracking.Brackets"] = { {"MS",1,100,2,false,false}, {"OS",1,99,3,true,false} } },
-  Settings = {
-    get = function(self, k, d) local v = Gargul._cfg[k]; if v == nil then return d end return v end,
-    set = function(self, k, v) Gargul._cfg[k] = v end,
-  },
-  Events = { handlers = {}, register = function(self, id, ev, fn) self.handlers[ev] = fn end },
-}
-""")
-B = ns.Quelle.GargulBereiche()
-fest(B["ok"] is True and B["haupt"] is True and B["zweit"] is True, "Standardbereiche von Gargul (100/99) passen zum Standard von Fairshare")
-ns.Quelle.GargulBereicheSetzen()
-B = ns.Quelle.GargulBereiche()
-fest(B["ok"] is True, "nach dem Umstellen stimmt alles")
-fest(tup3(ns.Fenster.GargulAnbinden())[0] is True, "Anbindung an Garguls Ereignisse")
-link = "|cff0070dd|Hitem:777::::::::60:::::|h[Helm]|h|r"
-A = lua.table_from({"checksum": "G9", "awardedTo": "Lina", "itemLink": link, "itemID": 777,
-                    "timestamp": int(w.t), "OS": False})
-g["Gargul"]["Events"]["handlers"]["GL.ITEM_AWARDED"]("GL.ITEM_AWARDED", A)
-fest(w.hist(0)["G9"] is not None, "Ereignis ITEM_AWARDED traegt ein")
-g["Gargul"]["Events"]["handlers"]["GL.ITEM_UNAWARDED"]("GL.ITEM_UNAWARDED", A)
-fest(w.hist(0)["G9"]["zurueck"] is True, "Ereignis ITEM_UNAWARDED nimmt zurueck")
-w.weiter(15)
-fest(w.hist(1)["G9"] is not None, "die Vergabe kam live beim Mitglied an")
-fest(w.hist(1)["G9"]["zurueck"] is True, "auch die Rueckgabe kam beim Mitglied an")
-liste = tup(w.clients[1]["ns"].Kern.Bilanz(w.hist(1), 0))[0]
-fest(sum(1 for _ in liste.keys()) == 0, "beim Mitglied zaehlt die zurueckgenommene Vergabe nicht")
-
 print("== 13. Englischer Client: alles auf Englisch ==")
 w = Welt([{"name": "Leader", "leader": True}, {"name": "Timo"}], "-Realm", locale="enUS")
 w.ereignis("PLAYER_ENTERING_WORLD")
@@ -446,7 +364,7 @@ fest(ns.Einstellungen.Sichtbar() is True, "Einstellungsfenster oeffnet sich")
 fest(hat("Recording") and hat("Who records"), "Einstellungen auf Englisch")
 fest(not hat("Aufzeichnen") and not hat("Wer zeichnet auf"), "kein Deutsch in den Einstellungen")
 g["__klick"]("Roll and Sync")
-fest(hat("Roll ranges") and hat("Open by itself when a roll starts"), "Gargul-Seite auf Englisch")
+fest(hat("Roll ranges") and hat("Open by itself when a roll starts"), "Würfeln-Seite auf Englisch")
 g["__klick"]("Groups")
 fest(hat("New group") and hat("No group yet"), "Gruppen-Seite auf Englisch")
 ns.Einstellungen.Verstecken()
@@ -874,36 +792,6 @@ chat("Greed Roll - 90 for " + A1 + " by Zora")
 chat("Zora receives loot: " + A1 + ".")
 e = [v for v in w.hist(0).values() if v["awardedTo"] == "Zora"][0]
 fest(e["OS"] is True, "Gier-Gewinn: als Zweitbedarf eingetragen")
-
-# Gargul: die Art kommt aus dem Wurfbereich
-w2 = gruppe(2)
-w2.ereignis("PLAYER_ENTERING_WORLD")
-w2.weiter(5)
-ns2, g2, lua2 = w2.clients[0]["ns"], w2.clients[0]["g"], w2.clients[0]["lua"]
-lua2.execute("""
-Gargul = { RollOff = { inProgress = true, CurrentRollOff = { itemLink = "x", Rolls = {
-  { player = "Timo", amount = 87, min = 1, max = 100 },
-  { player = "Lina", amount = 41, min = 1, max = 99 },
-  { player = "Moe",  amount = 30, min = 1, max = 100 },
-  { player = "Moe",  amount = 45, min = 1, max = 99 },
-  { player = "Zora", amount = 60, min = 1, max = 99, classification = "OS" },
-} } } }
-""")
-W = ns2.Quelle.Wurf()
-fest(W["Arten"]["timo"] == "haupt" and W["Wuerfe"]["timo"] == 87, "Gargul: 1-100 ist Haupt")
-fest(W["Arten"]["lina"] == "zweit" and W["Wuerfe"]["lina"] == 41, "Gargul: 1-99 ist Zweit")
-fest(W["Arten"]["moe"] == "haupt" and W["Wuerfe"]["moe"] == 30, "Moe: der erste Wurf (30 Haupt) zaehlt, nicht der spaetere")
-fest(W["Arten"]["zora"] == "zweit", "Gargul: Bereichsname OS gilt als Zweit")
-lua2.execute("""
-Gargul.RollOff.CurrentRollOff.Rolls = {
-  { player = "Timo", amount = 95, min = 1, max = 100, time = 200 },
-  { player = "Timo", amount = 20, min = 1, max = 100, time = 100 },
-  { player = "Lina", amount = 44, min = 1, max = 99,  time = 150 },
-  { player = "Lina", amount = 99, min = 1, max = 100, time = 160 },
-}""")
-W = ns2.Quelle.Wurf()
-fest(W["Wuerfe"]["timo"] == 20, "Gargul: Timos erster Wurf nach Zeit (20), nicht der hoechste (95)")
-fest(W["Wuerfe"]["lina"] == 44 and W["Arten"]["lina"] == "zweit", "Gargul: Linas erster Wurf war Zweit und bleibt es")
 
 # Getippte /rnd ohne Gegenstand: der erste Wurf zaehlt, nach einer Minute beginnt eine neue Runde
 w3 = gruppe(3)
@@ -1523,7 +1411,7 @@ sl("wurf status")
 fehler = [str(x) for x in g2["__ausgabe"].values() if "Fehler" in str(x)]
 fest(not fehler, "/fs wurf status ohne Fehler")
 
-print("== 26. Einstellbare Wuerfelbereiche, Gargul-Uebernahme ==")
+print("== 26. Einstellbare Wuerfelbereiche ==")
 w = gruppe(3)
 w.ereignis("PLAYER_ENTERING_WORLD")
 w.weiter(10)
@@ -1550,25 +1438,6 @@ ok, grund = tup(ns.Erfassung.BereichSetzen("zweit", 3, 40))
 fest(ok is True and K.Bedarfsart(3, 40) == "zweit", "auch ein Bereich, der nicht bei 1 beginnt (3-40)")
 ns.Erfassung.BereicheSetzen(1, 100, 1, 99)
 
-# --- Gargul: beide Richtungen --------------------------------------------------
-lua.execute("""
-Gargul = {
-  _cfg = { ["RollTracking.Brackets"] = { {"MS",1,100,2,false,false}, {"OS",1,99,3,true,false} } },
-  Settings = {
-    get = function(self, k, d) local v = Gargul._cfg[k]; if v == nil then return d end return v end,
-    set = function(self, k, v) Gargul._cfg[k] = v end,
-  },
-  Events = { handlers = {}, register = function(self, id, ev, fn) self.handlers[ev] = fn end },
-}
-""")
-ok, grund = tup(ns.Quelle.GargulBereicheUebernehmen())
-fest(ok is True and K.Bedarfsart(1, 99) == "zweit", "aus Gargul uebernommen: OS ist jetzt 1-99 (%s)" % grund)
-ns.Erfassung.BereicheSetzen(1, 200, 1, 20)
-ns.Quelle.GargulBereicheSetzen()
-B = g["Gargul"]["_cfg"]["RollTracking.Brackets"]
-fest(B[1][2] == 1 and B[1][3] == 200 and B[2][3] == 20 and B[2][5] is True, "in Gargul eingestellt: 1-200 / 1-20")
-fest(ns.Quelle.GargulBereiche()["ok"] is True, "Gargul und Fairshare stimmen ueberein")
-
 # --- Befehl ---------------------------------------------------------------------
 sl = g["SlashCmdList"]["FAIRSHARE"]
 sl("bereiche haupt 1 120")
@@ -1577,11 +1446,6 @@ sl("bereiche os 1 30")
 fest(K.Bedarfsart(1, 30) == "zweit", "/fs bereiche os 1 30")
 sl("bereiche haupt 9 3")
 fest(K.Bedarfsart(1, 120) == "haupt", "ungueltige Eingabe aendert nichts")
-sl("bereiche setzen")
-fest(g["Gargul"]["_cfg"]["RollTracking.Brackets"][1][3] == 120, "/fs bereiche setzen -> Gargul")
-lua.execute('Gargul._cfg["RollTracking.Brackets"] = { {"MS",1,70,2,false,false}, {"OS",1,30,3,true,false} }')
-sl("bereiche uebernehmen")
-fest(K.Bedarfsart(1, 70) == "haupt", "/fs bereiche uebernehmen <- Gargul")
 sl("bereiche")
 fehler = [str(x) for x in g["__ausgabe"].values() if "Fehler" in str(x)]
 fest(not fehler, "/fs bereiche ohne Fehler")
@@ -1595,10 +1459,6 @@ fest(len(list(g["__text"]("Bereich für Zweitbedarf (OS)").values())) > 0, "und 
 ns.Erfassung.BereicheSetzen(1, 300, 1, 40)
 ns.Einstellungen.Aktualisieren()
 fest(g["__klick"]("Standard") is True and K.Bedarfsart(1, 100) == "haupt", "Knopf Standard setzt 1-100 / 1-99")
-lua.execute('Gargul._cfg["RollTracking.Brackets"] = { {"MS",1,100,2,false,false}, {"OS",1,60,3,true,false} }')
-ns.Einstellungen.Aktualisieren()
-fest(g["__klick"]("Aus Gargul übernehmen") is True and K.Bedarfsart(1, 60) == "zweit", "Knopf Aus Gargul uebernehmen")
-fest(g["__klick"]("In Gargul übernehmen") is not None, "Knopf In Gargul uebernehmen (vorhanden)")
 
 # --- Die Bereiche gehen mit dem Wurf an alle -------------------------------------
 w = gruppe(3)

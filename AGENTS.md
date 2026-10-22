@@ -11,7 +11,7 @@ auf, gleicht ab, verwaltet Gruppen). Ordner `Fairshare/`, SavedVariables `Fairsh
 macht `deploy.ps1` einmalig und **nur bei beendetem WoW** (sonst bricht es ab, ohne etwas zu ändern); die alte
 Datei bleibt als Sicherung. Spätere Umbenennungen brauchen denselben Weg.
 
-Stand 22.10.2026, Version 0.2.0 (Loot-Regelsystem Resurrected integriert, Datenbuch verteilt, Protokollversion 3; seit dem 17./18.10. mehrere Gruppen mit Raidkader, Einteilung je Tag, Bench, „Keine Meldung“, Wochenabschluss, geteilte Einstellungen mit Vertrauenswurzel; seit dem 22.10. Probe-Modus und Anwesenheits-Reiter mit Default = Anwesend). Nur für Forever. **Übergabe-Stand und offene Punkte: `WORKBOARD.md`.**
+Stand 22.10.2026, Version 0.9.0 / Beta (Loot-Regelsystem Resurrected integriert, Datenbuch verteilt, Protokollversion 3; seit dem 17./18.10. mehrere Gruppen mit Raidkader, Einteilung je Tag, Bench, „Keine Meldung“, Wochenabschluss, geteilte Einstellungen mit Vertrauenswurzel; seit dem 22.10. Probe-Modus und Anwesenheits-Reiter mit Default = Anwesend). Nur für Forever. **Übergabe-Stand und offene Punkte: `WORKBOARD.md`.**
 
 ---
 
@@ -25,20 +25,19 @@ Stand 22.10.2026, Version 0.2.0 (Loot-Regelsystem Resurrected integriert, Datenb
   **Plündermeister**, und gibt es keinen, der **Raidleiter** (Rückfall).
   Alle anderen empfangen. Grund: Sähe jeder dieselbe Beutemeldung und
   schriebe sie auf, gäbe es je Drop so viele Einträge wie Spieler im Raid.
-* **Gargul ist der Würfler, wir hören zu.** `GL.ITEM_AWARDED` bringt Kennung,
-  Haupt/Zweit (`OS`) und Wurf mit — das liefert der Chat nie. Ohne Gargul
-  liest das Addon Würfe und Beute selbst aus dem Chat.
+* **Das Addon liest Würfe und Beute aus den normalen Spielmeldungen** (Chat,
+  Blizzards Würfelfenster und Beutehistorie) und bringt ein eigenes Würfelfenster
+  mit. ⭐ **Es gibt keine Anbindung an andere Addons** (die Gargul-Anbindung wurde am
+  22.10.2026 entfernt: es gab keine Absprache mit dem Entwickler, der Nutzer wollte keinen Ärger).
 * **Jeder Eintrag hat eine feste Kennung**, Einfügen ist idempotent. So
   lassen sich Historien zusammenführen, ohne etwas zu überschreiben.
 
 Vorbilder (CurseForge-Auswertung 14.10.2026, nur Funktionsweise, kein Code):
 RCLootCouncil „Improved History" und CLM gleichen per Prüfsumme ab und
-tauschen nur Abweichendes; CLM verwirft Nachrichten Unberechtigter still;
-Gargul vergibt je Vergabe eine Kennung und sendet sie live an die Gruppe.
+tauschen nur Abweichendes; CLM verwirft Nachrichten Unberechtigter still.
 
-Davor (25.09.–13.10.): „Das Addon liest nur Garguls Historie". Das wurde
-verworfen, weil Gargul in Forever Nachnamen nicht kennt und weil ein Addon,
-das nur liest, weder Haupt/Zweit noch Gruppen noch Abgleich leisten kann.
+Davor (25.09.–13.10.) las das Addon die Historie eines anderen Addons; das wurde
+verworfen und am 22.10.2026 auch die letzte Anbindung entfernt.
 
 ---
 
@@ -48,11 +47,11 @@ das nur liest, weder Haupt/Zweit noch Gruppen noch Abgleich leisten kann.
 |---|---|---|
 | `Kern.lua` | Zählen, Sortieren, Zusammenführen, Prüfsummen, Kodierung, Schreiberwahl, Rechenregeln (§ 1–5) | **nein** |
 | `Locale.lua` | Sprache: deutscher Client Deutsch, sonst Englisch (`L["deutscher Satz"]`) | ja |
-| `Quelle.lua` | Garguls Historie, Würfelbereiche, Gegenstandstexte, Beispieldaten | ja |
+| `Quelle.lua` | Zugriff auf die eigene Historie, laufender Wurf, Gegenstandstexte, Beispieldaten | ja |
 | `Rolle.lua` | Gruppe lesen: wer ist Plündermeister/Leiter, zeichne ich auf | ja |
 | `Gruppen.lua` | Kader und Raidgruppen | ja |
 | `Anwesenheit.lua` | Bosskämpfe, Anwesenheitstracking (§ 2), Bank & Unentschuldigt (§ 6), Abendabschluss & Zuschläge, Spielerdetails | ja |
-| `Erfassung.lua` | Chat, Würfe, Einstellungen, Eintragen, Gargul-Vergaben | ja |
+| `Erfassung.lua` | Chat, Würfe, Einstellungen, Eintragen | ja |
 | `Abgleich.lua` | Hallo, Live-Meldung, Abgleich, Hinweis-Fenster | ja |
 | `Blizzbeute.lua` | Blizzards `C_LootHistory` als zweite Quelle | ja |
 | `Stil.lua` | Bausteine im KaosUI-Look (Farben, runde Ecken, Knopf, Schalter, Segmentwahl, Bildlauf) | ja |
@@ -72,11 +71,11 @@ durch dieselbe Anzeige, ohne dass irgendwo etwas abgelegt wird.
 
 ```
 awardedTo, itemID, itemLink, timestamp, OS (Zweitbedarf), gruppe, wurf,
-herkunft ("chat" | "blizzard" | "gargul" | "gargul-import" | "abgleich" | "gruppe"),
+herkunft ("chat" | "blizzard" | "wurf" | "abgleich" | "gruppe"; ältere Daten können noch "gargul" tragen),
 zurueck (zurückgenommen)
 ```
 
-Dieselben Feldnamen wie bei Gargul, damit beide ohne Umrechnen lesbar sind.
+Die Feldnamen sind seit der ersten Fassung so.
 
 ---
 
@@ -185,7 +184,7 @@ der das Addon nachweislich hat (Hallo-Meldung) oder man selbst ist.
 
 * ⭐ **Ohne Gruppe wird nie aufgezeichnet** (auch nicht bei „immer“; Entscheid 14.10.2026): Das Addon ist für
   Gruppeninhalt da, ein Solo-Fund gehört nicht in die Historie, Fünfer-Instanzen dienen nur dem Erproben des
-  Raid-Ablaufs *mit* einer Gruppe. Zentral in `Rolle.IchSchreibe`, daran hängen Chat, Blizzard-Historie und Gargul.
+  Raid-Ablaufs *mit* einer Gruppe. Zentral in `Rolle.IchSchreibe`, daran hängen Chat und Blizzard-Historie.
 * ⭐ **Fairshare ist nur mit Plündermeister UND Zustimmung im Dienst, sonst schläft es** (Entscheid 15.10.2026): `Rolle.Aktiv()` =
   Gruppe **und** Methode „master" (bei jedem Aufruf frisch gelesen) **und** `FairshareDB.nutzung == "ja"`. `Nutzung.lua` fragt in einem
   Dialog „Fairshare nutzen?", sobald Plündermeister aktiv ist (Ja / Nein / Kreuz = keine Antwort, nicht erneut fragen); jede andere
@@ -193,7 +192,7 @@ der das Addon nachweislich hat (Hallo-Meldung) oder man selbst ist.
   Antwort (`Nutzung.Auswerten` bei `GROUP_ROSTER_UPDATE`, `PARTY_LOOT_METHOD_CHANGED`, 4 s nach dem Anmelden). Von Hand: `/fs nutzung
   [ja|nein|fragen]`, Einstellungen → Würfeln & Abgleich → Nutzung. Neue Datei → WoW-Neustart.
   Gesperrt sind die Ereigniseingänge (`Erfassung`: `START_LOOT_ROLL`, `CHAT_MSG_LOOT`,
-  `CHAT_MSG_SYSTEM`; `Blizzbeute`; Garguls `ROLLOFF_STARTED`), `Wurf.DarfStarten`, `Wurf.Empfangen` und `IchSchreibe` (auch bei „immer").
+  `CHAT_MSG_SYSTEM`; `Blizzbeute`), `Wurf.DarfStarten`, `Wurf.Empfangen` und `IchSchreibe` (auch bei „immer").
   Auch Abgleich (Hallo, Hinweis-Fenster, Automatik), Einstellungen teilen (Nachfragen/Empfangen) und der Kader-Sync beim Anmelden ruhen;
   `PARTY_LOOT_METHOD_CHANGED` weckt sie sofort (Hallo, Nachfrage). Slash-Befehle, Übersicht und Einstellungen bleiben benutzbar. Szenario 32.
   Tests: `Welt(..., ml=0)` ist jetzt Standard, `ml=None` = Gruppenbeute.
@@ -250,12 +249,12 @@ Spieler mit Schreibrecht (`Konfig.Darf`, Gildenrang) gleichen Historie und Daten
 * **Einfügen ist idempotent** (`Kern.Zusammenfuehren`): Kennung bekannt →
   nichts. Überschrieben wird nie.
 * **Doppelgänger** (gleicher Spieler, gleicher Gegenstand, ≤ 180 s,
-  verschiedene Kennung, z. B. Chat gegen Gargul) werden nicht eingefügt, ihre
+  verschiedene Kennung, z. B. Chat gegen Blizzards Historie) werden nicht eingefügt, ihre
   Kennung wandert in `alias`. **Die Prüfsumme zählt Alias-Kennungen mit** —
   ohne das wären A {X, Alias Y} und B {Y, Alias X} ewig „verschieden".
 * Der einzige veränderliche Wert ist `zurueck`: Er wechselt nur von nein auf
   ja (monoton) und wird deshalb mitgeführt. Andere Änderungen (anderer
-  Gewinner nach einer Gargul-Bearbeitung) wandern **nicht** — der Abgleich
+  Gewinner nach einer nachträglichen Bearbeitung) wandern **nicht** — der Abgleich
   fügt nur hinzu.
 
 ### Sicherheit
@@ -279,28 +278,16 @@ Absenders und seine Zuordnung.
 
 ---
 
-## Gargul
+## Würfelbereiche und andere Addons
 
-* **Würfelbereiche:** Gargul bringt MS 1–100 und OS 1–99 mit. Die Gilde
-  würfelt standardmäßig **100 / 99** (seit 22.10.2026, wie Garguls eigene Voreinstellung; vorher 100 / 50; **einstellbar**, siehe „Würfelbereiche einstellbar").
-  `Quelle.GargulBereiche()` prüft, `…Setzen()` stellt `RollTracking.Brackets` auf die Bereiche von Fairshare um
-  (Einstellung, kein Eingriff in den Code), `…Uebernehmen()` holt MS/OS aus Gargul nach Fairshare; `/fs bereiche`.
-  Sonst ordnet Gargul die 50er-Würfe nicht ein.
-* **Ereignisse:** `GL.ITEM_AWARDED` → eintragen; `GL.ITEM_AWARD_EDITED` →
-  Gewinner/Haupt-Zweit nachziehen; `GL.ITEM_UNAWARDED` → `zurueck` setzen
-  (nicht löschen, sonst brächte der Abgleich es zurück) und verteilen.
-* Kam die Beutemeldung vor Gargul, wird der Eintrag **berichtigt**, nicht
-  verdoppelt (`herkunft = "gargul"`).
-* **Gargul 8.0.1 (03.10.2026) ist für Forever offiziell veröffentlicht**, kennt aber
-  weiterhin keine Nachnamen (kein Treffer für „surname"). Lizenz bleibt
-  **All Rights Reserved**: nur Ereignisse und die Historie lesen,
-  **keinen Code übernehmen**, nichts davon ins Repo.
+* **Würfelbereiche:** Standard **Haupt 100 / OS 99** (seit 22.10.2026; vorher 100 / 50), **einstellbar** (Einstellungen → Würfeln & Abgleich, `/fs bereiche`, siehe „Würfelbereiche einstellbar").
+* ⭐ **Keine Anbindung an andere Addons (22.10.2026).** Die frühere Gargul-Anbindung (Ereignisse lesen, Historie importieren, Bereiche abgleichen, `/fs import`, Quelle.Gargul*) ist komplett entfernt, die TOC hat kein `OptionalDeps` mehr. Grund: keine Absprache mit dem Entwickler. Würfe und Vergaben anderer Addons erkennt Fairshare nur über die normalen Spielmeldungen (Haupt/OS am Würfelbereich).
 
 ---
 
 ## Eigenes Würfelfenster (`Wurf.lua`, seit 14.10.2026)
 
-Anlass: Gargul ist in der Beta noch verbuggt. Der Plündermeister/Leiter/Assistent startet einen Wurf (`/fs wurf <Link>`,
+Anlass: Die Gilde wollte ein eigenes, einfaches Würfeln. Der Plündermeister/Leiter/Assistent startet einen Wurf (`/fs wurf <Link>`,
 Knopf *Wurf starten* → Dialog mit Shift-Klick-Feld und der Beute des offenen Beutefensters). Bei **allen** mit Fairshare
 geht ein kleines Fenster auf: Gegenstand (Tooltip), Zeitbalken, **Haupt (1-100)**, **OS (1-99)**, **Passen**. Ein Klick
 ruft `RandomRoll(1, 100|50)`; die Zahl kommt vom Server als `RANDOM_ROLL_RESULT` und wird wie jeder Wurf in
@@ -315,9 +302,9 @@ Englisch heißt Zweitbedarf **„OS"** (Nutzerwunsch), nicht „Off".
 
 **Offene Wünsche (Nutzer, 14.10.2026, „für die Zukunft"):**
 * **Würfelzeit frei wählbar**, länger oder kürzer. Heute: Einstellung `wurfDauer` mit 20/30/45/60 s (Einstellungen →
-  Gargul & Abgleich → Würfelfenster, Grenzen 10–120 s in `Wurf.Dauer`). Idee: Feld im Startdialog für diesen einen Wurf.
+  Würfeln & Abgleich → Würfelfenster, Grenzen 10–120 s in `Wurf.Dauer`). Idee: Feld im Startdialog für diesen einen Wurf.
 * **Festlegbar, was ein „Main"- und was ein „OS"-Wurf ist.** Früher fest 1-100 / 1-50 (heute Standard 1-100 / 1-99) an vier Stellen: `Kern.Bedarfsart`,
-  die Knöpfe in `Wurf.lua` (`RandomRoll`, Beschriftung), `Quelle.GargulBereiche`/`SOLL`, Texte. Idee: zwei Einstellungen
+  die Knöpfe in `Wurf.lua` (`RandomRoll`, Beschriftung), Texte. Idee: zwei Einstellungen
   (Obergrenze Haupt, Obergrenze OS), überall daraus lesen; Beschriftungen und Erkennung folgen; Abgleich-Protokoll
   unberührt (die Art steckt im Eintrag, nicht der Bereich).
 
@@ -385,13 +372,11 @@ Nur einer stellt ein (Würfelbereiche, Verzauberer, Gruppen …), alle bekommen 
   Haupt ≠ Zweit). **Die Bereiche des Leiters gehen mit jedem Wurf mit** (`S;id;Sekunden;h1,h2,z1,z2;Link`; ältere Fassungen
   lesen nur den Link): Alle würfeln und erkennen für die Dauer des Wurfs mit **seinen** Bereichen (nur im Speicher,
   `aktiv.tauschen`), danach gelten wieder die eigenen. Sonst würfelte ein Spieler mit anderer Einstellung falsch.
-* ⭐ **Mit Gargul in beide Richtungen**: *In Gargul übernehmen* (`GargulBereicheSetzen`: MS/OS nach den Bereichen von
-  Fairshare) und *Aus Gargul übernehmen* (`GargulBereicheUebernehmen`: erster Nicht-OS-Bereich = Haupt, erster OS-Bereich =
-  Zweit). Die Seite heißt jetzt **„Würfeln & Abgleich"** (englisch „Roll and Sync").
+* Die Seite heißt **„Würfeln & Abgleich"** (englisch „Roll and Sync").
 * **Ansage im Chat** (`Erfassung.Ansagen`, Schalter `ansagen`, Standard an): Nach jeder eingetragenen Vergabe schreibt der
   **Aufzeichner** „[Gegenstand] wurde an X vergeben!" (OS: „… (OS)") in `RAID`/`PARTY`. Nur bei Herkunft `wurf` (Würfelfenster,
-  Handel, „Nur eintragen") und bei `chat` **mit Plündermeister** (Zuteilung im Beutefenster); Blizzards Gruppenwürfe und
-  Gargul melden selbst.
+  Handel, „Nur eintragen") und bei `chat` **mit Plündermeister** (Zuteilung im Beutefenster); Blizzards Gruppenwürfe
+  melden selbst.
 * **Wurf abbrechen** (`Wurf.Abbrechen`, `/fs wurf abbrechen`, Knopf *Abbrechen* im Würfelfenster, *Wurf verwerfen* im
   Ergebnis): Nachricht `X;id;a`, bei allen schließt das Fenster, **kein Ergebnis**, die Runde wird verworfen
   (`Erfassung.RundeVerwerfen`), die Würfe zählen nirgends. *Beenden* bleibt das normale Ende mit Ergebnis.
@@ -478,17 +463,15 @@ verrollen; verteilt wird per **Handel**. Darum:
 
 ## Wurfanzeige (Übersicht während eines Wurfs, seit 14.10.2026)
 
-Drei Quellen füllen dieselbe Anzeige (`Quelle.Wurf()`), jede liefert `Wuerfe`, **`Arten`** (`haupt`/`zweit`), `namen`, `link`:
+Zwei Quellen füllen dieselbe Anzeige (`Quelle.Wurf()`), jede liefert `Wuerfe`, **`Arten`** (`haupt`/`zweit`), `namen`, `link`:
 
-* **Gargul** (`RollOff.CurrentRollOff.Rolls`): die Art kommt aus dem Wurfbereich (`Kern.Bedarfsart`: 1-100 Haupt, 1-99
-  Zweit), hilfsweise aus dem Bereichsnamen („MS"/„OS"). Wer beides wirft, zählt als Haupt.
 * **Blizzards Würfelfenster** (Bedarf/Gier, Gruppenbeute) — Ergebnis des ersten Livetests: *öffnete das Fenster nicht*.
   Jetzt: `START_LOOT_ROLL` öffnet es (`Erfassung.WurfBeginnt`, Gegenstand über `GetLootRollItemLink`), die
   Chatmeldungen kommen aus den GlobalStrings `LOOT_ROLL_ROLLED_NEED/_GREED`, `LOOT_ROLL_NEED/_GREED` (Wahl, sofort),
   `LOOT_ROLL_PASSED` (Verzicht) und `LOOT_ROLL_WON/_YOU_WON/_ALL_PASSED` (Ende). **Bedarf = Haupt, Gier = Zweit**
   (wie in `Blizzbeute.lua`). `Kern.MusterGeordnet` ordnet die Fundstellen den Argumenten zu (übersetzte Vorlagen
   dürfen umstellen), die längere Vorlage steht zuerst („… + Role Bonus").
-* **`/rnd`** im Chat (ohne Gargul): `RANDOM_ROLL_RESULT`, Art aus dem Bereich.
+* **`/rnd`** im Chat: `RANDOM_ROLL_RESULT`, Art aus dem Bereich (`Kern.Bedarfsart`: 1-100 Haupt, 1-99 Zweit).
 
 ⭐ **Je Gegenstand eine Runde** (`Erfassung`, `Runden`): mehrere gleichzeitige Gegenstände vermischen sich nicht; gezeigt
 wird die Runde mit der jüngsten Bewegung. Eine Runde endet mit der Vergabe (Beutemeldung, Blizzards Historie, „X won")
@@ -498,8 +481,7 @@ wenigste Hauptstücke zuerst, **bei Gleichstand der höchste Wurf** (Nutzerhinwe
 
 ⭐ **Der erste Wurf zählt** (Nutzerhinweis 14.10.2026: bisher galt der letzte, wer fünfmal würfelte, bekam den fünften):
 je Spieler und Gegenstand wird jeder weitere Wurf ignoriert (`Erfassung.WurfMerken`), auch ein späterer Zweitbedarf-Wurf
-ändert die Art nicht; wer erst nur *gewählt* hat, darf noch würfeln. Bei Gargul gilt der erste nach `time`
-(`Quelle.Wurf`). Ohne bekannten Gegenstand (getipptes `/rnd`) weiß das Addon nicht, wann eine neue Runde beginnt:
+ändert die Art nicht; wer erst nur *gewählt* hat, darf noch würfeln. Ohne bekannten Gegenstand (getipptes `/rnd`) weiß das Addon nicht, wann eine neue Runde beginnt:
 dort gilt ein Wurf nach 60 s als neue Runde.
 
 ⚠️ Ungemessen im Spiel: ob Forever `START_LOOT_ROLL` und die `LOOT_ROLL_*`-Meldungen so liefert (Gruppenbeute).
@@ -583,7 +565,7 @@ geschrieben** (`Stil.lua`) — Fairshare hängt nicht von KaosUI ab.
 Eine Zeile ist eine Datentabelle (`art` = schalter | segment | knopf | eingabe | info, dazu
 `label`, `beschr`, `get`/`set`); Texte und Zustand setzt `update()`, die Höhen rechnet
 `kartenMessen`. **Keine Anker zwischen Zeilen** — dieselbe Lehre wie beim KaosUI-Umbau. Neue Option =
-eine Zeile in `seiteErfassung`/`seiteGargul`/`seiteGruppen`.
+eine Zeile in `seiteErfassung`/`seiteWuerfeln`/`seiteGruppen`.
 
 ⚠️ Die Optik ist nur im Spiel prüfbar; `tests/szenarien.py` prüft, dass jede Zeile, jeder Knopf und
 jede Seite ohne Fehler läuft und speichert.
@@ -676,7 +658,7 @@ python tests/texte.py --streng            # Übersetzung vollständig?
 komplette Addon (auch Fenster und Einstellungen, mit Attrappen für Frames)
 mehrfach in getrennten Lua-Zuständen, verbindet sie über einen simulierten
 Nachrichtenkanal samt Uhr und prüft: Schreiberwahl, Live-Meldung, vollen
-Abgleich in beide Richtungen, Doppelgänger, Sicherheitsregeln, Gargul-
+Abgleich in beide Richtungen, Doppelgänger, Sicherheitsregeln,
 Ereignisse, Gruppen, jeden Knopf und jeden Befehl. Es prüft **nicht**, wie
 etwas aussieht und wie sich der echte Client verhält (Nachrichtenformat der
 Absendernamen, Drosselung, Plündermeister in Forever).
@@ -712,10 +694,7 @@ nicht, `deploy.ps1` rollt dort nicht mehr aus.
 ## Interface: 16001, 120100, 120105
 ```
 
-Gargul ist für die Forever-Beta vom Entwickler **offiziell veröffentlicht**
-(8.0.1, `Gargul_Camelot.toc`). **Dieses Addon darf keine fehlenden Globals
-selbst definieren** — Garguls Weichen prüfen `Global or C_Namespace.Name` und
-nähmen sonst den falschen Weg.
+**Dieses Addon darf keine fehlenden Globals selbst definieren** (andere Addons prüfen `Global or C_Namespace.Name` und nähmen sonst den falschen Weg).
 
 ---
 

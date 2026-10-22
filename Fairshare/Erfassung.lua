@@ -17,9 +17,8 @@
     hartkodiertem Deutsch oder Englisch. Sonst laeuft es in genau einer
     Sprachfassung.
 
-    ⚠️ Gespeichert wird in **derselben Form wie Garguls Eintraege**
-    (`awardedTo`, `itemID`, `timestamp`, `OS`). Dadurch liest `Kern` beide
-    ohne Unterschied, und ein Import aus Gargul passt ohne Umrechnen.
+    Gespeichert wird in dieser Form: `awardedTo`, `itemID`, `timestamp`,
+    `OS` (dazu Kennung, Wurf, Herkunft, Kennzeichen).
 ------------------------------------------------------------------------]]
 
 local ADDON, ns = ...
@@ -291,7 +290,7 @@ function Erfassung.WurfMerken(name, wert, min, max, art, link)
     local alt = Wuerfe[k]
     Wuerfe[k] = { art = art, zeit = time(), wert = zahl or (alt and alt.wert) or 0, name = name }
 
-    -- ⚠️ Ohne Gargul gibt es kein ROLLOFF_STARTED. Der erste Bedarfswurf
+    -- ⚠️ Es gibt kein Ereignis „Wurf beginnt". Der erste Bedarfswurf
     -- einer Runde ist der beste Ersatz dafuer.
     fensterAnstossen(ersterDerRunde)
 
@@ -374,8 +373,8 @@ end
 
 --- Die Wuerfe der letzten Minuten, in der Form, die das Fenster erwartet.
 --
---  ⭐ Damit braucht die Wurf-Ansicht kein Gargul mehr. Was Gargul voraus
---  hat, ist der Gegenstand: Es weiss, WOFUER gewuerfelt wird. Aus dem
+--  ⭐ Die Wurf-Ansicht kommt allein aus dem Chat. Was dabei fehlt,
+--  ist der Gegenstand: Man weiss nicht, WOFUER gewuerfelt wird. Aus dem
 --  Chat allein laesst sich das nicht ablesen — die Reihenfolge und die
 --  Hervorhebung stimmen trotzdem, und darum geht es.
 --
@@ -525,7 +524,7 @@ end
 --- ⭐ Eine Zeile im Raid- oder Gruppenchat: „[Gegenstand] wurde an X vergeben!"
 --  Nur der Aufzeichner (hier laeuft nur sein Eintragen), und nur dort, wo
 --  sonst niemand etwas sagt: bei Vergaben ueber das Wuerfelfenster und bei
---  Zuteilung durch den Pluendermeister. Blizzards Gruppenwuerfe und Gargul
+--  Zuteilung durch den Pluendermeister. Blizzards Gruppenwuerfe
 --  melden selbst.
 --  @param warnung  true: als Raidwarnung (/rw), wenn man im Raid Leiter oder Assistent ist
 local function gruppenChat(text, warnung)
@@ -717,7 +716,6 @@ function Erfassung.Eintragen(name, link, zeit, art, kennung, extra)
     local V = Erfassung.Historie()
     local istWurf = extra and (extra.herkunft == "wurf")
     local istBlizz = (kennung and kennung:find("^blizz:")) or (extra and extra.herkunft == "blizzard")
-    local istGargul = extra and (extra.herkunft == "gargul")
 
     if istWurf then
         -- Explizite Vergabe aus Wurf.lua / Handelsfenster:
@@ -731,17 +729,17 @@ function Erfassung.Eintragen(name, link, zeit, art, kennung, extra)
             end
             kennung = basis .. "#" .. idx
         end
-    elseif istBlizz or istGargul then
-        -- Blizzard (lootListKey) und Gargul (checksum) haben je Drop eindeutige Schlüssel.
+    elseif istBlizz then
+        -- Blizzard (lootListKey) hat je Drop einen eindeutigen Schlüssel.
         if V[kennung] or (db().alias and db().alias[kennung]) then
             return false, L["schon vorhanden"]
         end
     else
         -- Chat-Beutemeldung:
         -- Echo-Prüfung: Wurde derselbe Gegenstand vor wenigen Sekunden (<= 5s) bereits
-        -- strukturiert über Wurf, Blizzard oder Gargul erfasst?
+        -- strukturiert über Wurf oder Blizzard erfasst?
         local schon, _, e = Erfassung.SchonErfasst(name, id, jetzt, 5)
-        if schon and e and (e.herkunft == "wurf" or e.herkunft == "blizzard" or e.herkunft == "gargul") and not e.chatEcho then
+        if schon and e and (e.herkunft == "wurf" or e.herkunft == "blizzard") and not e.chatEcho then
             e.chatEcho = true
             return false, L["schon vorhanden"]
         end
@@ -926,83 +924,6 @@ function Erfassung.Wiederherstellen()
         ns.Abgleich.Pruefen()
     end
     return n
-end
-
--- =====================================================================
---  Gargul als Quelle
--- =====================================================================
-
---- ⭐ Eine Vergabe aus Gargul.
---
---  Gargul ist der Wuerfler, wir hoeren nur zu. Der Eintrag bringt mit, was
---  der Chat nie liefert: die Kennung, ob es Haupt- oder Zweitbedarf war
---  (`OS`) und die Wuerfe. Darum schlaegt er die Vermutung aus dem Chat.
---
---  ⚠️ Kam die Beutemeldung schon vorher an, liegt die Vergabe bereits da —
---  dann wird sie berichtigt, nicht doppelt eingetragen.
---
---  @param A  Garguls AwardEntry
-function Erfassung.GargulVergabe(A)
-    if not db().erfassen or type(A) ~= "table" then return false, "aus" end
-
-    local zaehlt, grund = Kern.Zaehlt(A)
-    if not zaehlt then return false, grund end
-
-    local gegenstand = A.itemLink or (A.itemID and ("item:" .. A.itemID))
-    if not gegenstand then return false, L["ohne Gegenstand"] end
-
-    local ok, warum = Erfassung.Zaehlenswert(gegenstand, nil)
-    if not ok then return false, warum end
-
-    -- Der Wurf des Gewinners: der hoechste in der gewonnenen Klasse.
-    local wurf
-    for _, W in ipairs(A.Rolls or {}) do
-        if Kern.GleicherSpieler(W.player, A.awardedTo) then
-            local betrag = tonumber(W.amount)
-            if betrag and (not wurf or betrag > wurf) then wurf = betrag end
-        end
-    end
-
-    local itemID = A.itemID or tonumber(tostring(gegenstand):match("item:(%d+)"))
-    local zeit = tonumber(A.timestamp) or (GetServerTime and GetServerTime()) or time()
-
-    -- Schon durch die Beutemeldung erfasst? Dann berichtigen.
-    local da, eid, e = Erfassung.SchonErfasst(A.awardedTo, itemID, zeit, 5)
-    if da and e and e.herkunft == "chat" then
-        e.OS = A.OS and true or nil
-        e.wurf = wurf or e.wurf
-        e.herkunft = "gargul"
-        return false, L["berichtigt"]
-    end
-
-    return Erfassung.Eintragen(A.awardedTo, gegenstand, zeit,
-        A.OS and "zweit" or "haupt", A.checksum, { wurf = wurf, herkunft = "gargul" })
-end
-
---- Gargul hat eine Vergabe geaendert (anderer Gewinner, Haupt/Zweit).
---  Die Kennung bleibt; nur die Felder werden nachgezogen.
---  ⚠️ Das gilt nur hier. Andere Spieler haben den alten Stand und
---  bekommen die Aenderung nicht — der Abgleich fuegt nur hinzu.
-function Erfassung.GargulAenderung(A)
-    if type(A) ~= "table" or not A.checksum then return false end
-    local e = Erfassung.Historie()[A.checksum]
-    if not e then return false end
-    if A.awardedTo and A.awardedTo ~= "" then e.awardedTo = A.awardedTo end
-    e.OS = A.OS and true or nil
-    return true
-end
-
---- Gargul hat eine Vergabe zurueckgenommen.
---  Der Eintrag bleibt liegen, zaehlt aber nicht mehr: Loeschen wuerde
---  der Abgleich beim naechsten Mal wieder hereinbringen.
-function Erfassung.GargulZurueck(A)
-    if type(A) ~= "table" or not A.checksum then return false end
-    local e = Erfassung.Historie()[A.checksum]
-    if not e then return false end
-    e.zurueck = true
-    -- Den anderen mitteilen, damit sie ihn ebenfalls nicht mehr zaehlen.
-    if ns.Abgleich then ns.Abgleich.Verteilen(A.checksum) end
-    return true
 end
 
 -- =====================================================================
