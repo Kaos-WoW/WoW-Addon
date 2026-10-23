@@ -1551,7 +1551,7 @@ local function zeigeEinteilung()
             local k = Kern.Schluessel(n)
             if k and not gesehen[k] then
                 gesehen[k] = true
-                pool[#pool + 1] = { name = n, rang = "—" }
+                pool[#pool + 1] = { name = n, rang = "—", extern = true }       -- nicht im Raidkader
             end
         end
     end
@@ -1581,6 +1581,9 @@ local function zeigeEinteilung()
     for _, e in ipairs(pool) do
         if ziel ~= nil and (e.gruppe == ziel or (G.IstBench(ziel) and G.IstBench(e.gruppe) and G.Groesse(e.gruppe) == zielKat)) then
             drin[#drin + 1] = e
+        elseif e.extern then
+            -- ⭐ Wer nicht im Raidkader steht (Rang abgewählt), ist nie „verfügbar“: Links stehen nur die Spieler des
+            -- Raidkaders. Eine alte Einteilung bleibt rechts sichtbar und lässt sich dort entfernen (Fund 23.10.2026).
         else
             if e.gruppe ~= nil then
                 andere = andere + 1                -- schon in einer anderen Gruppe dieser Größe: hier nicht verfügbar

@@ -1,7 +1,7 @@
-Fairshare 0.9.1  -  Faire Beuteverteilung fuer WoW Forever (Gilde Resurrected)
+Fairshare 0.9.2  -  Faire Beuteverteilung fuer WoW Forever (Gilde Resurrected)
 ===========================================================================
 
-WICHTIG: ALLE, die Fairshare nutzen, brauchen DIESELBE Fassung (0.9.1). Das
+WICHTIG: ALLE, die Fairshare nutzen, brauchen DIESELBE Fassung (0.9.2). Das
 Datenprotokoll hat sich gegenueber 0.1.x geaendert; aeltere Fassungen
 gleichen nicht mehr mit dieser ab. Bitte an alle in der Leitung und im Raid
 weitergeben.
@@ -16,7 +16,7 @@ INSTALLATION
 
       ...\AddOns\Fairshare\Fairshare.toc
 
-    (Der Ordner muss genau "Fairshare" heissen, nicht "Fairshare-0.9.1".)
+    (Der Ordner muss genau "Fairshare" heissen, nicht "Fairshare-0.9.2".)
     Wer schon eine aeltere Fassung hat: den alten Ordner "Fairshare" ersetzen. Die Daten
     (Historie, Einstellungen) bleiben erhalten, sie liegen in WTF.
  3. WoW starten (Neustart, ein /reload reicht bei neuen Dateien NICHT).
@@ -98,6 +98,7 @@ BEFEHLE (Auswahl)       /fs hilfe zeigt alle
    /fs wurf             Wuerfelfenster starten
    /fs einteilung       Einteilung (mit Schreibrecht)
    /fs kompakt          kleines Fenster fuer den Raid (kompakt test = Vorschau)
+   /fs einladewort      Einladen per Fluestern: Stichwort setzen, an/aus
    /fs probe            Probe-Modus (Uebungsmodus zum Testen)
    /fs rolle            wer zeichnet gerade auf
    /fs abgleich status  Stand des Datenabgleichs

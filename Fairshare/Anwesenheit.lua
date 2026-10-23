@@ -858,6 +858,7 @@ end
 -- =====================================================================
 
 local anwesenheitAutoRaid = false
+local autoRaidBis = 0              -- Ablauf der Einladungsrunde (3 Minuten), danach macht das Addon keinen Raid mehr von selbst
 
 local function konvertiereZuRaid()
     if C_PartyInfo and C_PartyInfo.ConvertToRaid then
@@ -867,30 +868,172 @@ local function konvertiereZuRaid()
     end
 end
 
+-- ⭐ Aus einer normalen Gruppe wird nur dann ein Raid, wenn sie schon 5 Mitglieder hat und noch jemand dazukommen
+-- soll (Nutzerwunsch 23.10.2026). Vorher machte das Addon schon beim ersten Eingeladenen einen Raid daraus.
+local function istNormaleGruppe()
+    return (IsInGroup and IsInGroup()) and not (IsInRaid and IsInRaid()) and true or false
+end
+
+local function gruppenGroesse()
+    if not (IsInGroup and IsInGroup()) then return 0 end
+    return (GetNumGroupMembers and GetNumGroupMembers()) or 1
+end
+
+--- Ist die normale Gruppe voll (5) und muss darum für den nächsten zum Raid werden?
+local function raidNoetig()
+    return istNormaleGruppe() and gruppenGroesse() >= 5
+end
+
+local eigeneEinladung = false        -- die Einladung stammt vom Addon selbst (nicht doppelt behandeln)
+
+--- Eine Einladung von Hand (oder über ein anderes Addon): Ist die normale Gruppe voll, erst zum Raid machen und die
+--  Einladung gleich danach wiederholen, sonst scheitert sie mit „Gruppe voll“.
+local function beiEinladung(name)
+    if eigeneEinladung or type(name) ~= "string" or name == "" then return end
+    if not (ns.Rolle and ns.Rolle.Aktiv and ns.Rolle.Aktiv()) then return end        -- das Addon schläft
+    if not raidNoetig() then return end
+    if UnitIsGroupLeader and not UnitIsGroupLeader("player") then return end
+    konvertiereZuRaid()
+    if C_Timer then
+        C_Timer.After(0.7, function()
+            eigeneEinladung = true
+            if C_PartyInfo and C_PartyInfo.InviteUnit then
+                pcall(C_PartyInfo.InviteUnit, name)
+            elseif InviteUnit then
+                pcall(InviteUnit, name)
+            end
+            eigeneEinladung = false
+        end)
+    end
+end
+Anwesenheit.BeiEinladung = beiEinladung
+
+if hooksecurefunc then
+    if rawget(_G, "InviteUnit") then pcall(hooksecurefunc, "InviteUnit", beiEinladung) end
+    if C_PartyInfo and C_PartyInfo.InviteUnit then pcall(hooksecurefunc, C_PartyInfo, "InviteUnit", beiEinladung) end
+end
+
+-- =====================================================================
+--  ⭐ Einladen per Flüstern (Nutzerwunsch 23.10.2026): Wer dir dein Stichwort flüstert, wird in deine Gruppe
+--  eingeladen. Eine persönliche Einstellung (nicht geteilt), standardmäßig aus.
+-- =====================================================================
+
+local EINLADE_STANDARD = "invite"
+local einladePause = {}              -- Schlüssel des Absenders -> Zeitpunkt der letzten Einladung
+
+local function einladeDb()
+    FairshareDB = FairshareDB or {}
+    local d = FairshareDB.einladen
+    if type(d) ~= "table" then
+        d = { an = false, wort = EINLADE_STANDARD }
+        FairshareDB.einladen = d
+    end
+    if type(d.wort) ~= "string" or d.wort == "" then d.wort = EINLADE_STANDARD end
+    return d
+end
+
+--- Das Stichwort und ob die Funktion an ist.
+function Anwesenheit.EinladeWort()
+    local d = einladeDb()
+    return d.wort, d.an and true or false
+end
+
+function Anwesenheit.EinladeAn(an)
+    einladeDb().an = an and true or false
+end
+
+--- Setzt das Stichwort (2 bis 30 Zeichen, ohne Farbcodes oder Schrägstrich am Anfang).
+--  @return true oder false und ein Grund
+function Anwesenheit.EinladeWortSetzen(wort)
+    wort = tostring(wort or ""):match("^%s*(.-)%s*$")
+    if #wort < 2 then return false, L["Das Stichwort braucht mindestens 2 Zeichen."] end
+    if #wort > 30 then return false, L["Das Stichwort darf höchstens 30 Zeichen haben."] end
+    if wort:find("|", 1, true) or wort:sub(1, 1) == "/" then
+        return false, L["Das Stichwort darf nicht mit / beginnen und keine Sonderzeichen mit | enthalten."]
+    end
+    einladeDb().wort = wort
+    return true
+end
+
+--- Lädt einen Spieler ein. Ist die normale Gruppe voll (5), wird sie vorher zum Raid, die Einladung folgt danach.
+function Anwesenheit.Einladen(name)
+    local function laden()
+        eigeneEinladung = true
+        if C_PartyInfo and C_PartyInfo.InviteUnit then
+            pcall(C_PartyInfo.InviteUnit, name)
+        elseif InviteUnit then
+            pcall(InviteUnit, name)
+        end
+        eigeneEinladung = false
+    end
+    if raidNoetig() and (not UnitIsGroupLeader or UnitIsGroupLeader("player")) then
+        konvertiereZuRaid()
+        if C_Timer then C_Timer.After(0.7, laden) else laden() end
+    else
+        laden()
+    end
+end
+
+--- Eine Flüsternachricht: Entspricht sie dem Stichwort, wird der Absender eingeladen.
+--  @return true, wenn eingeladen wurde
+function Anwesenheit.Fluestern(text, absender)
+    local d = einladeDb()
+    if not d.an or type(text) ~= "string" or type(absender) ~= "string" or absender == "" then return false end
+    if text:match("^%s*(.-)%s*$"):lower() ~= d.wort:lower() then return false end
+    if Kern.GleicherSpieler(absender, ichName()) then return false end
+
+    local k = Kern.Schluessel(absender)
+    local jetzt = (GetTime and GetTime()) or time()
+    if k and einladePause[k] and (jetzt - einladePause[k]) < 15 then return false end      -- nicht mehrfach hintereinander
+
+    if (UnitInRaid and UnitInRaid(absender)) or (UnitInParty and UnitInParty(absender)) then return false end
+    if ns.Rolle and ns.Rolle.Namen then
+        for _, n in ipairs(ns.Rolle.Namen()) do
+            if Kern.GleicherSpieler(n, absender) then return false end        -- schon in der Gruppe
+        end
+    end
+    local imRaid = IsInRaid and IsInRaid()
+    if imRaid and UnitIsGroupLeader and not (UnitIsGroupLeader("player") or (UnitIsGroupAssistant and UnitIsGroupAssistant("player"))) then
+        return false                -- im Raid dürfen nur Leiter und Assistenten einladen
+    end
+    if imRaid and gruppenGroesse() >= 40 then
+        print(string.format(L["|cff1B6B57Fairshare|r: %s hat dir das Stichwort geflüstert, aber der Raid ist voll."], Kern.Anzeigename(absender)))
+        return false
+    end
+
+    if k then einladePause[k] = jetzt end
+    Anwesenheit.Einladen(absender)
+    print(string.format(L["|cff1B6B57Fairshare|r: %s per Flüstern eingeladen (Stichwort „%s“)."], Kern.Anzeigename(absender), d.wort))
+    return true
+end
+
 local frame = CreateFrame and CreateFrame("Frame")
 if frame then
+    pcall(function() frame:RegisterEvent("CHAT_MSG_WHISPER") end)
     pcall(function() frame:RegisterEvent("ENCOUNTER_END") end)
     pcall(function() frame:RegisterEvent("BOSS_KILL") end)
     pcall(function() frame:RegisterEvent("GROUP_ROSTER_UPDATE") end)
 
     frame:SetScript("OnEvent", function(_, ereignis, a1, a2, _, _, a5)
+        if ereignis == "CHAT_MSG_WHISPER" then
+            pcall(Anwesenheit.Fluestern, a1, a2)
+            return
+        end
         if ereignis == "GROUP_ROSTER_UPDATE" then
-            if IsInGroup and IsInGroup() and not (IsInRaid and IsInRaid()) then
+            if istNormaleGruppe() then
                 local istLeiter = not UnitIsGroupLeader or UnitIsGroupLeader("player")
-                local aktGruppe = ns.Gruppen and ns.Gruppen.AktivName and ns.Gruppen.AktivName()
-                if istLeiter and (anwesenheitAutoRaid or aktGruppe) then
+                -- Nur mit der Einladungsliste im Gang (Knopf Gruppe einladen) und erst bei 5 Mitgliedern
+                if istLeiter and anwesenheitAutoRaid and (time() <= autoRaidBis or autoRaidBis == 0) and gruppenGroesse() >= 5 then
                     konvertiereZuRaid()
-                    if anwesenheitAutoRaid then
-                        local timer = C_Timer and C_Timer.After
-                        if timer then
-                            timer(0.5, function()
-                                if anwesenheitAutoRaid then
-                                    Anwesenheit.GruppeEinladen(true)
-                                end
-                            end)
-                        else
-                            Anwesenheit.GruppeEinladen(true)
-                        end
+                    local timer = C_Timer and C_Timer.After
+                    if timer then
+                        timer(0.5, function()
+                            if anwesenheitAutoRaid then
+                                Anwesenheit.GruppeEinladen(true)
+                            end
+                        end)
+                    else
+                        Anwesenheit.GruppeEinladen(true)
                     end
                 end
             elseif not IsInGroup or not IsInGroup() then
@@ -3133,14 +3276,19 @@ function Anwesenheit.GruppeEinladen(leise)
     local bereitsDrin = 0
     local offline = 0
 
-    local brauchtRaid = (#pool > 5) or (gruppe and true or false)
-    if brauchtRaid and not (IsInRaid and IsInRaid()) and (IsInGroup and IsInGroup()) then
+    -- ⭐ Ein Raid ist nur nötig, wenn mehr als 5 Spieler (mit dir) zusammenkommen sollen, und er wird erst gebildet,
+    -- wenn die normale Gruppe 5 Mitglieder hat (Roster-Ereignis unten, oder gleich, wenn sie schon voll ist).
+    local gesamt = 1
+    for _, n in ipairs(pool) do
+        if not Kern.GleicherSpieler(n, ich) then gesamt = gesamt + 1 end
+    end
+    local brauchtRaid = gesamt > 5
+    if brauchtRaid and raidNoetig() then
         konvertiereZuRaid()
     end
-
-    -- Wenn noch nicht im Raid: AutoRaid-Flag setzen, damit bei Gruppenbildung sofort ConvertToRaid erfolgt
     if brauchtRaid and not (IsInRaid and IsInRaid()) then
         anwesenheitAutoRaid = true
+        autoRaidBis = time() + 180
     end
 
     for _, name in ipairs(pool) do
@@ -3185,28 +3333,25 @@ function Anwesenheit.GruppeEinladen(leise)
                     offline = offline + 1
                 else
                     local ok = false
+                    if brauchtRaid and raidNoetig() then konvertiereZuRaid() end        -- voll: erst Raid, dann einladen
+                    eigeneEinladung = true
                     if C_PartyInfo and C_PartyInfo.InviteUnit then
                         ok = pcall(C_PartyInfo.InviteUnit, name)
                     elseif InviteUnit then
                         ok = pcall(InviteUnit, name)
                     end
+                    eigeneEinladung = false
                     if ok then
                         eingeladen = eingeladen + 1
-                    end
-                    -- Falls die Gruppe durch die Einladung sofort als Gruppe existiert:
-                    if brauchtRaid and not (IsInRaid and IsInRaid()) and (IsInGroup and IsInGroup()) then
-                        konvertiereZuRaid()
                     end
                 end
             end
         end
     end
 
-    if brauchtRaid and not (IsInRaid and IsInRaid()) and (IsInGroup and IsInGroup()) then
-        konvertiereZuRaid()
-    end
-
-    if (bereitsDrin + eingeladen + offline + 1) >= #pool then
+    -- ⭐ Die Einladungsrunde bleibt offen, bis ein Raid daraus geworden ist: Die Gruppe wächst erst, wenn die
+    -- Eingeladenen annehmen, und erst bei 5 Mitgliedern wird sie zum Raid (Roster-Ereignis oben).
+    if not brauchtRaid or (IsInRaid and IsInRaid()) then
         anwesenheitAutoRaid = false
     end
 

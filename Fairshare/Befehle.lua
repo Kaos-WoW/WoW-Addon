@@ -57,6 +57,7 @@ local function hilfe()
     print(L["  |cffffff78/fs bereiche|r     – Würfelbereiche (|cffffff78bereiche haupt 1 100|r, |cffffff78zweit 1 99|r)"])
     print(L["  |cffffff78/fs auto|r         – Fenster bei Wurfbeginn automatisch öffnen (an/aus)"])
     print(L["  |cffffff78/fs anhebung <Name>|r – Spieler manuell auf Niedrigster + 2 anheben (Raid- oder Gildenleitung)"])
+    print(L["  |cffffff78/fs einladewort [Wort|an|aus]|r – wer dir das Stichwort flüstert, wird eingeladen"])
     print(L["  |cffffff78/fs reset|r        – Historie auf diesem Rechner leeren (mit Rückfrage und Sicherung)"])
     print(L["  |cffffff78/fs reset gilde|r  – Daten bei ALLEN Gildenmitgliedern zurücksetzen (nur Stufe 1 und 2, mit Rückfrage)"])
     print(L["  |cffffff78/fs filter|r       – ab welcher Qualität und wo aufgezeichnet wird"])
@@ -952,6 +953,27 @@ befehle["anhebung"] = function(arg)
     if Fenster.Sichtbar() then Fenster.Aktualisieren() end
 end
 befehle["raise"] = befehle["anhebung"]
+
+--- Einladen per Flüstern: `/fs einladewort` zeigt, `an`/`aus` schaltet, ein Wort setzt es und schaltet ein.
+befehle["einladewort"] = function(arg)
+    local A = ns.Anwesenheit
+    local was = tostring(arg or ""):match("^%s*(.-)%s*$")
+    local kl = was:lower()
+    if kl == "an" or kl == "on" then
+        A.EinladeAn(true)
+    elseif kl == "aus" or kl == "off" then
+        A.EinladeAn(false)
+    elseif was ~= "" then
+        local ok, grund = A.EinladeWortSetzen(was)
+        if not ok then sag(ROT .. tostring(grund) .. "|r") return end
+        A.EinladeAn(true)
+    end
+    local wort, an = A.EinladeWort()
+    sag(string.format(L["Einladen per Flüstern ist %s, Stichwort „%s“. Wer dir genau dieses Wort flüstert, wird in deine Gruppe eingeladen."],
+        an and (GRUEN .. L["an"] .. "|r") or (GRAU .. L["aus"] .. "|r"), wort))
+    if ns.Einstellungen and ns.Einstellungen.Aktualisieren then pcall(ns.Einstellungen.Aktualisieren) end
+end
+befehle["invitekeyword"] = befehle["einladewort"]
 
 befehle["konfig"] = function(arg)
     local was = (arg or ""):lower():match("^(%S*)") or ""

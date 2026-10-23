@@ -740,6 +740,23 @@ local function seiteGruppen(P)
                 end
             end } })
 
+    -- ⭐ Einladen per Flüstern (persönlich, nicht geteilt)
+    local ke = karte(P, L["Einladen per Flüstern"],
+        L["Wer dir genau dieses Stichwort flüstert, wird in deine Gruppe eingeladen. Das gilt nur für dich und wird nicht geteilt."])
+    zeile(ke, { art = "schalter", label = L["Einladen per Flüstern"],
+        get = function() local _, an = ns.Anwesenheit.EinladeWort() return an end,
+        set = function(v) ns.Anwesenheit.EinladeAn(v) end })
+    zeile(ke, { art = "eingabe", label = L["Stichwort"],
+        beschr = function()
+            local wort = ns.Anwesenheit.EinladeWort()
+            return Meldung.einlade or string.format(L["Aktuell: „%s“. Neues Stichwort eintragen und „Setzen“ klicken."], wort)
+        end,
+        knopf = { text = L["Setzen"],
+            klick = function(text)
+                local ok, grund = ns.Anwesenheit.EinladeWortSetzen(text)
+                Meldung.einlade = ok and farbig(C.ok, L["Stichwort gespeichert."]) or farbig(C.bad, tostring(grund))
+            end } })
+
     -- ⭐ Der Raidkader: alle Gildenmitglieder der gewählten Ränge; wird beim Anmelden von selbst eingelesen
     local kk = karte(P, L["Raidkader"],
         L["Alle Gildenmitglieder der gewählten Ränge bilden den Raidkader, aus dem du in der Einteilung die Gruppen zusammenstellst. Er wird beim Anmelden von selbst eingelesen; die Ränge gelten für alle, sobald sie geteilt werden."])
@@ -1044,7 +1061,7 @@ end
 function Einstellungen.Waehle(id)
     if not Seiten[id] then return end
     aktuelleSeite = id
-    Meldung.bereich, Meldung.verz, Meldung.konfig = nil, nil, nil
+    Meldung.bereich, Meldung.verz, Meldung.konfig, Meldung.einlade = nil, nil, nil, nil
     loeschenBereit = nil
     verlaufBereit = false
     scroll:Zurueck()

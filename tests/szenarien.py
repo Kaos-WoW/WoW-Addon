@@ -2949,6 +2949,16 @@ links, rechts = zwei(m9.Fenster.EinteilungReihenfolge())
 fest(rechts == ["Moe:20er", "Timo:20er"], "rechts steht, wer in 20er ist (%s)" % (rechts,))
 fest(links == ["Leiter Kaos:None", "Lina:None", "Protti:None", "Zora:None"],
      "links: wer nicht in 20er ist, ist fuer 20er verfuegbar (auch wer in 40er oder Bench steht) (%s)" % (links,))
+# Wer nicht im Raidkader steht, aber noch eingeteilt ist: nie links verfuegbar, rechts sichtbar (Fund 23.10.2026)
+tup(m9.Gruppen.EinteilungSetzen(tag9, "Fremder", "40er", "System"))
+m9.Fenster.GruppeWaehlen("20er")
+links, rechts = zwei(m9.Fenster.EinteilungReihenfolge())
+fest(not any(x.startswith("Fremder") for x in links), "ein Spieler ausserhalb des Raidkaders ist nicht links verfuegbar (%s)" % (links,))
+m9.Fenster.GruppeWaehlen("40er")
+links, rechts = zwei(m9.Fenster.EinteilungReihenfolge())
+fest("Fremder:40er" in rechts, "bleibt aber rechts sichtbar, wo er entfernt werden kann (%s)" % (rechts,))
+tup(m9.Gruppen.EinteilungSetzen(tag9, "Fremder", "", "System"))
+
 m9.Fenster.GruppeWaehlen("40er")
 links, rechts = zwei(m9.Fenster.EinteilungReihenfolge())
 fest(rechts == ["Lina:40er", "Zora:40er"], "Ziel 40er: rechts Lina und Zora (%s)" % (rechts,))
@@ -3777,14 +3787,40 @@ fest(ok_inv and "Anna" in inv_list, "Gruppe einladen hat Online-Spieler (Anna) e
 fest("Ben" not in inv_list, "Gruppe einladen hat Offline-Spieler (Ben) uebersprungen")
 fest(anz_off == 1, "Offline-Spieler als offline gezaehlt")
 
-# Pruefe Auto-Raid-Konvertierung sobald Gruppe geformt ist
-w66.clients[0]["lua"].execute("""
+# Raid erst bei 5 Mitgliedern (Nutzerwunsch 23.10.2026): vorher blieb es eine normale Gruppe
+L66 = w66.clients[0]["lua"]
+G66 = w66.clients[0]["g"]
+L66.execute("""
 IsInGroup = function() return true end
 IsInRaid = function() return false end
 UnitIsGroupLeader = function() return true end
+GetNumGroupMembers = function() return 2 end
+__converted_to_raid = false
 """)
 ns66_0.Anwesenheit.GruppeEinladen()
-fest(w66.clients[0]["lua"].eval("__converted_to_raid"), "Gruppe wurde automatisch in Raid konvertiert")
+fest(not L66.eval("__converted_to_raid"), "kleine Gruppe (2 Mitglieder): kein Raid, auch wenn eine Gruppe aktiv ist")
+G66["__ereignis"]("GROUP_ROSTER_UPDATE")
+fest(not L66.eval("__converted_to_raid"), "ein Roster-Ereignis in einer kleinen Gruppe macht keinen Raid")
+# Mehr als 5 sollen zusammenkommen, die Gruppe hat aber erst 4: noch kein Raid, die Einladungen laufen
+for i, nm in enumerate(["Cara", "Dina", "Emil", "Fynn", "Gero"]):
+    ns66_0.Gruppen.EinteilungSetzen(heute66, nm, "Kara 2")
+    L66.execute("__gilde[%d] = { name = '%s', guildRank = 'Raider', guildRankOrder = 3, presence = 1 }" % (20 + i, nm))
+L66.execute("GetNumGroupMembers = function() return 4 end")
+ns66_0.Anwesenheit.GruppeEinladen()
+fest(not L66.eval("__converted_to_raid"), "Gruppe mit 4: auch bei grosser Einladungsliste noch kein Raid")
+# Die Gruppe hat jetzt 5 und der naechste kommt: erst dann wird ein Raid daraus
+L66.execute("GetNumGroupMembers = function() return 5 end")
+G66["__ereignis"]("GROUP_ROSTER_UPDATE")
+fest(L66.eval("__converted_to_raid"), "Gruppe mit 5 und weiteren Einladungen: wird zum Raid")
+# Einladung von Hand an eine volle normale Gruppe: Raid, dann Einladung wiederholt
+L66.execute("__converted_to_raid = false; __invited = {}")
+ns66_0.Anwesenheit.BeiEinladung("Zoe")
+fest(L66.eval("__converted_to_raid"), "von Hand der 6. eingeladen: die volle Gruppe wird zum Raid")
+w66.weiter(2)
+fest("Zoe" in list(L66.eval("__invited").values()), "und die Einladung wird danach wiederholt")
+L66.execute("GetNumGroupMembers = function() return 3 end; __converted_to_raid = false")
+ns66_0.Anwesenheit.BeiEinladung("Zoe")
+fest(not L66.eval("__converted_to_raid"), "von Hand an eine Gruppe mit 3: kein Raid")
 
 # 4. Verlauf-Suche & Ungefilterte Historie
 w66.clients[0]["ns"].Erfassung.Eintragen("Anna", "|cffa335ee|Hitem:19019::::::::80:::::|h[Donnerzorn]|h|r", 1700000100, "haupt")
@@ -4159,6 +4195,82 @@ ns.Kompakt.Verstecken()
 fest(not ns.Kompakt.Sichtbar() and not g["FairshareDB"]["kompakt"]["offen"], "zu: Fenster weg, Zustand gemerkt")
 ns.Kompakt.Umschalten()
 fest(ns.Kompakt.Sichtbar(), "Umschalten oeffnet es wieder")
+
+print("== 73. Einladen per Fluestern: Stichwort, Pause, Einstellung, voller Gruppe, Raid ==")
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(10)
+cl = w.clients[0]
+ns, g, lua = cl["ns"], cl["g"], cl["lua"]
+lua.execute("""
+__invited = {}
+__converted_to_raid = false
+C_PartyInfo = {
+    InviteUnit = function(n) __invited[#__invited + 1] = n return true end,
+    ConvertToRaid = function() __converted_to_raid = true end,
+}
+""")
+
+
+def eingeladen():
+    return [str(x) for x in lua.eval("__invited").values()]
+
+
+def fluestern(text, wer="Fremder"):
+    g["__ereignis"]("CHAT_MSG_WHISPER", text, wer)
+
+
+fluestern("invite")
+fest(eingeladen() == [], "standardmaessig aus: niemand wird eingeladen")
+fest(tup(ns.Anwesenheit.EinladeWort())[0] == "invite", "das Standard-Stichwort ist invite")
+ns.Anwesenheit.EinladeAn(True)
+fluestern("hallo")
+fest(eingeladen() == [], "ein anderes Wort laedt nicht ein")
+fluestern("  INVITE ")
+fest(eingeladen() == ["Fremder"], "Stichwort ohne Gross-/Kleinschreibung und Leerzeichen laedt ein (%s)" % (eingeladen(),))
+fluestern("invite")
+fest(len(eingeladen()) == 1, "kurz danach nicht noch einmal (Pause)")
+w.weiter(20)
+fluestern("invite")
+fest(len(eingeladen()) == 2, "nach der Pause wieder")
+fluestern("invite", "Timo")
+fest(len(eingeladen()) == 2, "wer schon in der Gruppe ist, wird nicht eingeladen")
+
+r1 = tup(ns.Anwesenheit.EinladeWortSetzen("komm"))
+fest(r1[0] is True and tup(ns.Anwesenheit.EinladeWort())[0] == "komm", "eigenes Stichwort gesetzt")
+fest(tup(ns.Anwesenheit.EinladeWortSetzen("a"))[0] is False, "zu kurz wird abgelehnt")
+fest(tup(ns.Anwesenheit.EinladeWortSetzen("/befehl"))[0] is False, "mit Schraegstrich am Anfang wird abgelehnt")
+fest(tup(ns.Anwesenheit.EinladeWort())[0] == "komm", "das Stichwort bleibt nach einer Ablehnung")
+w.weiter(20)
+fluestern("invite", "Anna")
+fest(len(eingeladen()) == 2, "das alte Stichwort gilt nicht mehr")
+fluestern("komm", "Anna")
+fest(eingeladen()[-1] == "Anna", "das neue Stichwort laedt ein")
+
+# Volle normale Gruppe (5): erst Raid, dann die Einladung
+lua.execute("GetNumGroupMembers = function() return 5 end; __converted_to_raid = false")
+w.weiter(20)
+fluestern("komm", "Berta")
+fest(lua.eval("__converted_to_raid"), "volle Gruppe: wird zum Raid")
+w.weiter(2)
+fest(eingeladen()[-1] == "Berta", "und danach wird eingeladen")
+
+# Im Raid duerfen nur Leiter und Assistenten einladen
+lua.execute("IsInRaid = function() return true end; UnitIsGroupLeader = function() return false end; UnitIsGroupAssistant = function() return false end")
+n_vor = len(eingeladen())
+w.weiter(20)
+fluestern("komm", "Carla")
+fest(len(eingeladen()) == n_vor, "im Raid ohne Leitungsrecht wird nicht eingeladen")
+lua.execute("UnitIsGroupAssistant = function() return true end")
+fluestern("komm", "Carla")
+fest(len(eingeladen()) == n_vor + 1, "als Assistent im Raid schon")
+
+# Befehl
+g["SlashCmdList"]["FAIRSHARE"]("einladewort aus")
+fest(tup(ns.Anwesenheit.EinladeWort())[1] is False, "/fs einladewort aus schaltet aus")
+g["SlashCmdList"]["FAIRSHARE"]("einladewort treffen")
+fest(tup(ns.Anwesenheit.EinladeWort())[0] == "treffen", "/fs einladewort <Wort> setzt das Wort")
+fest(tup(ns.Anwesenheit.EinladeWort())[1] is True, "und schaltet es ein")
 
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")
