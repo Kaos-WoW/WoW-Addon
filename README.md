@@ -1,8 +1,8 @@
 # Fairshare
 
-WoW-Addon für die Gilde **Resurrected** (WoW Forever, Beta). Faire Beuteverteilung: Es hält fest, **wer welches Item bekommen hat**, rechnet für jeden Wurf eine **faire Reihenfolge** und bringt ein eigenes **Würfelfenster** mit. Wer die niedrigste Wertung hat, bekommt das Item zuerst; nur bei Gleichstand entscheidet der Wurf.
+WoW-Addon für die Gilde **Resurrected** (WoW Forever). Faire Beuteverteilung: Es hält fest, **wer welches Item bekommen hat**, rechnet für jeden Wurf eine **faire Reihenfolge** und bringt ein eigenes **Würfelfenster** mit. Wer die niedrigste Wertung hat, bekommt das Item zuerst; nur bei Gleichstand entscheidet der Wurf.
 
-Version **0.9.2** (Beta). Sprache: Deutsch und Englisch (nach dem Client).
+Version **1.0.0**. Sprache: Deutsch und Englisch (nach dem Client).
 
 ## Kurz erklärt
 
@@ -13,6 +13,7 @@ Version **0.9.2** (Beta). Sprache: Deutsch und Englisch (nach dem Client).
 * **Gruppen** für 10, 20 und 40: Raidkader aus Gildenrängen, Einteilung einmal je Raid-ID, Reiter *Anwesenheit*, Wochenabschluss, Gruppe mit einem Klick einladen.
 * **Kompaktfenster** für den Raid (`/fs kompakt`): nur die Wertung und der laufende Wurf, mit Knopf *Wurf starten*; Vorschau mit `/fs kompakt test`.
 * **Einladen per Flüstern** (persönlich, standardmäßig aus): Wer dir dein Stichwort flüstert (`/fs einladewort`, Einstellungen → Gruppen), wird in deine Gruppe eingeladen; eine volle normale Gruppe wird dafür zum Raid.
+* **Neu in Fairshare** (`/fs neu`): Änderungsliste je Version, mit „!“ am Knopf und an Einstellungsseiten mit Neuem.
 * **Geteilte Einstellungen** (Gildenmeister und Offiziere), gildenweiter Reset (`/fs reset gilde`), Übungsmodus (`/fs probe`).
 
 Nur in einer Gruppe wird aufgezeichnet; **nur der Plündermeister braucht das Addon** (ohne ihn der Raidleiter). Alle anderen würfeln wie gewohnt mit `/roll`; wer das Addon hat, bekommt das Würfelfenster und kann Historie und Wertungen einsehen. Fairshare fragt erst, wenn die Beutemethode auf Plündermeister steht, ob es genutzt werden soll („Fairshare nutzen?“); mit Ja übernimmt es, bei jeder anderen Beutemethode bleibt es still.
@@ -30,7 +31,7 @@ python luacheck.py                  # Blockstruktur
 python tests/rechenkern.py          # Kern + Tests.lua in echtem Lua 5.1 (pip install lupa)
 python tests/szenarien.py           # mehrere virtuelle Clients (ohne -I starten)
 python tests/texte.py --streng      # Übersetzungen vollständig?
-.\deploy.ps1                        # in die Forever-Beta ausrollen
+.\deploy.ps1                        # in WoW Forever ausrollen
 python release/bauen.py --cf        # CurseForge-Zip aus dem letzten Commit
 ```
 

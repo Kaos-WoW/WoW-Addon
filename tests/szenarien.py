@@ -4272,6 +4272,31 @@ g["SlashCmdList"]["FAIRSHARE"]("einladewort treffen")
 fest(tup(ns.Anwesenheit.EinladeWort())[0] == "treffen", "/fs einladewort <Wort> setzt das Wort")
 fest(tup(ns.Anwesenheit.EinladeWort())[1] is True, "und schaltet es ein")
 
+print("== 74. Neu in Fairshare: Fenster, Markierungen je Version, Hinweis im Chat ==")
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+cl = w.clients[0]
+ns, g, lua = cl["ns"], cl["g"], cl["lua"]
+aus = [str(x) for x in g["__ausgabe"].values()]
+fest(sum(1 for x in aus if "/fs neu" in x) == 1, "nach dem Anmelden kommt genau ein Hinweis im Chat")
+fest(g["FairshareDB"]["neu"]["gemeldet"] == ns.Neu.Version(), "und er wird je Version nur einmal gezeigt")
+fest(ns.Neu.FensterNeu() is True, "das Fenster gilt als ungesehen")
+fest(ns.Neu.SeiteNeu("gruppen") is True and ns.Neu.SeiteNeu("erfassung") is False, "nur die Seite Gruppen hat etwas Neues")
+ns.Neu.Zeigen()
+fest(ns.Neu.Sichtbar() is True, "das Fenster ist offen")
+fest(len(texte_von(g, "Einladen per Flüstern")) > 0 and len(texte_von(g, "Kompaktfenster")) > 0, "es nennt die neuen Funktionen beider Versionen")
+fest(ns.Neu.FensterNeu() is False, "nach dem Oeffnen ist das Fenster gesehen")
+ns.Einstellungen.Zeigen("gruppen")
+fest(ns.Neu.SeiteNeu("gruppen") is False, "die Seite Gruppen ist nach dem Besuch gesehen")
+ns.Neu.Umschalten()
+fest(ns.Neu.Sichtbar() is False, "Umschalten schliesst das Fenster")
+g["SlashCmdList"]["FAIRSHARE"]("neu")
+fest(ns.Neu.Sichtbar() is True, "/fs neu oeffnet es")
+# Mit einer neuen Version ist wieder alles neu
+lua.execute("FairshareDB.neu.fenster = '0.0.1'; FairshareDB.neu.seiten.gruppen = '0.0.1'")
+fest(ns.Neu.FensterNeu() is True and ns.Neu.SeiteNeu("gruppen") is True, "bei einer anderen gemerkten Version ist es wieder neu")
+
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")
 sys.exit(0 if alle_ok else 1)

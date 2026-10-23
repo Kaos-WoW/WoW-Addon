@@ -333,6 +333,12 @@ local function kopfBauen()
     local klein = S.Knopf(k, L["Kompakt"], "link", 20)
     klein:SetPoint("RIGHT", zu, "LEFT", -8, 0)
     klein:SetScript("OnClick", function() if ns.Kompakt then ns.Kompakt.Zeigen() end end)
+
+    -- „Neu in Fairshare“ (Neu.lua), mit „!“ bis das Fenster einmal offen war
+    local neu = S.Knopf(k, L["Neu"], "link", 20)
+    neu:SetPoint("RIGHT", klein, "LEFT", -14, 0)
+    neu:SetScript("OnClick", function() if ns.Neu then ns.Neu.Umschalten() end end)
+    if ns.Neu then ns.Neu.Marker(neu, nil, 14) end
 end
 
 --- ⭐ Die Raid-ID der Einteilung: diese oder die nächste (Entscheid 22.10.2026, einmal je Raid-ID).

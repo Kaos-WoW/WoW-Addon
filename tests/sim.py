@@ -14,7 +14,7 @@ from lupa import lua51
 
 A = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Fairshare")
 DATEIEN = ["Kern.lua", "Locale.lua", "Quelle.lua", "Rolle.lua", "Gruppen.lua", "Anwesenheit.lua", "Erfassung.lua", "Abgleich.lua",
-          "Blizzbeute.lua", "Stil.lua", "Wurf.lua", "Konfig.lua", "Nutzung.lua", "Einstellungen.lua", "Fenster.lua", "Kompakt.lua", "Befehle.lua", "Tests.lua"]
+          "Blizzbeute.lua", "Stil.lua", "Wurf.lua", "Konfig.lua", "Nutzung.lua", "Neu.lua", "Einstellungen.lua", "Fenster.lua", "Kompakt.lua", "Befehle.lua", "Tests.lua"]
 
 STUBS = r'''
 local welt = __welt

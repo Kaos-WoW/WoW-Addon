@@ -22,6 +22,12 @@ Agents dieselbe Datei gleichzeitig ändern oder die Arbeit des anderen überschr
 
 ## Belegt
 
+- **„Neu in Fairshare“ (23.10.2026, Claude, nicht committet):** `Fairshare/Neu.lua` nach dem Vorbild von KaosUI `WhatsNew.lua`: Fenster mit Änderungsliste (`/fs neu`, Knopf „Neu“ im Kopf des großen Fensters), „!“ am Knopf bis zum ersten Öffnen, „!“ an Einstellungsseiten mit Neuem (`seite`) bis zum Besuch, Chat-Hinweis einmal je Version. Gemerkt je Version in `FairshareDB.neu`. Enthält 0.9.2 und 0.9.1. **Pflicht bei jedem Release: oben in `Neu.LISTE` einen Abschnitt für die neue Version eintragen** (Texte DE + EN in `Locale.lua`). Szenario 74. Einträge mit `seite` zählen für alle Abschnitte der Liste (nicht nur den neuesten); alte Abschnitte beim Release kürzen.
+
+## ⭐ CurseForge 1.0.0 (Release) (Stand 23.10.2026)
+
+Die Forever-Beta ist seit dem 23.10.2026 geschlossen. 0.9.2 ist hochgeladen und gepusht (`7a86283`). **1.0.0** = 0.9.2 + „Neu in Fairshare“ (`/fs neu`, `Neu.lua`), Beta-Hinweise raus, `deploy.ps1` rollt auch in `_forever_` aus. Release-Typ auf CurseForge: **Release** (nicht Beta). Keine Protokolländerung, kompatibel mit 0.9.x. Texte: `..\Fairshare-releases\changelog-1.0.0-fairshare.md` (nach dem Upload löschen), Beschreibung `curseforge-description-fairshare.md` (Beta-Hinweis gestrichen, auf CurseForge nachziehen). Zip: `python release/bauen.py --cf`. Upload macht der Nutzer. ⚠️ Der Release-Client `_forever_` hat eigene SavedVariables: Die Daten der Beta (`_classic_beta_`) liegen dort nicht; der Abgleich unter Spielern füllt es wieder.
+
 ## ⭐ CurseForge 0.9.2 (Beta) (Stand 23.10.2026)
 
 0.9.1 ist hochgeladen und gepusht (`01418f2`). **0.9.2** bringt: Einladen per Flüstern (`/fs einladewort`), Raid erst bei 5 Mitgliedern (vorher sofort), Einteilung zeigt nur den Raidkader. Keine Protokolländerung, **kompatibel mit 0.9.0/0.9.1**. Texte: `..\Fairshare-releases\changelog-0.9.2-fairshare.md` (nach dem Upload löschen), Beschreibung `curseforge-description-fairshare.md` (Einladen per Flüstern ergänzt, auf CurseForge nachziehen). Zip: `python release/bauen.py --cf`. Upload macht der Nutzer.

@@ -58,6 +58,7 @@ local function hilfe()
     print(L["  |cffffff78/fs auto|r         – Fenster bei Wurfbeginn automatisch öffnen (an/aus)"])
     print(L["  |cffffff78/fs anhebung <Name>|r – Spieler manuell auf Niedrigster + 2 anheben (Raid- oder Gildenleitung)"])
     print(L["  |cffffff78/fs einladewort [Wort|an|aus]|r – wer dir das Stichwort flüstert, wird eingeladen"])
+    print(L["  |cffffff78/fs neu|r          – was ist neu in dieser Version"])
     print(L["  |cffffff78/fs reset|r        – Historie auf diesem Rechner leeren (mit Rückfrage und Sicherung)"])
     print(L["  |cffffff78/fs reset gilde|r  – Daten bei ALLEN Gildenmitgliedern zurücksetzen (nur Stufe 1 und 2, mit Rückfrage)"])
     print(L["  |cffffff78/fs filter|r       – ab welcher Qualität und wo aufgezeichnet wird"])
@@ -261,6 +262,12 @@ befehle["kompakt"] = function(arg)
     end
 end
 befehle["compact"] = befehle["kompakt"]
+
+--- „Neu in Fairshare“: die Änderungen dieser Version.
+befehle["neu"] = function()
+    ns.Neu.Umschalten()
+end
+befehle["new"] = befehle["neu"]
 
 befehle["verlauf"] = function()
     Fenster.ZeigenAnsicht("verlauf")

@@ -1,6 +1,6 @@
-# deploy.ps1 (Fairshare in die Forever-Beta ausrollen)
+# deploy.ps1 (Fairshare in WoW Forever ausrollen: Release-Client und, falls noch da, die Beta)
 #
-# Das Addon ist nur fuer WoW Forever (Beta). TBC Anniversary braucht es
+# Das Addon ist nur fuer WoW Forever. TBC Anniversary braucht es
 # nicht (Entscheid des Gildenleiters, 14.10.2026).
 #
 # Umzug von "Loot-Historie" nach "Fairshare" (14.10.2026):
@@ -21,7 +21,7 @@ $ErrorActionPreference = "Stop"
 $src  = Join-Path $PSScriptRoot "Fairshare"
 $root = "C:\Program Files (x86)\World of Warcraft"
 
-$clients = @("_classic_beta_")
+$clients = @("_forever_", "_classic_beta_")
 
 if (-not (Test-Path $src)) {
     throw "Quellordner nicht gefunden: $src"

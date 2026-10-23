@@ -11,7 +11,7 @@ auf, gleicht ab, verwaltet Gruppen). Ordner `Fairshare/`, SavedVariables `Fairsh
 macht `deploy.ps1` einmalig und **nur bei beendetem WoW** (sonst bricht es ab, ohne etwas zu ändern); die alte
 Datei bleibt als Sicherung. Spätere Umbenennungen brauchen denselben Weg.
 
-Stand 22.10.2026, Version 0.9.2 / Beta (Loot-Regelsystem Resurrected integriert, Datenbuch verteilt, Protokollversion 3; seit dem 17./18.10. mehrere Gruppen mit Raidkader, Einteilung je Tag, Bench, „Keine Meldung“, Wochenabschluss, geteilte Einstellungen mit Vertrauenswurzel; seit dem 22.10. Probe-Modus und Anwesenheits-Reiter mit Default = Anwesend). Nur für Forever. **Übergabe-Stand und offene Punkte: `WORKBOARD.md`.**
+Stand 22.10.2026, Version 1.0.0 (Loot-Regelsystem Resurrected integriert, Datenbuch verteilt, Protokollversion 3; seit dem 17./18.10. mehrere Gruppen mit Raidkader, Einteilung je Tag, Bench, „Keine Meldung“, Wochenabschluss, geteilte Einstellungen mit Vertrauenswurzel; seit dem 22.10. Probe-Modus und Anwesenheits-Reiter mit Default = Anwesend). Nur für Forever. **Übergabe-Stand und offene Punkte: `WORKBOARD.md`.**
 
 ---
 
@@ -60,6 +60,7 @@ verworfen und am 22.10.2026 auch die letzte Anbindung entfernt.
 | `Nutzung.lua` | Dialog „Fairshare nutzen?": Antwort ja/nein je Gruppe mit Plündermeister, sonst schläft das Addon | ja |
 | `Einstellungen.lua` | das Einstellungsfenster (Karten und Zeilen, drei Seiten) | ja |
 | `Kompakt.lua` | das kleine Raid-Fenster (`/fs kompakt`): Wertung, laufender Wurf, einzeilige Leiste, Vorschau (`/fs kompakt test`); nur Anzeige, schließt sich gegenseitig mit dem großen Fenster. ⚠️ `Fenster.lua` steht bei 60 Upvalues je Funktion (Lua 5.1): dort keine neuen Datei-Konstanten, neue Fenster in eigene Dateien | ja |
+| `Neu.lua` | „Neu in Fairshare“ (`/fs neu`): Änderungsliste `Neu.LISTE`, „!“-Marker je Version (`FairshareDB.neu`), Chat-Hinweis einmal je Version. ⭐ **Bei jedem Release oben in `Neu.LISTE` einen Abschnitt ergänzen** (Texte in `Locale.lua`) | ja |
 | `Befehle.lua` | `/fs` | ja |
 | `Tests.lua` | Prüfstand für `Kern.lua` und `Anwesenheit.lua` (478 Prüfungen); dazu `tests/szenarien.py` (65 Szenarien) | **nein** |
 

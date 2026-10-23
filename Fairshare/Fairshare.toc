@@ -3,7 +3,7 @@
 ## Notes: Fair loot distribution for guild raids: own roll window, rating by items and surcharges, history for everyone. Command: /fs
 ## Notes-deDE: Faire Beuteverteilung für Gildenraids: eigenes Würfelfenster, Wertung nach Items und Zuschlägen, Historie für alle. Befehl: /fs
 ## Author: Kaos, xqp
-## Version: 0.9.2
+## Version: 1.0.0
 ## X-Curse-Project-ID: 1759404
 ## SavedVariables: FairshareDB
 
@@ -20,6 +20,7 @@ Stil.lua
 Wurf.lua
 Konfig.lua
 Nutzung.lua
+Neu.lua
 Einstellungen.lua
 Fenster.lua
 Kompakt.lua

@@ -893,6 +893,7 @@ local function navKnopf(eltern, nav)
     b.text = S.Text(b, 13, C.mu)
     b.text:SetPoint("LEFT", b.icon, "RIGHT", 8, 0)
     b.text:SetText(nav.label)
+    if ns.Neu then ns.Neu.Marker(b, nav.id, -8) end          -- „!“, solange auf der Seite etwas Neues steht
 
     b:SetScript("OnEnter", function(s)
         if s.sel then return end
@@ -1038,6 +1039,7 @@ function Einstellungen.Aktualisieren()
     local ok, fehler = pcall(function()
         local P = Seiten[aktuelleSeite]
         if not P then return end
+        if ns.Neu then ns.Neu.SeiteGesehen(aktuelleSeite) end          -- das „!“ der Seite verschwindet beim Besuch
 
         for id, Q in pairs(Seiten) do Q.kind:SetShown(id == aktuelleSeite) end
         setzeNav(aktuelleSeite)
