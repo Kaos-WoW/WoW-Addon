@@ -1,5 +1,5 @@
 --[[----------------------------------------------------------------------
-    Neu.lua  —  „Neu in Fairshare“ (wie bei KaosUI)
+    Neu.lua  —  „Neu in KaosLoot“ (wie bei KaosUI)
 
     Zeigt, was sich im Release geändert hat:
       * ein Fenster mit der Änderungsliste (`/fs neu`, Knopf „Neu“ im Kopf des Fensters),
@@ -29,8 +29,9 @@ local MARKE = "Interface\\GossipFrame\\AvailableQuestIcon"
 -- Neueste Version zuerst. Gezeigt werden alle Abschnitte, das „!“ gilt nur für den ersten.
 Neu.LISTE = {
     { version = "1.0.0", eintraege = {
-        { text = L["Fairshare ist Version 1.0.0: Die Beta ist vorbei."] },
-        { text = L["Neu: „Neu in Fairshare“ (/fs neu) zeigt die Änderungen jeder Version, ein „!“ markiert Neues."] },
+        { text = L["KaosLoot ist Version 1.0.0: Die Beta ist vorbei."] },
+        { text = L["Geändert: Aus Fairshare wird KaosLoot. Der Befehl /fs und deine Daten bleiben."] },
+        { text = L["Neu: „Neu in KaosLoot“ (/fs neu) zeigt die Änderungen jeder Version, ein „!“ markiert Neues."] },
     } },
     { version = "0.9.2", eintraege = {
         { text = L["Neu: Einladen per Flüstern – lege ein Stichwort fest, wer es dir flüstert, wird in deine Gruppe eingeladen (Einstellungen → Gruppen)."], seite = "gruppen" },
@@ -178,7 +179,7 @@ end
 function Neu.Zeigen()
     bauen()
     local f = fenster
-    f.titel:SetText(L["Neu in Fairshare"] .. " " .. Neu.Version())
+    f.titel:SetText(L["Neu in KaosLoot"] .. " " .. Neu.Version())
     f.text:SetText(text())
     local h = math.ceil(f.text:GetStringHeight() or 0)
     f.scroll:SetInhaltHoehe(h + 6)
@@ -210,7 +211,7 @@ do
         C_Timer.After(8, function()
             if db().gemeldet == Neu.Version() then return end
             db().gemeldet = Neu.Version()
-            print(string.format(L["|cff1B6B57Fairshare|r %s: Was ist neu? |cffffff78/fs neu|r zeigt es."], Neu.Version()))
+            print(string.format(L["|cff1B6B57KaosLoot|r %s: Was ist neu? |cffffff78/fs neu|r zeigt es."], Neu.Version()))
         end)
     end)
 end

@@ -32,7 +32,7 @@ AUSNAHMEN = {"Tests.lua", "Locale.lua", "Kern.lua"}
 ERLAUBT = {
     "überall", "löschen", "zurück", "wiedereröffnen", " · Forever",
     "übernehmen",
-    "Järgerlie", "Zorn des Verräters", "Fairshare äöü",
+    "Järgerlie", "Zorn des Verräters", "KaosLoot äöü",
     "keine Seite", "alle",
     "  %s  |cff8E9A94(%s, %s)|r",
 }

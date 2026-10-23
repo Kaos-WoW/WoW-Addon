@@ -1,13 +1,13 @@
 --[[----------------------------------------------------------------------
     Wurf.lua  —  Eigenes Wuerfelfenster: Hauptbedarf oder Zweitbedarf (OS)
 
-    ⭐ Warum es das gibt (Nutzer, 14.10.2026): Fairshare bietet selbst an,
+    ⭐ Warum es das gibt (Nutzer, 14.10.2026): KaosLoot bietet selbst an,
     was die Gilde braucht:
 
       1. Der Pluendermeister (Leiter, Assistent) startet einen Wurf fuer einen
          Gegenstand: `/fs wurf <Link>`, der Knopf *Wurf starten* oder
          die Beute im offenen Beutefenster anklicken.
-      2. Bei ALLEN in der Gruppe mit Fairshare geht ein kleines Fenster auf:
+      2. Bei ALLEN in der Gruppe mit KaosLoot geht ein kleines Fenster auf:
          Gegenstand, Restzeit, Knoepfe **Haupt**, **Zweit (OS)**, **Passen**.
          Die Bereiche (Standard 1-100 und 1-99) sind einstellbar; der Leiter
          schickt seine mit jedem Wurf mit, damit alle gleich wuerfeln.
@@ -47,7 +47,7 @@ local ROT    = S.Code(C.bad)
 local AKZENT = S.Code(C.ac)
 local GRUEN  = S.Code(C.ok)
 
-local PRAEFIX = "|cff1B6B57Fairshare|r: "
+local PRAEFIX = "|cff1B6B57KaosLoot|r: "
 local STANDARDDAUER = 30
 local NACHLAUF = 6        -- Sekunden nach dem Ende, in denen ein spaeter Wurf noch zaehlt
 local BAHN = 308          -- Breite des Zeitbalkens
@@ -218,7 +218,7 @@ local function popupBauen()
     p:EnableMouse(true)
     S.Kasten(p, 10, C.bg, C.ln)
 
-    local _, zu = kopfLeiste(p, "Fairshare  " .. GRAU .. L["Wurf"] .. "|r", "wurf", function()
+    local _, zu = kopfLeiste(p, "KaosLoot  " .. GRAU .. L["Wurf"] .. "|r", "wurf", function()
         -- Das Kreuz heisst: nicht mitwuerfeln.
         if aktiv and not aktiv.meine then
             aktiv.meine = "pass"
@@ -887,7 +887,7 @@ local function starterBauen()
     S.Kasten(s, 10, C.bg, C.ln)
     tinsert(UISpecialFrames, "FairshareWurfStart")
 
-    kopfLeiste(s, "Fairshare  " .. GRAU .. L["Wurf starten"] .. "|r", "wurfStart", function() s:Hide() end)
+    kopfLeiste(s, "KaosLoot  " .. GRAU .. L["Wurf starten"] .. "|r", "wurfStart", function() s:Hide() end)
 
     local t1 = S.Text(s, 12, C.mu, "LEFT")
     t1:SetPoint("TOPLEFT", s, "TOPLEFT", 16, -46)
@@ -1421,7 +1421,7 @@ local function ergebnisBauen()
     e:EnableMouse(true)
     S.Kasten(e, 10, C.bg, C.ln)
 
-    kopfLeiste(e, "Fairshare  " .. GRAU .. L["Ergebnis"] .. "|r", "wurfErgebnis", function() e:Hide() end)
+    kopfLeiste(e, "KaosLoot  " .. GRAU .. L["Ergebnis"] .. "|r", "wurfErgebnis", function() e:Hide() end)
 
     local item = CreateFrame("Button", nil, e)
     item:SetPoint("TOPLEFT", e, "TOPLEFT", 16, -44)
@@ -1671,7 +1671,7 @@ local function entzBauen()
     e:EnableMouse(true)
     S.Kasten(e, 10, C.bg, C.ln)
 
-    kopfLeiste(e, "Fairshare  " .. GRAU .. L["Entzaubern"] .. "|r", "wurfEntz", function() e:Hide() end)
+    kopfLeiste(e, "KaosLoot  " .. GRAU .. L["Entzaubern"] .. "|r", "wurfEntz", function() e:Hide() end)
 
     local item = CreateFrame("Button", nil, e)
     item:SetPoint("TOPLEFT", e, "TOPLEFT", 16, -44)

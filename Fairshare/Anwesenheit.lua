@@ -997,13 +997,13 @@ function Anwesenheit.Fluestern(text, absender)
         return false                -- im Raid dürfen nur Leiter und Assistenten einladen
     end
     if imRaid and gruppenGroesse() >= 40 then
-        print(string.format(L["|cff1B6B57Fairshare|r: %s hat dir das Stichwort geflüstert, aber der Raid ist voll."], Kern.Anzeigename(absender)))
+        print(string.format(L["|cff1B6B57KaosLoot|r: %s hat dir das Stichwort geflüstert, aber der Raid ist voll."], Kern.Anzeigename(absender)))
         return false
     end
 
     if k then einladePause[k] = jetzt end
     Anwesenheit.Einladen(absender)
-    print(string.format(L["|cff1B6B57Fairshare|r: %s per Flüstern eingeladen (Stichwort „%s“)."], Kern.Anzeigename(absender), d.wort))
+    print(string.format(L["|cff1B6B57KaosLoot|r: %s per Flüstern eingeladen (Stichwort „%s“)."], Kern.Anzeigename(absender), d.wort))
     return true
 end
 
@@ -1052,7 +1052,7 @@ if frame then
             if success then
                 local ok, anzahl, bName = Anwesenheit.BossBuchen(a2, a1, true)
                 if ok then
-                    print(string.format(L["|cff1B6B57Fairshare|r: Bosskampf %s erfasst (%d Spieler anwesend)."],
+                    print(string.format(L["|cff1B6B57KaosLoot|r: Bosskampf %s erfasst (%d Spieler anwesend)."],
                         tostring(bName), anzahl))
                 end
             end
@@ -1060,7 +1060,7 @@ if frame then
             -- a1 = encounterID, a2 = encounterName
             local ok, anzahl, bName = Anwesenheit.BossBuchen(a2, a1, true)
             if ok then
-                print(string.format(L["|cff1B6B57Fairshare|r: Bosskampf %s erfasst (%d Spieler anwesend)."],
+                print(string.format(L["|cff1B6B57KaosLoot|r: Bosskampf %s erfasst (%d Spieler anwesend)."],
                     tostring(bName), anzahl))
             end
         end
@@ -1930,32 +1930,32 @@ function Anwesenheit.WocheGruppeSetzen(datum, gruppe, status, autorName)
 
     local ue = Anwesenheit.WochenGruppenUebersicht(datum)
     if status == "offen" then
-        print("|cff1B6B57Fairshare|r: " .. string.format(L["Wochenabschluss für Gruppe '%s' wiedereröffnet."], gruppe))
+        print("|cff1B6B57KaosLoot|r: " .. string.format(L["Wochenabschluss für Gruppe '%s' wiedereröffnet."], gruppe))
         return true, "offen"
     end
 
     if ue.alleBereit then
         local v, grund = Anwesenheit.WocheBuchen(datum, autor)
         if v then
-            print("|cff1B6B57Fairshare|r: " .. string.format(L["Alle Gruppen bereit (%d/%d)! Wochenabschluss für Woche ab %s gebucht: %d Zuschläge."],
+            print("|cff1B6B57KaosLoot|r: " .. string.format(L["Alle Gruppen bereit (%d/%d)! Wochenabschluss für Woche ab %s gebucht: %d Zuschläge."],
                 ue.bereit, ue.gesamt, montag, v.gebucht or 0))
             return true, "gebucht", v
         else
-            print("|cff1B6B57Fairshare|r: " .. string.format(L["Alle Gruppen bereit (%d/%d), aber Buchung fehlgeschlagen: %s"],
+            print("|cff1B6B57KaosLoot|r: " .. string.format(L["Alle Gruppen bereit (%d/%d), aber Buchung fehlgeschlagen: %s"],
                 ue.bereit, ue.gesamt, L[grund] or tostring(grund)))
             return false, grund
         end
     else
         local ausstTxt = table.concat(ue.ausstehend, ", ")
         if status == "pausiert" then
-            print("|cff1B6B57Fairshare|r: " .. string.format(L["Gruppe '%s' pausiert diese Woche (%d von %d Gruppen bereit)."],
+            print("|cff1B6B57KaosLoot|r: " .. string.format(L["Gruppe '%s' pausiert diese Woche (%d von %d Gruppen bereit)."],
                 gruppe, ue.bereit, ue.gesamt))
         else
             if #ue.ausstehend > 0 then
-                print("|cff1B6B57Fairshare|r: " .. string.format(L["Woche für Gruppe '%s' abgeschlossen (%d von %d Gruppen bereit). Ausstehend: %s."],
+                print("|cff1B6B57KaosLoot|r: " .. string.format(L["Woche für Gruppe '%s' abgeschlossen (%d von %d Gruppen bereit). Ausstehend: %s."],
                     gruppe, ue.bereit, ue.gesamt, ausstTxt))
             else
-                print("|cff1B6B57Fairshare|r: " .. string.format(L["Woche für Gruppe '%s' abgeschlossen (%d von %d Gruppen bereit)."],
+                print("|cff1B6B57KaosLoot|r: " .. string.format(L["Woche für Gruppe '%s' abgeschlossen (%d von %d Gruppen bereit)."],
                     gruppe, ue.bereit, ue.gesamt))
             end
         end
@@ -3161,7 +3161,7 @@ function Probe.FertigerAblauf(ausgeben)
     if ausgeben then
         local OK_TAG = "|cff55ff55[OK]|r"
         local ERR_TAG = "|cffff5555" .. L["[FEHLER]"] .. "|r"
-        print("|cff1B6B57Fairshare|r: |cffffff78" .. L["Probe-Abend (Wegwerf-Datenbank, keine echten Daten):"] .. "|r")
+        print("|cff1B6B57KaosLoot|r: |cffffff78" .. L["Probe-Abend (Wegwerf-Datenbank, keine echten Daten):"] .. "|r")
         print(string.format(L["  Abendschnitt: %.2f (%d Main-Items / %d Spieler im Raid)"],
             vorschau and vorschau.schnitt or 0, 10, 10))
 
@@ -3179,12 +3179,12 @@ function Probe.FertigerAblauf(ausgeben)
             "Jonas", pruefungen.neuling.soll, pruefungen.neuling.ist, pruefungen.neuling.ok and OK_TAG or ERR_TAG))
 
         if alleOk then
-            print("|cff1B6B57Fairshare|r: |cff55ff55" .. L["Probe-Abend erfolgreich: 6/6 Prüfungen bestanden."] .. "|r")
+            print("|cff1B6B57KaosLoot|r: |cff55ff55" .. L["Probe-Abend erfolgreich: 6/6 Prüfungen bestanden."] .. "|r")
             print("  |cff8E9A94" .. L["FairshareDB unverändert, nichts gesendet."] .. "|r")
         else
             local fehlerAnz = 0
             for _, p in pairs(pruefungen) do if not p.ok then fehlerAnz = fehlerAnz + 1 end end
-            print("|cff1B6B57Fairshare|r: |cffff5555" .. string.format(L["Probe-Abend fehlgeschlagen (%d Fehler)."], fehlerAnz) .. "|r")
+            print("|cff1B6B57KaosLoot|r: |cffff5555" .. string.format(L["Probe-Abend fehlgeschlagen (%d Fehler)."], fehlerAnz) .. "|r")
         end
     end
 

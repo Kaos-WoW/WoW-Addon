@@ -273,7 +273,7 @@ keinFehler("Reiterwechsel")
 
 fest(g["__klick"]("Einstellungen") is True, "Knopf Einstellungen im Hauptfenster")
 fest(ns.Einstellungen.Sichtbar() is True, "Einstellungsfenster ist offen")
-fest(len(list(g["__text"]("Fairshare").values())) > 0, "Kopf mit Namen")
+fest(len(list(g["__text"]("KaosLoot").values())) > 0, "Kopf mit Namen")
 fest(len(list(g["__text"]("0.1.0 · Forever").values())) > 0, "Versions-Kaestchen")
 fest(len(list(g["__text"]("Aufzeichnen").values())) > 0, "Karte Aufzeichnen")
 fest(len(list(g["__text"]("Vergaben aufzeichnen").values())) > 0, "Zeile Vergaben aufzeichnen")

@@ -173,13 +173,13 @@ function Rolle.Aktiv()
     end
     local nutzung = Rolle.Nutzung()
     if nutzung == "nein" then
-        return false, L["Du hast Fairshare für diese Gruppe abgelehnt – das Addon schläft"]
+        return false, L["Du hast KaosLoot für diese Gruppe abgelehnt – das Addon schläft"]
     elseif nutzung ~= "ja" then
         -- ⭐ Fragen muss nur der Plündermeister; alle anderen warten auf seine Antwort (Nutzung.lua)
         if Rolle.IchBinPluendermeister() then
-            return false, L["Fairshare wartet auf deine Antwort – /fs nutzung"]
+            return false, L["KaosLoot wartet auf deine Antwort – /fs nutzung"]
         end
-        return false, L["Fairshare wartet auf die Antwort des Plündermeisters – oder /fs nutzung ja"]
+        return false, L["KaosLoot wartet auf die Antwort des Plündermeisters – oder /fs nutzung ja"]
     end
     return true
 end
@@ -189,7 +189,7 @@ function Rolle.Methode()
     return (lootMethode())
 end
 
---- ⭐ Die Antwort auf „Fairshare nutzen?" (Nutzung.lua) für die aktuelle Gruppe.
+--- ⭐ Die Antwort auf „KaosLoot nutzen?" (Nutzung.lua) für die aktuelle Gruppe.
 --  @return "ja", "nein" oder nil (noch nicht gefragt/beantwortet)
 function Rolle.Nutzung()
     local v = ns.Erfassung.Einstellungen().nutzung

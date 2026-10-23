@@ -1618,7 +1618,7 @@ function Tests.Alle(ausgeben)
 
     if ausgeben ~= false then
         for _, m in ipairs(meldungen) do print(m) end
-        print(string.format(L["|cff1B6B57Fairshare|r: %d Prüfungen, %d bestanden, %d fehlgeschlagen"],
+        print(string.format(L["|cff1B6B57KaosLoot|r: %d Prüfungen, %d bestanden, %d fehlgeschlagen"],
             gut + schlecht, gut, schlecht))
     end
     return gut, schlecht

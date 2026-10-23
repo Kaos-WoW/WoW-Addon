@@ -1,13 +1,13 @@
 --[[----------------------------------------------------------------------
-    Nutzung.lua  —  „Fairshare nutzen?"
+    Nutzung.lua  —  „KaosLoot nutzen?"
 
-    ⭐ Entscheid des Gildenleiters (15.10.2026): Fairshare ist nur im Dienst,
+    ⭐ Entscheid des Gildenleiters (15.10.2026): KaosLoot ist nur im Dienst,
     wenn die Beutemethode der Gruppe **Plündermeister** ist UND der Spieler
     ausdrücklich zugestimmt hat. Sonst schläft das Addon: keine Fenster,
     keine Aufzeichnung, keine Verwaltung der Vergabe, kein Abgleich.
 
       * Wird die Beutemethode auf Plündermeister gestellt (oder man tritt
-        einer solchen Gruppe bei), fragt ein Dialog einmal: *Fairshare nutzen?*
+        einer solchen Gruppe bei), fragt ein Dialog einmal: *KaosLoot nutzen?*
       * **Ja**   → alles läuft wie gewohnt (Rolle.Aktiv() = true).
       * **Nein** → das Addon schläft, bis die Beutemethode wechselt oder man
                    die Gruppe verlässt.
@@ -70,7 +70,7 @@ local function dialogBauen()
 
     local titel = S.Text(k, 13, C.tx, "LEFT")
     titel:SetPoint("LEFT", logo, "RIGHT", 8, 0)
-    titel:SetText(L["Fairshare nutzen?"])
+    titel:SetText(L["KaosLoot nutzen?"])
 
     local zu = CreateFrame("Button", nil, k)
     zu:SetSize(20, 20)
@@ -85,7 +85,7 @@ local function dialogBauen()
     p.frage = S.Text(p, 14, C.tx, "LEFT", true)
     p.frage:SetPoint("TOPLEFT", p, "TOPLEFT", 18, -46)
     p.frage:SetWidth(354)
-    p.frage:SetText(L["Die Beutemethode dieser Gruppe ist Plündermeister. Soll Fairshare die Beuteverteilung verwalten?"]
+    p.frage:SetText(L["Die Beutemethode dieser Gruppe ist Plündermeister. Soll KaosLoot die Beuteverteilung verwalten?"]
         .. " " .. L["Deine Antwort gilt für alle in der Gruppe, die das Addon haben."])
 
     p.ja = S.Text(p, 12, C.mu, "LEFT", true)
@@ -97,10 +97,10 @@ local function dialogBauen()
     p.nein:SetPoint("TOPLEFT", p.ja, "BOTTOMLEFT", 0, -8)
     p.nein:SetWidth(354)
     p.nein:SetText(S.Code(C.warn) .. L["Nein:"] .. "|r " ..
-        L["Fairshare schläft: keine Fenster, keine Aufzeichnung, keine Verwaltung – bis die Beutemethode wechselt oder du die Gruppe verlässt."])
+        L["KaosLoot schläft: keine Fenster, keine Aufzeichnung, keine Verwaltung – bis die Beutemethode wechselt oder du die Gruppe verlässt."])
 
     -- Knöpfe
-    local jaK = S.Knopf(p, L["Ja, Fairshare nutzen"], "primary", 30)
+    local jaK = S.Knopf(p, L["Ja, KaosLoot nutzen"], "primary", 30)
     jaK:SetPoint("BOTTOMLEFT", p, "BOTTOMLEFT", 18, 16)
     jaK:SetScript("OnClick", function() ns.Rolle.NutzungSetzen("ja") end)
     local neinK = S.Knopf(p, L["Nein"], "secondary", 30)
@@ -184,7 +184,7 @@ local function merke(text)
     if #protokoll > 6 then table.remove(protokoll, 1) end
 end
 
---- Die letzten Meldungen zu „Fairshare nutzen?“ (Diagnose).
+--- Die letzten Meldungen zu „KaosLoot nutzen?“ (Diagnose).
 function Nutzung.Protokoll()
     return protokoll
 end
@@ -218,9 +218,9 @@ function Nutzung.Empfangen(rest, sender, unit)
     if d.nutzung == wert then return end                                      -- nichts Neues
     merke("U " .. wert .. " from master looter " .. tostring(name) .. " adopted")
     ns.Rolle.NutzungSetzen(wert, "leiter")
-    print("|cff1B6B57Fairshare|r: " .. string.format(
-        wert == "ja" and L["Der Plündermeister %s hat Fairshare für diese Gruppe eingeschaltet."]
-                     or L["Der Plündermeister %s hat Fairshare für diese Gruppe ausgeschaltet."],
+    print("|cff1B6B57KaosLoot|r: " .. string.format(
+        wert == "ja" and L["Der Plündermeister %s hat KaosLoot für diese Gruppe eingeschaltet."]
+                     or L["Der Plündermeister %s hat KaosLoot für diese Gruppe ausgeschaltet."],
         tostring(name)))
 end
 
@@ -270,7 +270,7 @@ rahmen:SetScript("OnEvent", function(_, ereignis)
         end
     end)
     if not ok then
-        print("|cff1B6B57Fairshare|r: |cffff5555" .. string.format(L["Fehler bei der Abfrage: %s"], tostring(fehler)) .. "|r")
+        print("|cff1B6B57KaosLoot|r: |cffff5555" .. string.format(L["Fehler bei der Abfrage: %s"], tostring(fehler)) .. "|r")
     end
 end)
 

@@ -11,6 +11,8 @@ auf, gleicht ab, verwaltet Gruppen). Ordner `Fairshare/`, SavedVariables `Fairsh
 macht `deploy.ps1` einmalig und **nur bei beendetem WoW** (sonst bricht es ab, ohne etwas zu ändern); die alte
 Datei bleibt als Sicherung. Spätere Umbenennungen brauchen denselben Weg.
 
+⭐ **Anzeigename seit 23.10.2026: KaosLoot** (vorher Fairshare). Ordner `Fairshare/`, Befehl `/fs`, `FairshareDB`, Rahmennamen `Fairshare…` und das Protokollpräfix bleiben absichtlich; geändert sind nur sichtbare Texte, TOC-`Title`, README, Anleitung, Release-Texte. Die Doku unten sagt noch „Fairshare“ und meint dasselbe.
+
 Stand 22.10.2026, Version 1.0.0 (Loot-Regelsystem Resurrected integriert, Datenbuch verteilt, Protokollversion 3; seit dem 17./18.10. mehrere Gruppen mit Raidkader, Einteilung je Tag, Bench, „Keine Meldung“, Wochenabschluss, geteilte Einstellungen mit Vertrauenswurzel; seit dem 22.10. Probe-Modus und Anwesenheits-Reiter mit Default = Anwesend). Nur für Forever. **Übergabe-Stand und offene Punkte: `WORKBOARD.md`.**
 
 ---

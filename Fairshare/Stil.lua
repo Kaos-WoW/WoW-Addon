@@ -4,7 +4,7 @@
     Dunkle, flache Flaechen, Petrol als Akzent, Inter als Schrift, runde
     Ecken ohne Grafikdatei. Dasselbe Aussehen wie das Optionsfenster von
     KaosUI, aber **ohne Abhaengigkeit zu KaosUI**: Die Bausteine sind hier
-    neu geschrieben, damit Fairshare allein funktioniert.
+    neu geschrieben, damit KaosLoot allein funktioniert.
 
     ⚠️ Nur eigene Frames, keine Blizzard-Vorlagen (kein UIDropDownMenu,
     kein UIPanelButtonTemplate) — ein Teil weniger, das beim naechsten
@@ -36,7 +36,7 @@ do
     halter:Hide()
     local fs = halter:CreateFontString(nil, "OVERLAY")
     fs:SetFont(SCHRIFT, 13, "")
-    fs:SetText("Fairshare äöü")
+    fs:SetText("KaosLoot äöü")
 end
 
 -- =====================================================================

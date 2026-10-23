@@ -29,7 +29,7 @@ ns.Erfassung = Erfassung
 
 local Kern = ns.Kern
 
-local PRAEFIX = "|cff1B6B57Fairshare|r: "
+local PRAEFIX = "|cff1B6B57KaosLoot|r: "
 
 -- Wie lange ein Wurf einer spaeteren Beutemeldung zugeordnet wird.
 local WURFGEDAECHTNIS = 600   -- Sekunden
@@ -622,7 +622,7 @@ function Erfassung.RueckgabeAufloesen(itemID, neueKennung)
 end
 
 --- ⭐ Ein Wurf beginnt (Wurf.lua): eine Zeile in den Gruppen- oder Raidchat, damit auch
---  Spieler OHNE Fairshare sehen, dass verwürfelt wird, worauf und wie lange
+--  Spieler OHNE KaosLoot sehen, dass verwürfelt wird, worauf und wie lange
 --  (Nutzerwunsch 15.10.2026). Nur der Starter ruft das auf.
 function Erfassung.WurfAnsage(link, sekunden)
     if db().ansagen == false then return end
@@ -887,7 +887,7 @@ function Erfassung.ResetAnwenden(zeit, von)
     zeit = tonumber(zeit)
     if not zeit or zeit <= Erfassung.ResetZeit() then return false end
     allesLeeren(zeit)
-    print("|cff1B6B57Fairshare|r: " .. string.format(L["Die Gildenleitung (%s) hat die Daten zurückgesetzt: Historie und Wertungen sind gelöscht."],
+    print("|cff1B6B57KaosLoot|r: " .. string.format(L["Die Gildenleitung (%s) hat die Daten zurückgesetzt: Historie und Wertungen sind gelöscht."],
         tostring(von or "?")))
     return true
 end

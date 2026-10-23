@@ -17,7 +17,7 @@ local L = ns.L
 
 local Kern, Quelle, Fenster = ns.Kern, ns.Quelle, ns.Fenster
 
-local PRAEFIX = "|cff1B6B57Fairshare|r: "
+local PRAEFIX = "|cff1B6B57KaosLoot|r: "
 local GELB = "|cffffff78"
 local GRAU = "|cff8E9A94"
 local ROT  = "|cffff5555"
@@ -37,7 +37,7 @@ local function hilfe()
     print(L["  |cffffff78/fs <Name>|r       – Einzelvergaben eines Spielers im Chat"])
     print(L["  |cffffff78/fs abgleich|r     – Historien der Gruppe zusammenführen (|cffffff78abgleich status|r zeigt den Stand)"])
     print(L["  |cffffff78/fs invite|r       – Anwesende Spieler der Gruppe in den Raid einladen"])
-    print(L["  |cffffff78/fs nutzung|r      – Fairshare für diese Gruppe nutzen? (|cffffff78nutzung ja|r, |cffffff78nutzung nein|r, |cffffff78nutzung fragen|r)"])
+    print(L["  |cffffff78/fs nutzung|r      – KaosLoot für diese Gruppe nutzen? (|cffffff78nutzung ja|r, |cffffff78nutzung nein|r, |cffffff78nutzung fragen|r)"])
     print(L["  |cffffff78/fs rolle|r        – wer zeichnet gerade auf, und warum"])
     print(L["  |cffffff78/fs rueckgaengig|r – die letzte Vergabe zurücknehmen (mit Rückfrage; einzelne Vergaben im Verlauf)"])
     print(L["  |cffffff78/fs wurf|r         – eigenes Würfelfenster starten (|cffffff78wurf [Sekunden] <Link>|r, |cffffff78wurf ende|r, |cffffff78wurf abbrechen|r, |cffffff78wurf entzaubern|r, |cffffff78wurf ergebnis|r, |cffffff78wurf offen|r, |cffffff78wurf status|r)"])
@@ -263,7 +263,7 @@ befehle["kompakt"] = function(arg)
 end
 befehle["compact"] = befehle["kompakt"]
 
---- „Neu in Fairshare“: die Änderungen dieser Version.
+--- „Neu in KaosLoot“: die Änderungen dieser Version.
 befehle["neu"] = function()
     ns.Neu.Umschalten()
 end
@@ -426,20 +426,20 @@ befehle["absence"] = befehle["bank"]
 --  letzten Meldungen, `/fs raidkader [Rangnummer]` liest den Raidkader bis zum Rang ein.
 befehle["invite"] = function(rest)
     if not ns.Anwesenheit or not ns.Anwesenheit.GruppeEinladen then
-        print("|cff1B6B57Fairshare|r: " .. ROT .. L["Anwesenheit nicht verfügbar."] .. "|r")
+        print("|cff1B6B57KaosLoot|r: " .. ROT .. L["Anwesenheit nicht verfügbar."] .. "|r")
         return
     end
     local ok, n, drin, offline = ns.Anwesenheit.GruppeEinladen()
     if not ok then
-        print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(n) .. "|r")
+        print("|cff1B6B57KaosLoot|r: " .. ROT .. tostring(n) .. "|r")
     elseif n == 0 and drin > 0 and (not offline or offline == 0) then
-        print("|cff1B6B57Fairshare|r: " .. L["Alle anwesenden Spieler sind bereits in der Gruppe."])
+        print("|cff1B6B57KaosLoot|r: " .. L["Alle anwesenden Spieler sind bereits in der Gruppe."])
     elseif n == 0 and (offline and offline > 0) and drin == 0 then
-        print(string.format("|cff1B6B57Fairshare|r: " .. L["Keine Spieler eingeladen (%d offline)."], offline))
+        print(string.format("|cff1B6B57KaosLoot|r: " .. L["Keine Spieler eingeladen (%d offline)."], offline))
     elseif offline and offline > 0 then
-        print(string.format("|cff1B6B57Fairshare|r: " .. L["%d Spieler eingeladen (%d bereits in der Gruppe, %d offline übersprungen)."], n, drin, offline))
+        print(string.format("|cff1B6B57KaosLoot|r: " .. L["%d Spieler eingeladen (%d bereits in der Gruppe, %d offline übersprungen)."], n, drin, offline))
     else
-        print(string.format("|cff1B6B57Fairshare|r: " .. L["%d Spieler eingeladen (%d bereits in der Gruppe)."], n, drin))
+        print(string.format("|cff1B6B57KaosLoot|r: " .. L["%d Spieler eingeladen (%d bereits in der Gruppe)."], n, drin))
     end
 end
 befehle["einladen"] = befehle["invite"]
@@ -735,7 +735,7 @@ end
 
 befehle["role"] = befehle["rolle"]
 
---- ⭐ Fairshare nur mit Plündermeister und Zustimmung (Nutzung.lua).
+--- ⭐ KaosLoot nur mit Plündermeister und Zustimmung (Nutzung.lua).
 befehle["nutzung"] = function(arg)
     local wort = (arg or ""):lower():match("^%s*(%S*)")
     local methode = ns.Rolle.Methode()
@@ -761,9 +761,9 @@ befehle["nutzung"] = function(arg)
     if not aufMaster then
         sag(GELB .. L["Die Beutemethode ist nicht Plündermeister."] .. "|r")
     elseif nutzung == "ja" then
-        sag(GRUEN .. L["Fairshare ist aktiv: Es verwaltet die Beuteverteilung."] .. "|r")
+        sag(GRUEN .. L["KaosLoot ist aktiv: Es verwaltet die Beuteverteilung."] .. "|r")
     elseif nutzung == "nein" then
-        sag(GELB .. L["Fairshare schläft, weil du abgelehnt hast."] .. "|r")
+        sag(GELB .. L["KaosLoot schläft, weil du abgelehnt hast."] .. "|r")
     else
         sag(GELB .. L["Noch keine Antwort – der Dialog fragt, sobald Plündermeister aktiv ist."] .. "|r")
         ns.Nutzung.Fragen()
@@ -1024,7 +1024,7 @@ befehle["bereiche"] = function(arg)
 
     local function eigene()
         local B = ns.Erfassung.Bereiche()
-        sag(string.format(L["Bei Fairshare gelten: Hauptbedarf %d-%d, Zweitbedarf %d-%d."],
+        sag(string.format(L["Bei KaosLoot gelten: Hauptbedarf %d-%d, Zweitbedarf %d-%d."],
             B.haupt[1], B.haupt[2], B.zweit[1], B.zweit[2]))
     end
 

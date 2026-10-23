@@ -1,7 +1,7 @@
-Fairshare 1.0.0  -  Faire Beuteverteilung fuer WoW Forever (Gilde Resurrected)
+KaosLoot 1.0.0  -  Faire Beuteverteilung fuer WoW Forever (Gilde Resurrected)
 ===========================================================================
 
-WICHTIG: ALLE, die Fairshare nutzen, brauchen DIESELBE Fassung (1.0.0 oder eine 0.9.x). Das
+WICHTIG: ALLE, die KaosLoot nutzen, brauchen DIESELBE Fassung (1.0.0 oder eine 0.9.x). Das
 Datenprotokoll hat sich gegenueber 0.1.x geaendert; aeltere Fassungen
 gleichen nicht mehr mit dieser ab. Bitte an alle in der Leitung und im Raid
 weitergeben.
@@ -20,15 +20,15 @@ INSTALLATION
     Wer schon eine aeltere Fassung hat: den alten Ordner "Fairshare" ersetzen. Die Daten
     (Historie, Einstellungen) bleiben erhalten, sie liegen in WTF.
  3. WoW starten (Neustart, ein /reload reicht bei neuen Dateien NICHT).
-    Auf dem Charakterbildschirm unter "AddOns" muss Fairshare angehakt sein.
+    Auf dem Charakterbildschirm unter "AddOns" muss KaosLoot angehakt sein.
  4. Im Spiel:   /fs   oeffnet die Uebersicht      /fs test   prueft das Addon
 
 WAS ES TUT
  * Zeichnet automatisch auf, wer welches Item bekommen hat und wann. Das
    uebernimmt das Addon des PLUENDERMEISTERS (ohne Pluendermeister das des
    RAIDLEITERS). Aufgezeichnet wird NUR in einer Gruppe, nie allein.
- * Fairshare ist nur mit der Beutemethode "Plündermeister" im Dienst: Der
-   Pluendermeister beantwortet "Fairshare nutzen?", seine Antwort gilt fuer
+ * KaosLoot ist nur mit der Beutemethode "Plündermeister" im Dienst: Der
+   Pluendermeister beantwortet "KaosLoot nutzen?", seine Antwort gilt fuer
    alle. Sonst schlaeft das Addon. Spaeter aendern: /fs nutzung ja|nein.
  * Alle anderen in der Gruppe bekommen die Eintraege live. Treffen sich
    Gruppen spaeter, gleichen sie ihre Daten automatisch ab (es kommt nur
@@ -78,7 +78,7 @@ EINSTELLUNGEN UND DATEN TEILEN
 EIGENES WUERFELFENSTER
  * Der Pluendermeister (oder Leiter/Assistent) tippt  /fs wurf  und fuegt den
    Gegenstand per Shift-Klick ein (oder klickt ihn in der offenen Beute an).
-   Bei allen mit Fairshare geht ein Fenster auf: Haupt (1-100), OS (1-99),
+   Bei allen mit KaosLoot geht ein Fenster auf: Haupt (1-100), OS (1-99),
    Passen. Der Wurf endet frueh, sobald alle gewaehlt haben.
  * Es zaehlt immer der ERSTE Wurf eines Spielers. Falscher Gegenstand: im
    Wuerfelfenster "Abbrechen" (oder /fs wurf abbrechen).

@@ -1,6 +1,6 @@
-# Fairshare – Kurzanleitung
+# KaosLoot – Kurzanleitung
 
-Fairshare hält fest, **wer welches Item bekommen hat**, und sortiert daraus die **faire Reihenfolge** fürs Würfeln. Alle in der Gruppe sehen denselben Stand.
+KaosLoot hält fest, **wer welches Item bekommen hat**, und sortiert daraus die **faire Reihenfolge** fürs Würfeln. Alle in der Gruppe sehen denselben Stand.
 
 ## Fenster öffnen
 
@@ -35,7 +35,7 @@ Startet der Plündermeister einen Wurf, geht ein kleines Fenster auf: **Haupt (1
 
 ## Für den Plündermeister
 
-- Beutemethode „Plündermeister“ einstellen und **„Fairshare nutzen?“ mit Ja** beantworten.
+- Beutemethode „Plündermeister“ einstellen und **„KaosLoot nutzen?“ mit Ja** beantworten.
 - Wurf starten: Knopf **„Wurf starten“** oder **`/fs wurf`**, danach im Ergebnis **„Zuteilen“**.
 - Falsch zugeteilt: im Verlauf **„Rückgängig“**.
 

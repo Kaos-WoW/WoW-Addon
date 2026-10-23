@@ -310,7 +310,7 @@ local function kopfBauen()
 
     local name = S.Text(k, 14, C.tx, "LEFT")
     name:SetPoint("LEFT", logo, "RIGHT", 10, 0)
-    name:SetText("Fairshare")
+    name:SetText("KaosLoot")
 
     local tag = CreateFrame("Frame", nil, k)
     tag:SetHeight(17)
@@ -334,7 +334,7 @@ local function kopfBauen()
     klein:SetPoint("RIGHT", zu, "LEFT", -8, 0)
     klein:SetScript("OnClick", function() if ns.Kompakt then ns.Kompakt.Zeigen() end end)
 
-    -- „Neu in Fairshare“ (Neu.lua), mit „!“ bis das Fenster einmal offen war
+    -- „Neu in KaosLoot“ (Neu.lua), mit „!“ bis das Fenster einmal offen war
     local neu = S.Knopf(k, L["Neu"], "link", 20)
     neu:SetPoint("RIGHT", klein, "LEFT", -14, 0)
     neu:SetScript("OnClick", function() if ns.Neu then ns.Neu.Umschalten() end end)
@@ -402,7 +402,7 @@ local function baueFenster()
     abgleichBtn:SetPoint("RIGHT", einstellBtn, "LEFT", -8, 0)
     abgleichBtn:SetScript("OnClick", function()
         local ok, grund = ns.Abgleich.Starten()
-        if not ok then print("|cff1B6B57Fairshare|r: |cffff5555" .. tostring(grund) .. "|r") end
+        if not ok then print("|cff1B6B57KaosLoot|r: |cffff5555" .. tostring(grund) .. "|r") end
     end)
 
     -- Eigenes Wuerfelfenster starten (Wurf.lua): nur fuer Leiter, Assistenten, Plündermeister
@@ -442,9 +442,9 @@ local function baueFenster()
         if zustand.beispiel or not (ns.Anwesenheit and ns.Anwesenheit.AbendNeuBeginnen) then return end
         local ok, grund = ns.Anwesenheit.AbendNeuBeginnen()
         if ok then
-            print("|cff1B6B57Fairshare|r: " .. L["Neuer Abend begonnen. Die Wertungen des abgeschlossenen Abends bleiben bestehen."])
+            print("|cff1B6B57KaosLoot|r: " .. L["Neuer Abend begonnen. Die Wertungen des abgeschlossenen Abends bleiben bestehen."])
         else
-            print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(grund) .. "|r")
+            print("|cff1B6B57KaosLoot|r: " .. ROT .. tostring(grund) .. "|r")
         end
         Fenster.Aktualisieren()
     end)
@@ -458,15 +458,15 @@ local function baueFenster()
         if not ns.Anwesenheit or not ns.Anwesenheit.GruppeEinladen then return end
         local ok, n, drin, offline = ns.Anwesenheit.GruppeEinladen()
         if not ok then
-            print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(n) .. "|r")
+            print("|cff1B6B57KaosLoot|r: " .. ROT .. tostring(n) .. "|r")
         elseif n == 0 and drin > 0 and (not offline or offline == 0) then
-            print("|cff1B6B57Fairshare|r: " .. L["Alle anwesenden Spieler sind bereits in der Gruppe."])
+            print("|cff1B6B57KaosLoot|r: " .. L["Alle anwesenden Spieler sind bereits in der Gruppe."])
         elseif n == 0 and (offline and offline > 0) and drin == 0 then
-            print(string.format("|cff1B6B57Fairshare|r: " .. L["Keine Spieler eingeladen (%d offline)."], offline))
+            print(string.format("|cff1B6B57KaosLoot|r: " .. L["Keine Spieler eingeladen (%d offline)."], offline))
         elseif offline and offline > 0 then
-            print(string.format("|cff1B6B57Fairshare|r: " .. L["%d Spieler eingeladen (%d bereits in der Gruppe, %d offline übersprungen)."], n, drin, offline))
+            print(string.format("|cff1B6B57KaosLoot|r: " .. L["%d Spieler eingeladen (%d bereits in der Gruppe, %d offline übersprungen)."], n, drin, offline))
         else
-            print(string.format("|cff1B6B57Fairshare|r: " .. L["%d Spieler eingeladen (%d bereits in der Gruppe)."], n, drin))
+            print(string.format("|cff1B6B57KaosLoot|r: " .. L["%d Spieler eingeladen (%d bereits in der Gruppe)."], n, drin))
         end
     end)
 
@@ -501,9 +501,9 @@ local function baueFenster()
     syncBtn:SetScript("OnClick", function()
         local n, grund = ns.Gruppen.RaidkaderSync()
         if n then
-            print("|cff1B6B57Fairshare|r: " .. string.format(L["Raidkader eingelesen: %d Mitglieder."], n))
+            print("|cff1B6B57KaosLoot|r: " .. string.format(L["Raidkader eingelesen: %d Mitglieder."], n))
         else
-            print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(grund) .. "|r")
+            print("|cff1B6B57KaosLoot|r: " .. ROT .. tostring(grund) .. "|r")
         end
         zustand.versatz = 0
         Fenster.Aktualisieren()
@@ -530,9 +530,9 @@ local function baueFenster()
     sendenBtn:SetScript("OnClick", function()
         local datum = einteilungsTag()
         if ns.Gruppen.EinteilungSenden(datum) then
-            print("|cff1B6B57Fairshare|r: " .. string.format(L["Einteilung für %s gesendet."], datum))
+            print("|cff1B6B57KaosLoot|r: " .. string.format(L["Einteilung für %s gesendet."], datum))
         else
-            print("|cff1B6B57Fairshare|r: " .. ROT .. L["Es gibt noch keine Einteilung zum Senden."] .. "|r")
+            print("|cff1B6B57KaosLoot|r: " .. ROT .. L["Es gibt noch keine Einteilung zum Senden."] .. "|r")
         end
     end)
 
@@ -541,7 +541,7 @@ local function baueFenster()
     rahmen.wocheBtn:Hide()
     rahmen.wocheBtn:SetScript("OnClick", function()
         if zustand.beispiel then
-            print("|cff1B6B57Fairshare|r: " .. string.format(L["Woche ab %s: %d Abende je Spieler, %d abgemeldet, %d Keine Meldung. Nochmal klicken zum Buchen."],
+            print("|cff1B6B57KaosLoot|r: " .. string.format(L["Woche ab %s: %d Abende je Spieler, %d abgemeldet, %d Keine Meldung. Nochmal klicken zum Buchen."],
                 date("%d.%m.%Y"), 2, 2, 1))
             return
         end
@@ -559,19 +559,19 @@ local function baueFenster()
                 if not ok and not v then
                     local v2, grund2 = ns.Anwesenheit.WocheBuchen(datum)
                     if v2 then
-                        print("|cff1B6B57Fairshare|r: " .. string.format(L["Woche gebucht: %d Zuschläge."], v2.gebucht or 0))
+                        print("|cff1B6B57KaosLoot|r: " .. string.format(L["Woche gebucht: %d Zuschläge."], v2.gebucht or 0))
                     else
-                        print("|cff1B6B57Fairshare|r: " .. ROT .. (L[grund2] or tostring(grund2)) .. "|r")
+                        print("|cff1B6B57KaosLoot|r: " .. ROT .. (L[grund2] or tostring(grund2)) .. "|r")
                     end
                 end
             else
                 local v, grund = ns.Anwesenheit.WocheVorschau(datum)
                 if v then
                     zustand.wocheBestaetigung = jetzt
-                    print("|cff1B6B57Fairshare|r: " .. string.format(L["Woche ab %s: %d Abende je Spieler, %d abgemeldet, %d Keine Meldung. Nochmal klicken zum Buchen."],
+                    print("|cff1B6B57KaosLoot|r: " .. string.format(L["Woche ab %s: %d Abende je Spieler, %d abgemeldet, %d Keine Meldung. Nochmal klicken zum Buchen."],
                         v.montag, v.n, #v.abgemeldet, #v.keineMeldung))
                 else
-                    print("|cff1B6B57Fairshare|r: " .. ROT .. (L[grund] or tostring(grund)) .. "|r")
+                    print("|cff1B6B57KaosLoot|r: " .. ROT .. (L[grund] or tostring(grund)) .. "|r")
                 end
             end
         else
@@ -581,7 +581,7 @@ local function baueFenster()
                     ns.Anwesenheit.WocheZuruecknehmen(datum)
                 else
                     zustand.wocheBestaetigung = jetzt
-                    print("|cff1B6B57Fairshare|r: " .. L["Woche wiedereröffnen? Nochmal klicken zum Bestätigen."])
+                    print("|cff1B6B57KaosLoot|r: " .. L["Woche wiedereröffnen? Nochmal klicken zum Bestätigen."])
                 end
             else
                 local gInfo = gName and ue.gruppen[gName]
@@ -592,7 +592,7 @@ local function baueFenster()
                         ns.Anwesenheit.WocheGruppeSetzen(datum, gName, "offen")
                     else
                         zustand.wocheBestaetigung = jetzt
-                        print("|cff1B6B57Fairshare|r: " .. string.format(L["Wochenabschluss für Gruppe '%s' wiedereröffnen? Nochmal klicken."], gName))
+                        print("|cff1B6B57KaosLoot|r: " .. string.format(L["Wochenabschluss für Gruppe '%s' wiedereröffnen? Nochmal klicken."], gName))
                     end
                 else
                     if zustand.wocheBestaetigung and (jetzt - zustand.wocheBestaetigung <= 8) then
@@ -600,7 +600,7 @@ local function baueFenster()
                         ns.Anwesenheit.WocheGruppeSetzen(datum, gName, "abgeschlossen")
                     else
                         zustand.wocheBestaetigung = jetzt
-                        print("|cff1B6B57Fairshare|r: " .. string.format(L["Woche für Gruppe '%s' abschließen? Nochmal klicken zum Bestätigen."], gName))
+                        print("|cff1B6B57KaosLoot|r: " .. string.format(L["Woche für Gruppe '%s' abschließen? Nochmal klicken zum Bestätigen."], gName))
                     end
                 end
             end
@@ -623,7 +623,7 @@ local function baueFenster()
             ns.Anwesenheit.WocheGruppeSetzen(datum, gName, "pausiert")
         else
             zustand.wochePauseBestaetigung = jetzt
-            print("|cff1B6B57Fairshare|r: " .. string.format(L["Gruppe '%s' als pausiert markieren? Nochmal klicken zum Bestätigen."], gName))
+            print("|cff1B6B57KaosLoot|r: " .. string.format(L["Gruppe '%s' als pausiert markieren? Nochmal klicken zum Bestätigen."], gName))
         end
         Fenster.Aktualisieren()
     end)
@@ -1081,10 +1081,10 @@ function Fenster.RueckgaengigKlick(id)
         zustand.rueckfrage = nil
         local ok, e = ns.Erfassung.Zuruecknehmen(id)
         if ok then
-            print("|cff1B6B57Fairshare|r: " .. string.format(L["Rückgabe vermerkt: %s von %s. Der Punkt wird abgezogen, sobald das Item neu vergeben ist."],
+            print("|cff1B6B57KaosLoot|r: " .. string.format(L["Rückgabe vermerkt: %s von %s. Der Punkt wird abgezogen, sobald das Item neu vergeben ist."],
                 Quelle.Gegenstandstext(e), Kern.Anzeigename(e.awardedTo)))
         else
-            print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(e) .. "|r")
+            print("|cff1B6B57KaosLoot|r: " .. ROT .. tostring(e) .. "|r")
         end
     else
         zustand.rueckfrage = { id = id, zeit = time() }
@@ -1375,7 +1375,7 @@ local function zeigeBank(H)
             if e.benchEinteilung and not zustand.beispiel then
                 -- ⭐ Bench laut Einteilung: Klick holt ihn in die aktive Gruppe (er springt ein)
                 local ok, grund = ns.Anwesenheit.BenchEinspringen(e.name)
-                if not ok then print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(grund) .. "|r") end
+                if not ok then print("|cff1B6B57KaosLoot|r: " .. ROT .. tostring(grund) .. "|r") end
                 Fenster.Aktualisieren()
                 return
             end
@@ -1654,7 +1654,7 @@ local function zeigeEinteilung()
             z.teilBtn:SetAktiv(darf and ziel ~= nil)
             z.teilBtn:SetScript("OnClick", function()
                 local ok, grund = G.EinteilungSetzen(datum, l.name, ziel, nil, zielKat)
-                if not ok then print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(grund) .. "|r") end
+                if not ok then print("|cff1B6B57KaosLoot|r: " .. ROT .. tostring(grund) .. "|r") end
                 Fenster.Aktualisieren()
             end)
         else
@@ -1673,7 +1673,7 @@ local function zeigeEinteilung()
             z.entfBtn:SetAktiv(darf)
             z.entfBtn:SetScript("OnClick", function()
                 local ok, grund = G.EinteilungSetzen(datum, r.name, "", nil, zielKat)
-                if not ok then print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(grund) .. "|r") end
+                if not ok then print("|cff1B6B57KaosLoot|r: " .. ROT .. tostring(grund) .. "|r") end
                 Fenster.Aktualisieren()
             end)
         else
@@ -1917,13 +1917,13 @@ function Fenster.Aktualisieren()
                         if ns.Anwesenheit and ns.Anwesenheit.BeispielKandidatenWiederherstellen then
                             ns.Anwesenheit.BeispielKandidatenWiederherstellen()
                         end
-                        print("|cff1B6B57Fairshare|r: " .. string.format(L["Raidabend %s wiedereröffnet, Zuschläge zurückgenommen."], date("%d.%m.%Y", t)))
+                        print("|cff1B6B57KaosLoot|r: " .. string.format(L["Raidabend %s wiedereröffnet, Zuschläge zurückgenommen."], date("%d.%m.%Y", t)))
                     else
                         local ok, ab = ns.Anwesenheit.AbendWiedereroeffnen()
                         if ok then
-                            print("|cff1B6B57Fairshare|r: " .. string.format(L["Raidabend %s wiedereröffnet, Zuschläge zurückgenommen."], tostring(ab.datum or ab.id)))
+                            print("|cff1B6B57KaosLoot|r: " .. string.format(L["Raidabend %s wiedereröffnet, Zuschläge zurückgenommen."], tostring(ab.datum or ab.id)))
                         else
-                            print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(ab) .. "|r")
+                            print("|cff1B6B57KaosLoot|r: " .. ROT .. tostring(ab) .. "|r")
                         end
                     end
                 else
@@ -1932,15 +1932,15 @@ function Fenster.Aktualisieren()
                         if ns.Anwesenheit and ns.Anwesenheit.BeispielKandidatenReset then
                             ns.Anwesenheit.BeispielKandidatenReset()
                         end
-                        print("|cff1B6B57Fairshare|r: " .. string.format(L["Raidabend %s erfolgreich abgeschlossen!"], date("%d.%m.%Y", t)))
+                        print("|cff1B6B57KaosLoot|r: " .. string.format(L["Raidabend %s erfolgreich abgeschlossen!"], date("%d.%m.%Y", t)))
                         print(string.format(L["  Schnitt: %.2f (%d Main-Items / %d Spieler). %d Zuschläge festgeschrieben."], 1.0, 10, 10, 2))
                     else
                         local ok, v, zZaehler = ns.Anwesenheit.AbendAbschliessen()
                         if ok then
-                            print("|cff1B6B57Fairshare|r: " .. string.format(L["Raidabend %s erfolgreich abgeschlossen!"], tostring(v.datum)))
+                            print("|cff1B6B57KaosLoot|r: " .. string.format(L["Raidabend %s erfolgreich abgeschlossen!"], tostring(v.datum)))
                             print(string.format(L["  Schnitt: %.2f (%d Main-Items / %d Spieler). %d Zuschläge festgeschrieben."], v.schnitt, v.mainItems, v.raidSpieler, zZaehler or 0))
                         else
-                            print("|cff1B6B57Fairshare|r: " .. ROT .. tostring(v) .. "|r")
+                            print("|cff1B6B57KaosLoot|r: " .. ROT .. tostring(v) .. "|r")
                         end
                     end
                 end

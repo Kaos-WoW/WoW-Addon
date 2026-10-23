@@ -449,12 +449,12 @@ local function seiteErfassung(P)
         set = function(v) d().nurGewuerfelt = v end })
 
     local k1 = karte(P, L["Nutzung"],
-        L["Fairshare ist nur mit der Beutemethode Plündermeister im Dienst und nur, wenn du zustimmst. Sonst schläft das Addon."])
-    zeile(k1, { art = "segment", label = L["Fairshare in dieser Gruppe nutzen"],
+        L["KaosLoot ist nur mit der Beutemethode Plündermeister im Dienst und nur, wenn du zustimmst. Sonst schläft das Addon."])
+    zeile(k1, { art = "segment", label = L["KaosLoot in dieser Gruppe nutzen"],
         werte = { { wert = "ja", label = L["Ja"] }, { wert = "nein", label = L["Nein"] } },
         beschr = function()
             local _, grund = ns.Rolle.Aktiv()
-            return grund or L["Fairshare ist aktiv: Es verwaltet die Beuteverteilung."]
+            return grund or L["KaosLoot ist aktiv: Es verwaltet die Beuteverteilung."]
         end,
         get = function() return ns.Rolle.Nutzung() or "" end,
         set = function(v)
@@ -852,7 +852,7 @@ local function kopfBauen()
 
     local name = S.Text(kopf, 14, C.tx, "LEFT")
     name:SetPoint("LEFT", logo, "RIGHT", 10, 0)
-    name:SetText("Fairshare")
+    name:SetText("KaosLoot")
 
     local tag = CreateFrame("Frame", nil, kopf)
     tag:SetHeight(17)
@@ -1055,7 +1055,7 @@ function Einstellungen.Aktualisieren()
             "  ·  " .. tostring(grund))
     end)
     if not ok then
-        print("|cff1B6B57Fairshare|r: |cffff5555" ..
+        print("|cff1B6B57KaosLoot|r: |cffff5555" ..
             string.format(L["Fehler in den Einstellungen: %s"], tostring(fehler)) .. "|r")
     end
 end

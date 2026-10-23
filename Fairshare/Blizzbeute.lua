@@ -29,7 +29,7 @@ ns.Blizzbeute = Blizzbeute
 
 local Kern = ns.Kern
 
-local PRAEFIX = "|cff1B6B57Fairshare|r: "
+local PRAEFIX = "|cff1B6B57KaosLoot|r: "
 
 -- =====================================================================
 --  Verfuegbarkeit

@@ -38,7 +38,7 @@ ns.Konfig = Konfig
 
 local Kern = ns.Kern
 
-local MELDUNG = "|cff1B6B57Fairshare|r: "
+local MELDUNG = "|cff1B6B57KaosLoot|r: "
 local PAKET = 150            -- Nutzlast je Nachricht (der Kopf kommt dazu)
 local MAXGRUPPEN = 12
 local MAXNAMEN = 60
@@ -515,7 +515,7 @@ function Konfig.AutoSenden()
         if type(d.konfigRoh) == "table" and zeilenGleich(Konfig.Kodieren(Konfig.Sammeln()), d.konfigRoh) then return end
         local n, grund = Konfig.Senden()
         if n then
-            print("|cff1B6B57Fairshare|r: " .. L["Geänderte Einstellungen wurden an alle gesendet."])
+            print("|cff1B6B57KaosLoot|r: " .. L["Geänderte Einstellungen wurden an alle gesendet."])
             -- ⭐ Einmal nachsenden: Addon-Nachrichten in der Gilde können verloren gehen (Drosselung). Wer den Stand
             -- schon hat, ignoriert die Wiederholung (gleicher Stand).
             C_Timer.After(15, function()
@@ -525,7 +525,7 @@ function Konfig.AutoSenden()
                 end
             end)
         elseif grund then
-            print("|cff1B6B57Fairshare|r: |cffff5555" .. tostring(grund) .. "|r")
+            print("|cff1B6B57KaosLoot|r: |cffff5555" .. tostring(grund) .. "|r")
         end
     end)
     return true

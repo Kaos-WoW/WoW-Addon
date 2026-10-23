@@ -268,9 +268,9 @@ function Kompakt.Aktualisieren()
     if leiste then
         zeilenAus(1)
         rahmen:SetHeight(KOPF)
-        titel:SetText(kopfText and ((W and "" or (GRAU .. L["Dran:"] .. "|r ")) .. kopfText) or "Fairshare")
+        titel:SetText(kopfText and ((W and "" or (GRAU .. L["Dran:"] .. "|r ")) .. kopfText) or "KaosLoot")
     else
-        titel:SetText("Fairshare")
+        titel:SetText("KaosLoot")
     end
 end
 

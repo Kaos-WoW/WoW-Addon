@@ -508,11 +508,11 @@ function Gruppen.AutoSynchronisieren()
 
     local hinzu, weg, uebersprungen = Gruppen.Synchronisieren(name, true)
     if hinzu and (hinzu > 0 or (weg or 0) > 0) then
-        print("|cff1B6B57Fairshare|r: " ..
+        print("|cff1B6B57KaosLoot|r: " ..
             string.format(L["Kader „%s“: %d neu, %d entfernt."], name, hinzu, weg or 0))
     end
     if uebersprungen then
-        print("|cff1B6B57Fairshare|r: " ..
+        print("|cff1B6B57KaosLoot|r: " ..
             string.format(L["Kader „%s“: Entfernen übersprungen (zu viele auf einmal) – bitte in den Einstellungen prüfen."], name))
     end
 end

@@ -52,7 +52,7 @@ local TAKT       = 0.25      -- Sekunden zwischen zwei Nachrichten
 local MAXEINTRAEGE = 600     -- je Abgleich und Spieler
 local SITZUNGSDAUER = 900    -- so lange gilt ein Abgleich als offen
 
-local MELDUNG = "|cff1B6B57Fairshare|r: "
+local MELDUNG = "|cff1B6B57KaosLoot|r: "
 
 -- =====================================================================
 --  Zugriff
@@ -245,7 +245,7 @@ local function popupZeigen(anzahl, namen)
 
         local kopf = popup:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
         kopf:SetPoint("TOP", popup, "TOP", 0, -18)
-        kopf:SetText("Fairshare")
+        kopf:SetText("KaosLoot")
 
         popup.text = popup:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
         popup.text:SetPoint("TOPLEFT", popup, "TOPLEFT", 22, -46)
@@ -850,7 +850,7 @@ function Abgleich.Empfangen(text, sender, kanalName)
         return
     end
 
-    -- ⭐ „Fairshare nutzen?": die Antwort des Plündermeisters (Nutzung.lua prüft, dass er es ist)
+    -- ⭐ „KaosLoot nutzen?": die Antwort des Plündermeisters (Nutzung.lua prüft, dass er es ist)
     if typ == "U" then
         if ns.Nutzung then ns.Nutzung.Empfangen(rest, sender, unit) end
         return
@@ -1040,7 +1040,7 @@ rahmen:RegisterEvent("PLAYER_ENTERING_WORLD")
 pcall(function() rahmen:RegisterEvent("PARTY_LOOT_METHOD_CHANGED") end)
 rahmen:SetScript("OnEvent", function(_, ereignis, praefix, text, kanalName, sender)
     local ok, fehler = pcall(function()
-        -- ⭐ Auch ein schlafendes Addon muss die Antwort des Plündermeisters („Fairshare nutzen?“, Nachricht `U`)
+        -- ⭐ Auch ein schlafendes Addon muss die Antwort des Plündermeisters („KaosLoot nutzen?“, Nachricht `U`)
         -- hören können: Präfix anmelden und genau diese Nachricht durchlassen.
         if ereignis == "PLAYER_ENTERING_WORLD" then
             praefixAnmelden()
