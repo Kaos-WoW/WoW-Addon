@@ -1,7 +1,7 @@
 ## Interface: 16001, 120100, 120105
 ## Title: KaosLoot
-## Notes: Fair loot distribution for guild raids: own roll window, rating by items and surcharges, history for everyone. Command: /fs
-## Notes-deDE: Faire Beuteverteilung für Gildenraids: eigenes Würfelfenster, Wertung nach Items und Zuschlägen, Historie für alle. Befehl: /fs
+## Notes: Fair loot distribution for guild raids: own roll window, rating by items and surcharges, history for everyone. Command: /kl
+## Notes-deDE: Faire Beuteverteilung für Gildenraids: eigenes Würfelfenster, Wertung nach Items und Zuschlägen, Historie für alle. Befehl: /kl
 ## Author: Kaos, xqp
 ## Version: 1.1.0
 ## X-Curse-Project-ID: 1759404
