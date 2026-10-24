@@ -2,7 +2,7 @@
 
 WoW-Addon für die Gilde **Resurrected** (WoW Forever). Faire Beuteverteilung: Es hält fest, **wer welches Item bekommen hat**, rechnet für jeden Wurf eine **faire Reihenfolge** und bringt ein eigenes **Würfelfenster** mit. Wer die niedrigste Wertung hat, bekommt das Item zuerst; nur bei Gleichstand entscheidet der Wurf.
 
-Version **1.0.0**. Sprache: Deutsch und Englisch (nach dem Client).
+Version **1.0.1**. Sprache: Deutsch und Englisch (nach dem Client).
 
 ## Kurz erklärt
 
@@ -37,4 +37,4 @@ python release/bauen.py --cf        # CurseForge-Zip aus dem letzten Commit
 
 ## Lizenz
 
-All Rights Reserved. Schrift Inter (SIL OFL) und Symbole Tabler Icons (MIT), Lizenzen im Ordner `Fairshare/Media`.
+All Rights Reserved. Schrift Inter (SIL OFL) und Symbole Tabler Icons (MIT), Lizenzen im Ordner `KaosLoot/Media`.

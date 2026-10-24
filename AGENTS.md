@@ -6,14 +6,14 @@ wann was?** Damit der Plündermeister im Moment der Vergabe schnell und
 begründet entscheiden kann.
 
 **Name:** Fairshare, Befehl `/fs` (bis 14.10.2026 „Loot-Historie“, `/lh`; der Name sagte zu wenig, das Addon zeichnet
-auf, gleicht ab, verwaltet Gruppen). Ordner `Fairshare/`, SavedVariables `FairshareDB`, Nachrichtenpräfix
+auf, gleicht ab, verwaltet Gruppen). Ordner `KaosLoot/`, SavedVariables `FairshareDB`, Nachrichtenpräfix
 `FSHARE`. ⚠️ **Der Umzug der gespeicherten Daten** (`LootHistorie.lua` → `Fairshare.lua`, Variable umbenannt)
 macht `deploy.ps1` einmalig und **nur bei beendetem WoW** (sonst bricht es ab, ohne etwas zu ändern); die alte
 Datei bleibt als Sicherung. Spätere Umbenennungen brauchen denselben Weg.
 
-⭐ **Anzeigename seit 23.10.2026: KaosLoot** (vorher Fairshare). Ordner `Fairshare/`, Befehl `/fs`, `FairshareDB`, Rahmennamen `Fairshare…` und das Protokollpräfix bleiben absichtlich; geändert sind nur sichtbare Texte, TOC-`Title`, README, Anleitung, Release-Texte. Die Doku unten sagt noch „Fairshare“ und meint dasselbe.
+⭐ **Das Addon heißt KaosLoot (seit 23.10.2026; vorher Fairshare), Ordner und TOC seit 1.0.1 ebenfalls** (`KaosLoot/KaosLoot.toc`, Zip `KaosLoot-<Version>.zip`, Releases-Ordner `..\KaosLoot-releases`). Bewusst unverändert: Befehl `/fs`, die Variable `FairshareDB` (die Datei heißt `KaosLoot.lua`), Rahmennamen `Fairshare…` und das Protokollpräfix. Die Doku unten sagt teils noch „Fairshare“ und meint dasselbe.
 
-Stand 22.10.2026, Version 1.0.0 (Loot-Regelsystem Resurrected integriert, Datenbuch verteilt, Protokollversion 3; seit dem 17./18.10. mehrere Gruppen mit Raidkader, Einteilung je Tag, Bench, „Keine Meldung“, Wochenabschluss, geteilte Einstellungen mit Vertrauenswurzel; seit dem 22.10. Probe-Modus und Anwesenheits-Reiter mit Default = Anwesend). Nur für Forever. **Übergabe-Stand und offene Punkte: `WORKBOARD.md`.**
+Stand 22.10.2026, Version 1.0.1 (Loot-Regelsystem Resurrected integriert, Datenbuch verteilt, Protokollversion 3; seit dem 17./18.10. mehrere Gruppen mit Raidkader, Einteilung je Tag, Bench, „Keine Meldung“, Wochenabschluss, geteilte Einstellungen mit Vertrauenswurzel; seit dem 22.10. Probe-Modus und Anwesenheits-Reiter mit Default = Anwesend). Nur für Forever. **Übergabe-Stand und offene Punkte: `WORKBOARD.md`.**
 
 ---
 
@@ -649,7 +649,7 @@ Ermöglicht es der Gildenleitung, einen kompletten Raidabend allein, in unter zw
 ## Arbeitsweise
 
 ```
-python luacheck.py Fairshare/*.lua     # Blockstruktur, echter Tokenizer
+python luacheck.py KaosLoot/*.lua     # Blockstruktur, echter Tokenizer
 pip install lupa                          # einmalig
 python tests/rechenkern.py                # Kern + Tests.lua in echtem Lua 5.1
 python tests/szenarien.py                 # mehrere virtuelle Clients, auch ein englischer Client

@@ -57,6 +57,7 @@ local EN = {
     -- ---------------------------------------------------------- Neu in KaosLoot
     ["Neu"] = "New",
     ["Neu in KaosLoot"] = "New in KaosLoot",
+    ["Geändert: Der Ordner heißt jetzt KaosLoot. Den alten Ordner Fairshare im AddOns-Ordner bitte löschen; Daten der Version 1.0.0 holt der Abgleich von den Mitspielern."] = "Changed: The folder is now called KaosLoot. Please delete the old Fairshare folder in your AddOns folder; the data of version 1.0.0 comes back through the sync with your group mates.",
     ["Geändert: Aus Fairshare wird KaosLoot. Der Befehl /fs und deine Daten bleiben."] = "Changed: Fairshare is now KaosLoot. The /fs command and your data stay.",
     ["KaosLoot ist Version 1.0.0: Die Beta ist vorbei."] = "KaosLoot is version 1.0.0: the beta is over.",
     ["Neu: „Neu in KaosLoot“ (/fs neu) zeigt die Änderungen jeder Version, ein „!“ markiert Neues."] = "New: \"New in KaosLoot\" (/fs new) shows the changes of every version, a \"!\" marks what is new.",

@@ -12,7 +12,7 @@ import sys
 
 from lupa import lua51
 
-A = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Fairshare")
+A = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "KaosLoot")
 DATEIEN = ["Kern.lua", "Locale.lua", "Quelle.lua", "Rolle.lua", "Gruppen.lua", "Anwesenheit.lua", "Erfassung.lua", "Abgleich.lua",
           "Blizzbeute.lua", "Stil.lua", "Wurf.lua", "Konfig.lua", "Nutzung.lua", "Neu.lua", "Einstellungen.lua", "Fenster.lua", "Kompakt.lua", "Befehle.lua", "Tests.lua"]
 
@@ -366,7 +366,7 @@ class Welt:
             r = lade(code, "@" + datei)
             if isinstance(r, tuple):
                 raise RuntimeError("Syntaxfehler %s: %s" % (datei, r[1]))
-            r("Fairshare", ns)
+            r("KaosLoot", ns)
         return {"lua": lua, "ns": ns, "g": g, "name": m["name"], "idx": idx}
 
     # --- Uhr -------------------------------------------------------------

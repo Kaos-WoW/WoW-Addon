@@ -1,24 +1,27 @@
-KaosLoot 1.0.0  -  Faire Beuteverteilung fuer WoW Forever (Gilde Resurrected)
+KaosLoot 1.0.1  -  Faire Beuteverteilung fuer WoW Forever (Gilde Resurrected)
 ===========================================================================
 
-WICHTIG: ALLE, die KaosLoot nutzen, brauchen DIESELBE Fassung (1.0.0 oder eine 0.9.x). Das
+WICHTIG: ALLE, die KaosLoot nutzen, brauchen DIESELBE Fassung (1.0.x oder eine 0.9.x). Das
 Datenprotokoll hat sich gegenueber 0.1.x geaendert; aeltere Fassungen
 gleichen nicht mehr mit dieser ab. Bitte an alle in der Leitung und im Raid
 weitergeben.
 
 INSTALLATION
  1. WoW beenden.
- 2. Den Ordner "Fairshare" aus diesem Zip in den AddOns-Ordner kopieren:
+ 2. Den Ordner "KaosLoot" aus diesem Zip in den AddOns-Ordner kopieren:
 
       ...\World of Warcraft\_forever_\Interface\AddOns\
 
     Danach muss diese Datei existieren:
 
-      ...\AddOns\Fairshare\Fairshare.toc
+      ...\AddOns\KaosLoot\KaosLoot.toc
 
-    (Der Ordner muss genau "Fairshare" heissen, nicht "Fairshare-1.0.0".)
-    Wer schon eine aeltere Fassung hat: den alten Ordner "Fairshare" ersetzen. Die Daten
-    (Historie, Einstellungen) bleiben erhalten, sie liegen in WTF.
+    (Der Ordner muss genau "KaosLoot" heissen, nicht "KaosLoot-1.0.1".)
+    Wer noch den alten Ordner "Fairshare" hat (Version 1.0.0 oder aelter): LOESCHEN, sonst
+    laeuft das Addon doppelt. Die Daten liegen jetzt in WTF\...\SavedVariables\KaosLoot.lua
+    statt Fairshare.lua und gehen nicht automatisch ueber: Sie kommen ueber den Abgleich
+    von den Mitspielern zurueck. Wer sie behalten will, benennt vor dem Loeschen bei beendetem
+    Spiel die Datei Fairshare.lua in KaosLoot.lua um.
  3. WoW starten (Neustart, ein /reload reicht bei neuen Dateien NICHT).
     Auf dem Charakterbildschirm unter "AddOns" muss KaosLoot angehakt sein.
  4. Im Spiel:   /fs   oeffnet die Uebersicht      /fs test   prueft das Addon

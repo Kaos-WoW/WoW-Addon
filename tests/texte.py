@@ -21,7 +21,7 @@ import re
 import sys
 
 HIER = os.path.dirname(os.path.abspath(__file__))
-QUELLE = os.path.join(HIER, "..", "Fairshare")
+QUELLE = os.path.join(HIER, "..", "KaosLoot")
 
 # Dateien, deren Texte nicht uebersetzt werden (Entwicklerwerkzeug)
 # Kern.lua: reine Rechnerei, die Gruende (z. B. "entzaubert") sind intern.

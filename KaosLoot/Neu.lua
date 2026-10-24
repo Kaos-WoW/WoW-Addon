@@ -28,6 +28,9 @@ local MARKE = "Interface\\GossipFrame\\AvailableQuestIcon"
 
 -- Neueste Version zuerst. Gezeigt werden alle Abschnitte, das „!“ gilt nur für den ersten.
 Neu.LISTE = {
+    { version = "1.0.1", eintraege = {
+        { text = L["Geändert: Der Ordner heißt jetzt KaosLoot. Den alten Ordner Fairshare im AddOns-Ordner bitte löschen; Daten der Version 1.0.0 holt der Abgleich von den Mitspielern."] },
+    } },
     { version = "1.0.0", eintraege = {
         { text = L["KaosLoot ist Version 1.0.0: Die Beta ist vorbei."] },
         { text = L["Geändert: Aus Fairshare wird KaosLoot. Der Befehl /fs und deine Daten bleiben."] },
