@@ -28,6 +28,14 @@ local MARKE = "Interface\\GossipFrame\\AvailableQuestIcon"
 
 -- Neueste Version zuerst. Gezeigt werden alle Abschnitte, das „!“ gilt nur für den ersten.
 Neu.LISTE = {
+    { version = "1.1.0", eintraege = {
+        { text = L["Neu: Zwei Verfahren für die Wertung, die Leitung wählt in den Einstellungen unter Verteilung: Punkte mit Zuschlägen (wie bisher) und Items pro Abend."], seite = "verteilung" },
+        { text = L["Neu: Items pro Abend zählt die Items pro besuchtem Abend der letzten 8 Raid-IDs, gleitend und ohne Reset. Fehlen kostet nichts, Anwesenheit schadet nicht."] },
+        { text = L["Neu: Heute schon ein Item: Wer an diesem Abend schon eins bekommen hat, steht hinter allen ohne Item (aus, leicht oder streng, Standard streng)."] },
+        { text = L["Neu: Korrektur der Leitung mit Pflichtkommentar, Plus oder Minus (/kl korrektur oder Knopf im Spielerdetail), für alle sichtbar."] },
+        { text = L["Neu: /kl vergleich zeigt beide Verfahren nebeneinander."] },
+        { text = L["Wichtig: Alle in der Gruppe brauchen 1.1.0, sonst ordnen die Addons unterschiedlich."] },
+    } },
     { version = "1.0.1", eintraege = {
         { text = L["Geändert: Der Befehl heißt jetzt /kl (vorher /fs; /fs geht vorerst weiter)."] },
         { text = L["Geändert: Der Ordner heißt jetzt KaosLoot. Den alten Ordner Fairshare im AddOns-Ordner bitte löschen; Daten der Version 1.0.0 holt der Abgleich von den Mitspielern."] },

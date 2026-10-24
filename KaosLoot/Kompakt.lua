@@ -91,8 +91,7 @@ local function ichName()
 end
 
 local function zahlText(w)
-    w = tonumber(w) or 0
-    return (w == math.floor(w)) and tostring(w) or string.format("%.1f", w)
+    return Kern.WertText(w, ns.Verteilung and ns.Verteilung.ProAbend())
 end
 
 --- Der Name in Klassenfarbe; `klasse` nur in der Vorschau (sonst wird sie nachgeschlagen).
@@ -118,6 +117,8 @@ local function wertungListe()
     local daten = ns.Anwesenheit and ns.Anwesenheit.ZuschlaegeDaten and ns.Anwesenheit.ZuschlaegeDaten() or nil
     local liste = Kern.Bilanz(H, 0, pflicht, nur, daten)
     if ns.Anwesenheit and ns.Anwesenheit.Rollen then ns.Anwesenheit.Rollen(liste, false) end
+    -- ⭐ Die Reihenfolge wie beim Wurf (Regel „Heute schon ein Item“): oben steht, wer als Naechster dran waere
+    Kern.WurfReihenfolge(liste, function() return "haupt" end)
     return liste
 end
 

@@ -104,6 +104,8 @@ function Kern.Bilanz(historie, seit, pflicht, nur, daten)
 
     local nach, gesamt, aeltester = {}, 0, nil
     local gemerkt = {}
+    -- ⭐ „Items pro Abend“ (Verteilung.lua): Wertung = (Items im Fenster + Korrektur + Schnitt x k) / (Abende + k)
+    local ab = daten and daten.abend
 
     -- Mit `nur`: der passende Name aus der Liste oder nil
     local function zugelassen(name)
@@ -136,6 +138,11 @@ function Kern.Bilanz(historie, seit, pflicht, nur, daten)
                 zuschlag = zuschlag,
                 anhebung = anhebung,
                 wertung = Kern.Wertung(0, zuschlag, anhebung),
+                heute = 0,                -- Main-Items dieses Abends (Regel „Heute schon ein Item“)
+                fensterItems = 0,         -- „Items pro Abend“: Main-Items im Zeitfenster
+                korrektur = ab and ((ab.korrektur[k] or ab.korrektur[name]) or 0) or 0,
+                abende = ab and (ab.abende[k] or 0) or 0,
+                anwesend = (ab and ab.heute and ab.heute[k]) and true or false,
             }
             nach[k] = z
         end
@@ -153,6 +160,8 @@ function Kern.Bilanz(historie, seit, pflicht, nur, daten)
             else
                 z.haupt = z.haupt + 1
                 z.wertung = Kern.Wertung(z.haupt, z.zuschlag, z.anhebung)
+                if ab and e.timestamp >= ab.von then z.fensterItems = z.fensterItems + 1 end
+                if daten and daten.heuteVon and e.timestamp >= daten.heuteVon then z.heute = z.heute + 1 end
                 -- „Zuletzt" meint Hauptbedarf. Ein Zweitbedarfs-Stueck
                 -- sagt ueber den Anspruch nichts aus.
                 if e.timestamp > z.letzte then
@@ -168,6 +177,18 @@ function Kern.Bilanz(historie, seit, pflicht, nur, daten)
 
     local liste = {}
     for _, z in pairs(nach) do liste[#liste + 1] = z end
+
+    if ab then
+        local k = tonumber(ab.k) or 4
+        for _, z in pairs(nach) do
+            local n = z.abende + (z.anwesend and 1 or 0)
+            local nenner = n + k
+            z.wertung = (nenner > 0) and Kern.Runde3((z.fensterItems + z.korrektur + (ab.p0 or 0.5) * k) / nenner) or (ab.p0 or 0.5)
+        end
+    end
+    -- Die Regel „Heute schon ein Item“ reist mit der Liste zur Wurf-Reihenfolge
+    liste.regel = daten and daten.heuteRegel or nil
+    liste.leicht = daten and daten.heuteLeicht or nil
 
     -- ⭐ Wertung und Vorrang (Golf-Prinzip):
     -- Wer die niedrigste Wertung hat, hat Vorrang (Niedrig = zuerst).
@@ -318,9 +339,19 @@ function Kern.WurfReihenfolge(liste, istWuerfler, wurfWert)
 
         if ra >= 2 then
             -- Hauptbedarf:
-            -- 1. Niedrigste Wertung zuerst (Golf-Prinzip)
+            -- 0. ⭐ „Heute schon ein Item“ (streng): Wer an diesem Abend noch keins hat, kommt zuerst;
+            --    die Wertung ordnet nur unter denen mit gleich vielen Items heute.
+            if liste.regel == "streng" then
+                local ha, hb = a.heute or 0, b.heute or 0
+                if ha ~= hb then return ha < hb end
+            end
+            -- 1. Niedrigste Wertung zuerst (Golf-Prinzip); „leicht“: jedes Item von heute zaehlt etwas extra
             local wa = a.effektiveWertung or a.wertung or a.haupt or 0
             local wb = b.effektiveWertung or b.wertung or b.haupt or 0
+            if liste.regel == "leicht" then
+                wa = wa + (liste.leicht or 0) * (a.heute or 0)
+                wb = wb + (liste.leicht or 0) * (b.heute or 0)
+            end
             if wa ~= wb then return wa < wb end
 
             -- 2. Bei gleicher Wertung entscheidet der hoehere Wurf
@@ -450,6 +481,18 @@ end
 --  @param zuschlaege  Zahl oder Tabelle/Liste von Zuschlaegen
 --  @param anhebung    Zahl (bereits festgeschriebene dauerhafte Anhebung)
 --  @return Wertung (Zahl)
+--- Ist die Kennung eines Datenbuch-Satzes eine Korrektur der Leitung?
+function Kern.IstKorrektur(id)
+    return type(id) == "string" and id:match("^k_") ~= nil
+end
+
+--- Die Wertung als Text: Punkte ganzzahlig oder mit einer Stelle, „Items pro Abend“ mit zwei Stellen.
+function Kern.WertText(w, proAbend)
+    w = tonumber(w) or 0
+    if proAbend then return string.format("%.2f", w) end
+    return (w == math.floor(w)) and tostring(w) or string.format("%.1f", w)
+end
+
 function Kern.Wertung(haupt, zuschlaege, anhebung)
     local w = tonumber(haupt) or 0
     if type(zuschlaege) == "table" then
@@ -1060,11 +1103,15 @@ function Kern.BuchDekodieren(zeile, jetzt)
         local id = f[2]
         local name = entschuetze(f[3])
         -- „hm_…" vermerkt nur, dass die Anhebung eines Tages ausgewertet wurde (Wert 0)
-        local wert, zeit = buchZahl(f[4], id:match("^hm_") and 0 or 0.001, 100), buchZahl(f[5], 1000000000, 4000000000)
+        -- „k_…“ ist eine Korrektur der Leitung: Der Wert darf auch negativ sein (nie 0), der Kommentar ist Pflicht
+        local istK = id:match("^k_") ~= nil
+        local wert, zeit = buchZahl(f[4], id:match("^hm_") and 0 or (istK and -100 or 0.001), 100), buchZahl(f[5], 1000000000, 4000000000)
+        if istK and wert and math.abs(wert) < 0.001 then wert = nil end
         if not buchKennung(id) or not nameOk(name) or not wert or not zeit then return nil, "Anhebung" end
         if jetzt and zeit > jetzt + 2 * Kern.TAG then return nil, "Zeit" end
         local datum, autor, grund = entschuetze(f[6]), entschuetze(f[7]), entschuetze(f[8])
         if #datum > 20 or #autor > 60 or #grund > 160 then return nil, "Text" end
+        if istK and grund == "" then return nil, "Kommentar" end
         return { typ = "h", id = id, name = name, wert = wert, zeit = zeit, datum = datum, autor = autor, grund = grund }
     end
 

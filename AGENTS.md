@@ -13,7 +13,7 @@ Datei bleibt als Sicherung. Spätere Umbenennungen brauchen denselben Weg.
 
 ⭐ **Das Addon heißt KaosLoot (seit 23.10.2026; vorher Fairshare), Ordner und TOC seit 1.0.1 ebenfalls** (`KaosLoot/KaosLoot.toc`, Zip `KaosLoot-<Version>.zip`, Releases-Ordner `..\KaosLoot-releases`). Befehl seit 1.0.1: `/kl` (auch `/kaosloot`; `/fs` und `/fairshare` gehen als stille Altbefehle weiter). Bewusst unverändert: die Variable `FairshareDB` (die Datei heißt `KaosLoot.lua`), Rahmennamen `Fairshare…` und das Protokollpräfix. Die Doku unten sagt teils noch „Fairshare“ und meint dasselbe.
 
-Stand 22.10.2026, Version 1.0.1 (Loot-Regelsystem Resurrected integriert, Datenbuch verteilt, Protokollversion 3; seit dem 17./18.10. mehrere Gruppen mit Raidkader, Einteilung je Tag, Bench, „Keine Meldung“, Wochenabschluss, geteilte Einstellungen mit Vertrauenswurzel; seit dem 22.10. Probe-Modus und Anwesenheits-Reiter mit Default = Anwesend). Nur für Forever. **Übergabe-Stand und offene Punkte: `WORKBOARD.md`.**
+Stand 22.10.2026, Version 1.1.0 (Loot-Regelsystem Resurrected integriert, Datenbuch verteilt, Protokollversion 3; seit dem 17./18.10. mehrere Gruppen mit Raidkader, Einteilung je Tag, Bench, „Keine Meldung“, Wochenabschluss, geteilte Einstellungen mit Vertrauenswurzel; seit dem 22.10. Probe-Modus und Anwesenheits-Reiter mit Default = Anwesend). Nur für Forever. **Übergabe-Stand und offene Punkte: `WORKBOARD.md`.**
 
 ---
 
@@ -63,6 +63,7 @@ verworfen und am 22.10.2026 auch die letzte Anbindung entfernt.
 | `Einstellungen.lua` | das Einstellungsfenster (Karten und Zeilen, drei Seiten) | ja |
 | `Kompakt.lua` | das kleine Raid-Fenster (`/kl kompakt`): Wertung, laufender Wurf, einzeilige Leiste, Vorschau (`/kl kompakt test`); nur Anzeige, schließt sich gegenseitig mit dem großen Fenster. ⚠️ `Fenster.lua` steht bei 60 Upvalues je Funktion (Lua 5.1): dort keine neuen Datei-Konstanten, neue Fenster in eigene Dateien | ja |
 | `Neu.lua` | „Neu in Fairshare“ (`/kl neu`): Änderungsliste `Neu.LISTE`, „!“-Marker je Version (`FairshareDB.neu`), Chat-Hinweis einmal je Version. ⭐ **Bei jedem Release oben in `Neu.LISTE` einen Abschnitt ergänzen** (Texte in `Locale.lua`) | ja |
+| `Verteilung.lua` | ⭐ 1.1.0: Wie die Wertung zustande kommt: Einstellungen (Verfahren, Fenster, Glättung, Heute-Regel), `AbendDaten` (besuchte Abende, Korrekturen im Fenster, Gildenschnitt). Die Rechnung steht in `Kern.Bilanz` (`daten.abend`) und `Kern.WurfReihenfolge` (`liste.regel`); `Anwesenheit.ZuschlaegeDaten` liefert beides. Korrektur: `Anwesenheit.KorrekturBuchen` (Satz `k_…` im Datenbuch). Regeln: `REGELWERK-ENTWURF.md` § 9 | ja |
 | `Befehle.lua` | `/kl` | ja |
 | `Tests.lua` | Prüfstand für `Kern.lua` und `Anwesenheit.lua` (478 Prüfungen); dazu `tests/szenarien.py` (65 Szenarien) | **nein** |
 

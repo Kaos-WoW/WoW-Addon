@@ -2,7 +2,7 @@
 
 WoW-Addon für die Gilde **Resurrected** (WoW Forever). Faire Beuteverteilung: Es hält fest, **wer welches Item bekommen hat**, rechnet für jeden Wurf eine **faire Reihenfolge** und bringt ein eigenes **Würfelfenster** mit. Wer die niedrigste Wertung hat, bekommt das Item zuerst; nur bei Gleichstand entscheidet der Wurf.
 
-Version **1.0.1**. Sprache: Deutsch und Englisch (nach dem Client).
+Version **1.1.0**. Sprache: Deutsch und Englisch (nach dem Client).
 
 ## Kurz erklärt
 
@@ -13,6 +13,7 @@ Version **1.0.1**. Sprache: Deutsch und Englisch (nach dem Client).
 * **Gruppen** für 10, 20 und 40: Raidkader aus Gildenrängen, Einteilung einmal je Raid-ID, Reiter *Anwesenheit*, Wochenabschluss, Gruppe mit einem Klick einladen.
 * **Kompaktfenster** für den Raid (`/kl kompakt`): nur die Wertung und der laufende Wurf, mit Knopf *Wurf starten*; Vorschau mit `/kl kompakt test`.
 * **Einladen per Flüstern** (persönlich, standardmäßig aus): Wer dir dein Stichwort flüstert (`/kl einladewort`, Einstellungen → Gruppen), wird in deine Gruppe eingeladen; eine volle normale Gruppe wird dafür zum Raid.
+* **Zwei Verfahren für die Wertung** (Einstellungen → Verteilung): *Punkte mit Zuschlägen* (wie bisher) und *Items pro Abend* (die letzten 8 Raid-IDs, gleitend, Fehlen kostet nichts). Dazu die Regel *Heute schon ein Item* und die *Korrektur der Leitung* (Plus oder Minus mit Kommentar, `/kl korrektur`). `/kl vergleich` zeigt beide nebeneinander.
 * **Neu in KaosLoot** (`/kl neu`): Änderungsliste je Version, mit „!“ am Knopf und an Einstellungsseiten mit Neuem.
 * **Geteilte Einstellungen** (Gildenmeister und Offiziere), gildenweiter Reset (`/kl reset gilde`), Übungsmodus (`/kl probe`).
 

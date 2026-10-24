@@ -2032,7 +2032,7 @@ function Anwesenheit.AbendNeuBeginnen(vonName)
 end
 
 --- Liefert aggregierte Zuschlags- und Anhebungssummen je Spieler für Kern.Bilanz.
-function Anwesenheit.ZuschlaegeDaten()
+function Anwesenheit.ZuschlaegeDaten(verfahren)
     local d = db()
     local zMap = {}
     for _, z in pairs(d.zuschlaege or {}) do
@@ -2057,7 +2057,17 @@ function Anwesenheit.ZuschlaegeDaten()
     for k, v in pairs(zMap) do zMap[k] = Kern.Runde3(v) end
     for k, v in pairs(aMap) do aMap[k] = Kern.Runde3(v) end
 
-    return { zuschlaege = zMap, anhebungen = aMap }
+    local daten = { zuschlaege = zMap, anhebungen = aMap }
+    -- ⭐ Verteilung.lua: Regel „Heute schon ein Item“ (beide Verfahren) und die Zahlen fuer „Items pro Abend“
+    if ns.Verteilung then
+        local jetzt = time()
+        local proAbend = (verfahren or ns.Verteilung.Verfahren()) == "abend"      -- `verfahren`: nur fuer den Vergleich
+        daten.heuteVon = jetzt - ns.Verteilung.HEUTE_VON
+        daten.heuteRegel = ns.Verteilung.Regel()
+        daten.heuteLeicht = proAbend and 0.15 or 0.5
+        if proAbend then daten.abend = ns.Verteilung.AbendDaten(jetzt) end
+    end
+    return daten
 end
 
 --- ⭐ Schreibt eine Anhebung als einzelnen Satz fest (§ 3, § 4) und verteilt sie.
@@ -2085,6 +2095,62 @@ function Anwesenheit.AnhebungBuchen(spielerName, wert, grund, autor, kennung)
     }
     Anwesenheit.BuchVerteilen({ "h:" .. id })
     return id
+end
+
+--- ⭐ Korrektur der Leitung: ein Wert (Plus oder Minus) mit Pflichtkommentar, zum Beispiel „unangekündigt nicht
+--  erschienen“, „besondere Leistung“ oder „Legendary außerhalb des Systems“. Plus zaehlt wie ein erhaltenes Item,
+--  Minus wie ein verrechnetes. Gilt in beiden Verfahren und wird wie eine Anhebung als Satz verteilt (Kennung `k_…`).
+--  @return Kennung, oder nil und ein Grund
+function Anwesenheit.KorrekturBuchen(spielerName, wert, grund, autor)
+    autor = autor or ichName()
+    if autor ~= "System" and not Anwesenheit.DarfBankVerwalten(autor) and not Anwesenheit.DarfUnentschuldigtVerwalten(autor) then
+        return nil, L["Keine Berechtigung (nur Raidleiter oder Gildenleitung)."]
+    end
+    local name = tostring(spielerName or ""):match("^%s*(.-)%s*$")
+    local k = Kern.Schluessel(name)
+    if not k then return nil, L["Kein Spielername angegeben."] end
+    for _, n in ipairs(anwesendeNamen()) do
+        if Kern.GleicherSpieler(n, name) then name = n break end          -- der volle Name aus dem Raid
+    end
+    wert = Kern.Runde3(tonumber(wert) or 0)
+    if wert == 0 or math.abs(wert) > 20 then
+        return nil, L["Der Wert muss zwischen -20 und 20 liegen und darf nicht 0 sein."]
+    end
+    grund = tostring(grund or ""):match("^%s*(.-)%s*$")
+    if grund == "" then return nil, L["Ein Kommentar ist Pflicht."] end
+    if #grund > 160 then grund = grund:sub(1, 160) end
+
+    local d = db()
+    d.anhebungsliste = d.anhebungsliste or {}
+    local sauber = (k:gsub("[^%w]", "_"))
+    local id = string.format("k_%s_%d_%d", sauber:sub(1, 20), time(), math.random(100, 999))
+    if d.anhebungsliste[id] then return nil, L["Die Korrektur konnte nicht gespeichert werden."] end
+    d.anhebungsliste[id] = {
+        id = id, schluessel = k, name = Kern.Anzeigename(name), wert = wert,
+        zeit = time(), datum = date("%Y-%m-%d"), autor = autor, grund = grund, korrektur = true,
+    }
+    Anwesenheit.BuchVerteilen({ "h:" .. id })
+    return id
+end
+
+--- Alle Korrekturen eines Spielers, neueste zuerst.
+function Anwesenheit.Korrekturen(spielerName)
+    local k = Kern.Schluessel(spielerName)
+    local liste = {}
+    for id, h in pairs(db().anhebungsliste or {}) do
+        if Kern.IstKorrektur(id) and (h.schluessel or Kern.Schluessel(h.name)) == k then liste[#liste + 1] = h end
+    end
+    table.sort(liste, function(a, b) return (a.zeit or 0) > (b.zeit or 0) end)
+    return liste
+end
+
+--- Nimmt eine Korrektur zurueck: Es wird eine Gegenbuchung mit dem umgekehrten Wert eingetragen (die Saetze des
+--  Datenbuchs sind unveraenderlich, so bleibt alles nachvollziehbar).
+function Anwesenheit.KorrekturZurueck(id, autor)
+    local h = db().anhebungsliste and db().anhebungsliste[id]
+    if not (h and Kern.IstKorrektur(id)) then return nil, L["Diese Korrektur gibt es nicht."] end
+    return Anwesenheit.KorrekturBuchen(h.name, -(tonumber(h.wert) or 0),
+        string.format(L["Rücknahme: %s"], tostring(h.grund or "")), autor)
 end
 
 --- Niedrigste Wertung unter den Kaderspielern, die gerade im Raid sind (§ 4):
@@ -2115,6 +2181,9 @@ end
 --  @param spielerName  Name (Nachname und Realm dürfen fehlen, wenn der Spieler im Raid ist)
 --  @return Kennung, Zielwertung, Anhebung — oder nil und ein Grund
 function Anwesenheit.AnhebungSetzen(spielerName, vonName)
+    if ns.Verteilung and ns.Verteilung.ProAbend() then
+        return nil, L["Bei „Items pro Abend“ gibt es keine Anhebung. Nimm die Korrektur: /kl korrektur <Name> <Wert> <Kommentar>."]
+    end
     if not Anwesenheit.DarfBankVerwalten(vonName) then
         return nil, L["Keine Berechtigung (nur Raidleiter oder Gildenleitung)."]
     end
@@ -2220,6 +2289,8 @@ end
 --                              dann vorab. Mit `festschreiben` wird die Auswertung jetzt nachgeholt.
 --  @param festschreiben  true nur beim Starter eines Wurfs (er verteilt, was zu verteilen ist)
 function Anwesenheit.Rollen(liste, festschreiben)
+    -- ⭐ „Items pro Abend“: Neue und Rueckkehrer starten am Gildenschnitt (Glaettung), also kein Proberaid und keine Anhebung
+    if ns.Verteilung and ns.Verteilung.ProAbend() then return end
     local d = db()
     local tag = date("%Y%m%d")
     local ausgewertet = d.anhebungsliste and d.anhebungsliste[auswertungsKennung(tag)]
@@ -2454,12 +2525,14 @@ function Anwesenheit.SpielerEreignisse(spielerName, abend, historie, seit, istBe
         for _, h in pairs(d.anhebungsliste or {}) do
             if (h.schluessel or Kern.Schluessel(h.name)) == k and (not seit or (h.zeit or 0) >= seit) then
                 sumAnhebungen = sumAnhebungen + (tonumber(h.wert) or 0)
+                local istK = Kern.IstKorrektur(h.id)
                 liste[#liste + 1] = {
                     id       = h.id,
                     zeit     = h.zeit or time(),
-                    art      = "anhebung",
+                    art      = istK and "korrektur" or "anhebung",
                     punkte   = tonumber(h.wert) or 0,
-                    text     = (h.grund and h.grund ~= "") and h.grund or L["Anhebung auf 1 Punkt unter dem Niedrigsten (§ 3)"],
+                    text     = istK and (tostring(h.grund or "") .. " (" .. Kern.Anzeigename(h.autor or "?") .. ")")
+                               or ((h.grund and h.grund ~= "") and h.grund or L["Anhebung auf 1 Punkt unter dem Niedrigsten (§ 3)"]),
                     isItem   = false,
                 }
             end

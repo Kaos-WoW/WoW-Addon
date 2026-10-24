@@ -164,6 +164,10 @@ function Konfig.Sammeln()
         raidkaderRaenge = kopie(ns.Gruppen.RaidkaderRaenge()),
         idWechsel = ns.Gruppen.IdWechsel(),
         resetZeit = ns.Erfassung.ResetZeit(),
+        verfahren = ns.Verteilung.Verfahren(),           -- Verteilung.lua: Wie die Wertung zustande kommt
+        fensterIds = ns.Verteilung.Fenster(),
+        glaettung = ns.Verteilung.Glaettung(),
+        heuteRegel = ns.Verteilung.Regel(),
         gruppen = {},
     }
     for _, name in ipairs(ns.Gruppen.Namen()) do
@@ -219,6 +223,11 @@ function Konfig.Kodieren(s)
     end
     if s.idWechsel then z[#z + 1] = "I|" .. s.idWechsel end                  -- Wochentag, an dem die Raid-ID wechselt
     if s.resetZeit and s.resetZeit > 0 then z[#z + 1] = string.format("Z|%.0f", s.resetZeit) end   -- gildenweiter Reset
+    -- Verteilung: P|<z|a>|<Raid-IDs>|<Glaettung>|<a|l|s>  (Punkte/Items pro Abend, Fenster, k, Heute-Regel aus/leicht/streng)
+    if s.verfahren and s.fensterIds and s.glaettung and s.heuteRegel then
+        z[#z + 1] = string.format("P|%s|%d|%d|%s", s.verfahren == "abend" and "a" or "z", s.fensterIds, s.glaettung,
+            s.heuteRegel == "aus" and "a" or (s.heuteRegel == "leicht" and "l" or "s"))
+    end
 
     local v = {}
     for _, n in ipairs(s.verzauberer) do
@@ -316,6 +325,14 @@ function Konfig.Dekodieren(zeilen)
             for n in rest:gmatch("[^,]+") do
                 if gueltigerName(n) and #s.verzauberer < 8 then s.verzauberer[#s.verzauberer + 1] = n end
             end
+        elseif typ == "P" then
+            local v, f, g, r = rest:match("^([za])|(%d+)|(%d+)|([als])$")
+            local fn, gn = tonumber(f), tonumber(g)
+            if v and fn and gn and fn >= 2 and fn <= 52 and gn >= 0 and gn <= 20 then
+                s.verfahren = (v == "a") and "abend" or "zuschlag"
+                s.fensterIds, s.glaettung = math.floor(fn), math.floor(gn)
+                s.heuteRegel = (r == "a") and "aus" or (r == "l" and "leicht" or "streng")
+            end
         elseif typ == "G" then
             local name, auto, raenge = rest:match("^([^|]*)|([01])|(.*)$")
             if name and gueltigerName(name) and not s.gruppen[name] and gruppenZahl < MAXGRUPPEN then
@@ -386,6 +403,9 @@ function Konfig.Anwenden(s, ohneSicherung)
         for i = 0, s.raidkaderRang do d.raidkaderRaenge[i] = true end
     end
     if s.idWechsel then d.idWechsel = s.idWechsel end
+    if s.verfahren then                                        -- ältere Absender kennen die Verteilung nicht: dann bleibt es
+        d.verfahren, d.fensterIds, d.glaettung, d.heuteRegel = s.verfahren, s.fensterIds, s.glaettung, s.heuteRegel
+    end
 
     -- Gruppen: die der Gildenleitung. Den verwalteten Kader behaelt jeder selbst
     -- (er wird gleich aus den Gildenraengen neu gebildet).

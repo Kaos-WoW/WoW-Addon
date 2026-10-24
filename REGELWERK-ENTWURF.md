@@ -1,6 +1,6 @@
 # KaosLoot – Regelwerk-Entwurf: Wertung und Vorrang
 
-Stand 22.10.2026 (Bedienung der Gruppen vereinfacht: Raid-ID, zwei Listen) · **Alles umgesetzt** (Addon 1.0.1 auf WoW Forever). Seit dem 16.10. dazugekommen: mehrere Gruppen mit Einteilung, Bench und Wochenabschluss (§ 2 und § 6a).
+Stand 22.10.2026 (Bedienung der Gruppen vereinfacht: Raid-ID, zwei Listen) · **Alles umgesetzt** (Addon 1.1.0 auf WoW Forever). Seit dem 16.10. dazugekommen: mehrere Gruppen mit Einteilung, Bench und Wochenabschluss (§ 2 und § 6a).
 Wie beim Golf: **Wer die niedrigste Wertung hat, hat Vorrang.** Gleichstand wird gewürfelt (höchster Wurf gewinnt).
 
 ## 0. Die Begriffe in einem Blick
@@ -161,3 +161,33 @@ Nichts mehr offen (alle Punkte bis 18.10.2026 beantwortet). Festlegungen zum Sch
 1. **OS nach Absprache:** Vergibt der Plündermeister ein OS-Item nach der Absprache im Raid, steht im Raidchat und in der Historie neutral „OS nach Absprache“ statt „abweichend vom Ergebnis“.
 2. **Rückgabe:** Mit „Zuschlag“ bei der Rückgabe war der **Punkt des Items** gemeint, nicht der Zuschlag für verpasste Abende.
 3. **Raidet jemand in einer anderen Gruppe, als er eingeteilt ist,** ist das Sache der Raidleitung: Sie baut die Gruppen vorher so, dass es nicht vorkommt. Das Addon macht dafür keine Sonderregel.
+
+---
+
+## § 9 Verteilung: zwei Verfahren (Version 1.1.0, 24.10.2026)
+
+Die Leitung wählt in den Einstellungen unter **Verteilung**, wie die Wertung zustande kommt. Die Wahl gilt für alle. Beide Verfahren rechnen aus derselben Historie, man kann jederzeit wechseln.
+
+**Punkte mit Zuschlägen** ist das Verfahren aus den Paragraphen 1 bis 8 (Items plus Zuschläge für verpasste Abende, dazu Anhebungen).
+
+**Items pro Abend**
+- Wertung = Items pro besuchtem Abend der letzten **8 Raid-IDs** (einstellbar), **gleitend**: Jede Woche fällt die älteste ID heraus, es gibt keinen Reset zur neuen Phase.
+- Besucht heißt: im Abschluss des Abends als *im Raid* geführt. Bank und Abgemeldet zählen nicht als besucht. Fehlen kostet nichts.
+- Neue Spieler und Rückkehrer starten am Gildenschnitt: Die Rechnung mischt *k* Pseudo-Abende (Standard 4) mit dem Schnitt der Gilde bei. Proberaid, Anhebung und der Wochenabschluss entfallen in diesem Verfahren.
+- Rechnung: *(Items im Fenster + Korrektur + Gildenschnitt × k) ÷ (besuchte Abende + k)*. Der heutige Abend zählt mit, wenn der Spieler im Raid ist. Beispiel: 5 Items in 10 Abenden bei einem Gildenschnitt von 0,55 ergibt (5 + 0,55 × 4) ÷ (10 + 4) = 0,51.
+- OS-Items und Entzaubern zählen wie bisher nicht.
+
+**Heute schon ein Item** (beide Verfahren, Standard *streng*)
+- *Streng:* Wer an diesem Abend schon ein Main-Item bekommen hat, steht bei den weiteren Items hinter allen, die noch keins haben. Die Wertung ordnet nur noch unter denen mit gleich vielen Items heute. Würfeln nur Spieler, die alle schon eins haben, entscheidet wieder die Wertung.
+- *Leicht:* Jedes Item von heute zählt für den Rest des Abends etwas extra (0,5 Punkte bzw. 0,15 Items pro Abend).
+- *Aus:* Nur die Wertung entscheidet.
+- „Heute“ sind die letzten 12 Stunden.
+
+**Korrektur der Leitung** (beide Verfahren)
+- Ein Wert zwischen -20 und +20 (nicht 0) mit **Pflichtkommentar**, eingetragen von Gildenmeister, Offizieren oder der Leitung mit Schreibrecht: `/kl korrektur <Name> <Wert> <Kommentar>`, im Spielerdetail der Knopf *Korrektur* oder in den Einstellungen unter Verteilung.
+- Plus zählt wie ein erhaltenes Item (zum Beispiel unangekündigt nicht erschienen, Legendary außerhalb des Systems), Minus wie ein verrechnetes (besondere Leistung).
+- Alle sehen sie im Spielerdetail mit Datum, Kommentar und Name der Leitung. Sie zählt in der Raid-ID, in der sie eingetragen wurde, und fällt nach 8 IDs mit allem anderen aus dem Fenster. Zurücknehmen ist eine Gegenbuchung.
+
+**Keine Item-Gewichte:** Alle Main-Items zählen gleich (Entscheid der Leitung, 24.10.2026). Für Sonderfälle gibt es die Korrektur.
+
+**Alle in der Gruppe brauchen dieselbe Version (1.1.0):** Sonst ordnen die Addons unterschiedlich.

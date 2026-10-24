@@ -4297,6 +4297,116 @@ fest(ns.Neu.Sichtbar() is True, "/kl neu oeffnet es")
 lua.execute("FairshareDB.neu.fenster = '0.0.1'; FairshareDB.neu.seiten.gruppen = '0.0.1'")
 fest(ns.Neu.FensterNeu() is True and ns.Neu.SeiteNeu("gruppen") is True, "bei einer anderen gemerkten Version ist es wieder neu")
 
+print("== 75. Verteilung: Items pro Abend, Heute-Regel, Korrektur der Leitung, geteilte Einstellung ==")
+w = gruppe(3)
+w.ereignis("PLAYER_ENTERING_WORLD")
+w.weiter(15)
+c0, c1 = w.clients[0], w.clients[1]
+ns, g, lua = c0["ns"], c0["g"], c0["lua"]
+V = ns.Verteilung
+fest(V.Verfahren() == "zuschlag" and V.Fenster() == 8 and V.Glaettung() == 4 and V.Regel() == "streng",
+     "Standard: Punkte mit Zuschlaegen, 8 Raid-IDs, Glaettung 4, Heute-Regel streng")
+
+# Eine Raid-Historie: Timo 2 Items, Kaos 1, Lina keins; zwei abgeschlossene Abende im Fenster
+w.eintragen(0, "Lina", 9101)
+w.eintragen(0, "Timo", 9102)
+w.eintragen(0, "Leiter Kaos", 9103, int(w.t) - 3 * 86400)      # vor drei Tagen: zaehlt im Fenster, aber nicht „heute“
+w.eintragen(0, "Leiter Kaos", 9104, int(w.t) - 3 * 86400)
+w.weiter(2)
+jetzt = int(lua.eval("time()"))
+tag = lambda zurueck: lua.eval("date('%Y-%m-%d', " + str(jetzt - zurueck * 86400) + ")")
+A = ns.Anwesenheit.Daten()
+lua.execute("""
+local A = ...
+""") if False else None
+lua.execute("__abend = function(id, datum, spieler) local A = FairshareDB; A.abende = A.abende or {}; "
+            "A.abende[id] = { id = id, datum = datum, abgeschlossen = true, abschluss = { zeit = time(), datum = datum, spieler = spieler } } end")
+g["__abend"]("A1_g", str(tag(1)), lua.table_from({
+    "leiter kaos": lua.table_from({"status": "imRaid"}), "timo": lua.table_from({"status": "imRaid"}), "lina": lua.table_from({"status": "imRaid"})}))
+g["__abend"]("A2_g", str(tag(8)), lua.table_from({
+    "leiter kaos": lua.table_from({"status": "imRaid"}), "timo": lua.table_from({"status": "abgemeldet"}), "lina": lua.table_from({"status": "bank"})}))
+V.VerfahrenSetzen("abend")
+d = ns.Anwesenheit.ZuschlaegeDaten()
+fest(d["abend"] is not None and d["abend"]["abende"]["leiter kaos"] == 2 and d["abend"]["abende"]["timo"] == 1
+     and d["abend"]["abende"]["lina"] == 1, "besuchte Abende aus den Abschluessen (Bank und Abgemeldet zaehlen nicht)")
+H = ns.Erfassung.Historie()
+l = tup3(ns.Kern.Bilanz(H, 0, lua.table_from(["Leiter Kaos", "Timo", "Lina"]), lua.table_from(["Leiter Kaos", "Timo", "Lina"]), d))[0]
+arr = lambda tb: [tb[i] for i in range(1, len(tb) + 1)]
+rate = {str(e["name"]): float(e["wertung"]) for e in arr(l)}
+p0 = 4 / 4.0                                  # 4 Items in 4 besuchten Abenden
+erw = lambda items, abende: round((items + p0 * 4) / (abende + 1 + 4), 3)       # +1: heute im Raid, k = 4
+fest(abs(rate["Leiter Kaos"] - erw(2, 2)) < 0.002 and abs(rate["Timo"] - erw(1, 1)) < 0.002 and abs(rate["Lina"] - erw(1, 1)) < 0.002,
+     "Items pro Abend nach Formel (Kaos %.3f, Timo %.3f, Lina %.3f)" % (rate["Leiter Kaos"], rate["Timo"], rate["Lina"]))
+
+# Heute-Regel streng: Lina hat heute noch kein Item und steht vor Kaos, obwohl ihre Zahl hoeher ist
+def reihenfolge(regel):
+    V.RegelSetzen(regel)
+    dd = ns.Anwesenheit.ZuschlaegeDaten()
+    ll = tup3(ns.Kern.Bilanz(H, 0, lua.table_from(["Leiter Kaos", "Timo", "Lina"]), lua.table_from(["Leiter Kaos", "Timo", "Lina"]), dd))[0]
+    lua.execute("__alle = function() return 'haupt' end")
+    ns.Kern.WurfReihenfolge(ll, g["__alle"])
+    return [str(e["name"]) for e in arr(ll)]
+fest(reihenfolge("streng")[0] == "Leiter Kaos", "streng: wer heute noch kein Item hat, steht zuerst, auch mit hoeherer Zahl (%s)" % reihenfolge("streng"))
+fest(reihenfolge("aus")[0] != "Leiter Kaos", "aus: nur die Zahl entscheidet (%s)" % reihenfolge("aus"))
+V.RegelSetzen("streng")
+
+# Korrektur der Leitung
+k1 = tup(ns.Anwesenheit.KorrekturBuchen("Timo", -1, ""))
+fest(k1[0] is None, "ohne Kommentar keine Korrektur (%s)" % (k1[1],))
+k2 = tup(ns.Anwesenheit.KorrekturBuchen("Timo", 0, "nichts"))
+fest(k2[0] is None, "Wert 0 ist keine Korrektur")
+kid = tup(ns.Anwesenheit.KorrekturBuchen("Timo", 1, "unangekuendigt nicht erschienen"))[0]
+fest(kid is not None and str(kid).startswith("k_"), "Korrektur +1 mit Kommentar eingetragen")
+w.weiter(5)
+fest(any(str(k).startswith("k_") for k in c1["ns"].Anwesenheit.Daten()["anhebungsliste"].keys()), "die Korrektur kommt bei den Mitspielern an")
+fest(tup(c1["ns"].Anwesenheit.KorrekturBuchen("Lina", 1, "nur ein Mitglied"))[0] is None, "ein Mitglied ohne Leitungsrecht darf nicht")
+d2 = ns.Anwesenheit.ZuschlaegeDaten()
+fest(abs(d2["abend"]["korrektur"]["timo"] - 1) < 1e-9, "Plus zaehlt im Fenster")
+zurueck = tup(ns.Anwesenheit.KorrekturZurueck(kid))[0]
+w.weiter(2)
+d3 = ns.Anwesenheit.ZuschlaegeDaten()
+fest(zurueck is not None and abs(d3["abend"]["korrektur"]["timo"]) < 1e-9, "Rücknahme: Gegenbuchung hebt sie auf")
+ev = ns.Anwesenheit.SpielerEreignisse("Timo", None, H, 0, False)
+fest(any(str(x["art"]) == "korrektur" for x in tup3(ev)[0].values()), "das Spielerdetail zeigt die Korrektur")
+
+# im alten Verfahren zaehlt die Korrektur als Punkte, die alte Anhebung ist dort moeglich, hier nicht
+fest(tup(ns.Anwesenheit.AnhebungSetzen("Timo"))[0] is None, "bei Items pro Abend gibt es keine Anhebung")
+V.VerfahrenSetzen("zuschlag")
+d4 = ns.Anwesenheit.ZuschlaegeDaten()
+fest(d4["abend"] is None, "im alten Verfahren kein Items-pro-Abend-Block")
+
+# geteilte Einstellung (Zeile P)
+V.VerfahrenSetzen("abend"); V.FensterSetzen(6); V.GlaettungSetzen(2); V.RegelSetzen("leicht")
+zeilen = ns.Konfig.Kodieren(ns.Konfig.Sammeln())
+fest(any(str(z) == "P|a|6|2|l" for z in zeilen.values()), "Zeile P der Einstellungen: P|a|6|2|l")
+s = ns.Konfig.Dekodieren(zeilen)
+fest(str(s["verfahren"]) == "abend" and int(s["fensterIds"]) == 6 and int(s["glaettung"]) == 2 and str(s["heuteRegel"]) == "leicht", "und sie wird wieder gelesen")
+s1 = c1["ns"].Konfig.Dekodieren(c1["lua"].table_from([str(z) for z in zeilen.values()]))
+c1["ns"].Konfig.Anwenden(s1, True)
+fest(c1["ns"].Verteilung.Verfahren() == "abend" and c1["ns"].Verteilung.Fenster() == 6, "beim Mitspieler angewendet")
+bad = tup(ns.Konfig.Dekodieren(lua.table_from(["P|x|999|99|q"])))[0]
+fest(bad is None or bad["verfahren"] is None, "Unsinn in Zeile P wird verworfen")
+
+# Die Fenster zeichnen im Verfahren Items pro Abend ohne Fehler
+V.VerfahrenSetzen("abend"); V.RegelSetzen("streng")
+for nm, fn in (("Uebersicht", lambda: ns.Fenster.Zeigen(False)), ("Kompakt", lambda: ns.Kompakt.Zeigen()),
+               ("Einstellungen", lambda: ns.Einstellungen.Zeigen("verteilung")),
+               ("Korrektur aus dem Spielerdetail", lambda: ns.Einstellungen.KorrekturFuer("Timo"))):
+    fn()
+    w.weiter(1)
+ns.Fenster.Zeigen(False)
+ns.Fenster.Aktualisieren()
+ns.Kompakt.Aktualisieren()
+fehler75 = [str(x) for x in g["__ausgabe"].values() if "Fehler" in str(x) or "rror" in str(x)]
+fest(not fehler75, "Uebersicht, Kompaktfenster und die Seite Verteilung zeichnen ohne Fehler %s" % (fehler75[:1],))
+fest(len(texte_von(g, "Items/Abend")) > 0, "die Spalte heisst Items/Abend")
+g["SlashCmdList"]["FAIRSHARE"]("vergleich")
+g["SlashCmdList"]["FAIRSHARE"]("verfahren zuschlag")
+fest(V.Verfahren() == "zuschlag", "/kl verfahren zuschlag stellt um")
+g["SlashCmdList"]["FAIRSHARE"]("korrektur Timo -0,5 besonderer Einsatz")
+fest(any(float(h["wert"]) == -0.5 for h in ns.Anwesenheit.Daten()["anhebungsliste"].values() if str(h["id"]).startswith("k_")), "/kl korrektur Timo -0,5 ...")
+ns.Fenster.Verstecken(); ns.Kompakt.Verstecken()
+
 print()
 print("ALLES GUT" if alle_ok else "ES GIBT FEHLER")
 sys.exit(0 if alle_ok else 1)

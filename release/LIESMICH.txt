@@ -1,4 +1,4 @@
-KaosLoot 1.0.1  -  Faire Beuteverteilung fuer WoW Forever (Gilde Resurrected)
+KaosLoot 1.1.0  -  Faire Beuteverteilung fuer WoW Forever (Gilde Resurrected)
 ===========================================================================
 
 WICHTIG: ALLE, die KaosLoot nutzen, brauchen DIESELBE Fassung (1.0.x oder eine 0.9.x). Das
@@ -103,6 +103,9 @@ BEFEHLE (Auswahl)       /kl hilfe zeigt alle
    /kl kompakt          kleines Fenster fuer den Raid (kompakt test = Vorschau)
    /kl einladewort      Einladen per Fluestern: Stichwort setzen, an/aus
    /kl neu              was ist neu in dieser Version
+   /kl verfahren        wie die Wertung zustande kommt (zuschlag oder abend)
+   /kl korrektur        Plus oder Minus mit Kommentar (Leitung)
+   /kl vergleich        beide Verfahren nebeneinander
    /kl probe            Probe-Modus (Uebungsmodus zum Testen)
    /kl rolle            wer zeichnet gerade auf
    /kl abgleich status  Stand des Datenabgleichs

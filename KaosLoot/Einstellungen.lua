@@ -154,6 +154,37 @@ local function zeile(karte, def)
             if not e2:HasFocus() then e2:SetText(tostring(y)) end
         end
 
+    elseif art == "korrektur" then
+        -- ⭐ Korrektur der Leitung: Spieler, Wert (Plus oder Minus) und Pflichtkommentar, zwei Zeilen
+        local f = CreateFrame("Frame", nil, r)
+        local e1 = S.Eingabe(f, 150, 26)
+        e1:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
+        local e2 = S.Eingabe(f, 64, 26)
+        e2:SetPoint("LEFT", e1, "RIGHT", 6, 0)
+        local b = S.Knopf(f, def.knopf.text, "secondary")
+        b:SetPoint("LEFT", e2, "RIGHT", 8, 0)
+        local e3 = S.Eingabe(f, 340, 26)
+        e3:SetPoint("TOPLEFT", e1, "BOTTOMLEFT", 0, -6)
+        local function setzen()
+            local ok = def.knopf.klick(e1:GetText(), e2:GetText(), e3:GetText())
+            e1:ClearFocus() e2:ClearFocus() e3:ClearFocus()
+            if ok then e1:SetText("") e2:SetText("") e3:SetText("") end
+            Einstellungen.Aktualisieren()
+        end
+        e1:SetScript("OnEnterPressed", setzen)
+        e2:SetScript("OnEnterPressed", setzen)
+        e3:SetScript("OnEnterPressed", setzen)
+        b:SetScript("OnClick", setzen)
+        r.ctrl, r.ctrlH, r.ctrlB, r.stapel = f, 58, 340, true
+        f:SetSize(340, 58)
+        function r.bedienen()
+            local v = def.vorbelegung and def.vorbelegung()
+            if v and v ~= "" and not e1:HasFocus() then
+                e1:SetText(v)
+                if def.vorbelegungLeeren then def.vorbelegungLeeren() end
+            end
+        end
+
     elseif art == "eingabe" then
         local k = def.knopf
         local f = CreateFrame("Frame", nil, r)
@@ -803,11 +834,73 @@ local function seiteGruppen(P)
         set = function(v) G.IdWechselSetzen(v) end })
 end
 
+local function seiteVerteilung(P)
+    local V = ns.Verteilung
+
+    local kv = karte(P, L["Verfahren"], L["Wie die Wertung zustande kommt. Die Leitung stellt es ein, es gilt für alle."])
+    zeile(kv, { geteilt = true, art = "segment", gestapelt = true, label = L["Verfahren"],
+        werte = { { wert = "zuschlag", label = L["Punkte mit Zuschlägen"] }, { wert = "abend", label = L["Items pro Abend"] } },
+        get = function() return V.Verfahren() end,
+        set = function(v) V.VerfahrenSetzen(v) if ns.Fenster then ns.Fenster.Aktualisieren() end end })
+    zeile(kv, { art = "info", label = "",
+        beschr = function()
+            if V.ProAbend() then
+                return L["Wertung = Items pro besuchtem Abend der letzten Raid-IDs. Wer pro Abend bisher am wenigsten bekommen hat, ist zuerst dran. Fehlen kostet nichts, und wer oft da ist, wird nicht schlechter gestellt. Neue und Rückkehrer starten am Gildenschnitt."]
+            end
+            return L["Wertung = Main-Items plus Zuschläge für verpasste Abende (plus Anhebungen). Wer die niedrigste Wertung hat, ist zuerst dran."]
+        end })
+    zeile(kv, { geteilt = true, art = "segment", label = L["Zeitfenster"],
+        beschr = L["Wie viele Raid-IDs zurückgeschaut wird. Das Fenster gleitet: Jede Woche fällt die älteste heraus, es gibt keinen Reset."],
+        sichtbar = function() return V.ProAbend() end,
+        werte = { { wert = 4, label = "4" }, { wert = 6, label = "6" }, { wert = 8, label = "8" }, { wert = 10, label = "10" }, { wert = 12, label = "12" } },
+        get = function() return V.Fenster() end, set = function(v) V.FensterSetzen(v) end })
+    zeile(kv, { geteilt = true, art = "segment", label = L["Glättung"],
+        beschr = L["Neue Spieler und Rückkehrer starten am Gildenschnitt: So viele Pseudo-Abende zählen mit. 0 schaltet es aus."],
+        sichtbar = function() return V.ProAbend() end,
+        werte = { { wert = 0, label = "0" }, { wert = 2, label = "2" }, { wert = 4, label = "4" }, { wert = 6, label = "6" } },
+        get = function() return V.Glaettung() end, set = function(v) V.GlaettungSetzen(v) end })
+
+    local kh = karte(P, L["Heute schon ein Item"],
+        L["Gilt in beiden Verfahren. Wer an diesem Abend schon ein Main-Item bekommen hat, steht bei den weiteren Items hinter denen, die noch keins haben."])
+    zeile(kh, { geteilt = true, art = "segment", label = L["Regel"], gestapelt = true,
+        beschr = function()
+            local r = V.Regel()
+            if r == "streng" then return L["Streng: Erst bekommt jeder ein Item, bevor jemand ein zweites bekommt. Die Wertung ordnet nur noch die Reihenfolge innerhalb einer Runde."] end
+            if r == "leicht" then return L["Leicht: Jedes Item von heute zählt für den Rest des Abends etwas extra, die Wertung bleibt entscheidend."] end
+            return L["Aus: Nur die Wertung entscheidet, auch wenn jemand heute schon ein Item hat."]
+        end,
+        werte = { { wert = "aus", label = L["Aus"] }, { wert = "leicht", label = L["Leicht"] }, { wert = "streng", label = L["Streng"] } },
+        get = function() return V.Regel() end, set = function(v) V.RegelSetzen(v) end })
+
+    local kk = karte(P, L["Korrektur"],
+        L["Für besondere Fälle: ein Wert mit Kommentar, zum Beispiel unangekündigt nicht erschienen, besondere Leistung oder Legendary außerhalb des Systems. Plus zählt wie ein erhaltenes Item, Minus wie ein verrechnetes. Alle sehen die Korrektur im Spielerdetail; sie zählt wie ein Item aus ihrer Raid-ID. Nur die Leitung darf eintragen."])
+    zeile(kk, { art = "korrektur", label = L["Korrektur eintragen"],
+        beschr = function()
+            return Meldung.korrektur or L["Name, Wert (zum Beispiel 1 oder -0,5) und ein Kommentar, dann „Eintragen“."]
+        end,
+        knopf = { text = L["Eintragen"],
+            klick = function(name, wert, text)
+                local w = tonumber((tostring(wert or ""):gsub(",", ".")))
+                local id, grund = ns.Anwesenheit.KorrekturBuchen(name, w, text)
+                if id then
+                    Meldung.korrektur = farbig(C.ok, string.format(L["Korrektur für %s eingetragen."], tostring(name)))
+                    if ns.Fenster then ns.Fenster.Aktualisieren() end
+                    return true
+                end
+                Meldung.korrektur = farbig(C.bad, tostring(grund))
+                return false
+            end },
+        vorbelegung = function() return Meldung.korrekturName end,
+        vorbelegungLeeren = function() Meldung.korrekturName = nil end })
+end
+
 local NAV = {
     { id = "erfassung", label = L["Erfassung"],         icon = "settings.tga",
       titel = L["Erfassung"], beschr = L["Was, wo und von wem aufgezeichnet wird."], bauen = seiteErfassung },
     { id = "wuerfeln",  label = L["Würfeln & Abgleich"], icon = "rotate.tga",
       titel = L["Würfeln & Abgleich"], beschr = L["Würfelbereiche, Würfelfenster und der Abgleich zwischen den Spielern."], bauen = seiteWuerfeln },
+    { id = "verteilung", label = L["Verteilung"],       icon = "settings.tga",
+      titel = L["Verteilung"], beschr = L["Wie die Wertung zustande kommt, die Regel für den Abend und Korrekturen der Leitung."], bauen = seiteVerteilung },
     { id = "gruppen",   label = L["Gruppen"],           icon = "users-group.tga",
       titel = L["Gruppen"], beschr = L["Gruppen, Raidkader und Raid-ID für verschiedene Raidgrößen."], bauen = seiteGruppen },
 }
@@ -1069,6 +1162,13 @@ function Einstellungen.Waehle(id)
     scroll:Zurueck()
     Einstellungen.Aktualisieren()
     if C_Timer then C_Timer.After(0.1, function() S.Auffrischen() end) end
+end
+
+--- Oeffnet die Seite Verteilung mit dem Namen in der Korrektur (aus dem Spielerdetail).
+function Einstellungen.KorrekturFuer(name)
+    Meldung.korrekturName = ns.Kern.Anzeigename(name)
+    Meldung.korrektur = nil
+    Einstellungen.Zeigen("verteilung")
 end
 
 function Einstellungen.Zeigen(id)

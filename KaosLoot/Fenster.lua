@@ -429,6 +429,14 @@ local function baueFenster()
     gruppeBtn = S.Dropdown(rahmen, 24)
     gruppeBtn:SetPoint("TOPRIGHT", rahmen, "TOPRIGHT", -16, -(KOPF + 50))
 
+    -- ⭐ Korrektur der Leitung (nur im Spielerdetail, nur mit Leitungsrecht): öffnet die Einstellungsseite Verteilung
+    rahmen.korrekturBtn = S.Knopf(rahmen, L["Korrektur"], "secondary", 24)
+    rahmen.korrekturBtn:SetPoint("RIGHT", gruppeBtn, "LEFT", -8, 0)
+    rahmen.korrekturBtn:SetScript("OnClick", function()
+        if zustand.spieler and ns.Einstellungen then ns.Einstellungen.KorrekturFuer(zustand.spieler) end
+    end)
+    rahmen.korrekturBtn:Hide()
+
     -- Abend abschließen (nur in Abwesenheit-Ansicht sichtbar)
     abschlussBtn = S.Knopf(rahmen, L["Abend abschließen"], "secondary", 24)
     abschlussBtn:SetPoint("RIGHT", gruppeBtn, "LEFT", -8, 0)
@@ -992,7 +1000,7 @@ local function zeigeListe(H)
         end)
     end
 
-    setzeKopf(L["Spieler"], L["Haupt"], L["Zweit"], L["Zuletzt"], W and L["Wurf"] or nil)
+    setzeKopf(L["Spieler"], (ns.Verteilung and ns.Verteilung.ProAbend()) and L["Items/Abend"] or L["Haupt"], L["Zweit"], L["Zuletzt"], W and L["Wurf"] or nil)
 
     zustand.maxVersatz = math.max(0, #liste - zeilenSicht)
     if zustand.versatz > zustand.maxVersatz then zustand.versatz = zustand.maxVersatz end
@@ -1023,12 +1031,13 @@ local function zeigeListe(H)
         local kf = ns.Gruppen.KlassenFarbe(e.name) or (wuerfelt and HELL) or ""
         z.a:SetText(kf .. e.name .. (kf ~= "" and "|r" or ""))
         local w = (wuerfelt and e.effektiveWertung) or e.wertung or e.haupt or 0
-        local wStr = (w == math.floor(w)) and tostring(w) or string.format("%.1f", w)
+        local proAbend = ns.Verteilung and ns.Verteilung.ProAbend()
+        local wStr = Kern.WertText(w, proAbend)
         if wuerfelt and e.dynamischeAnhebung and e.dynamischeAnhebung > 0 then
             local aStr = (e.dynamischeAnhebung == math.floor(e.dynamischeAnhebung)) and tostring(e.dynamischeAnhebung) or string.format("%.1f", e.dynamischeAnhebung)
             wStr = wStr .. " (+" .. aStr .. ")"
         end
-        z.b:SetText(w > 0 and (GELB .. wStr .. "|r") or (GRAU .. "0|r"))
+        z.b:SetText(w > 0 and (GELB .. wStr .. "|r") or (GRAU .. Kern.WertText(0, proAbend) .. "|r"))
         z.c:SetText(e.zweit > 0 and (GRAU .. e.zweit .. "|r") or "")
         z.d:SetText(zuletztText(e.letzte))
 
@@ -1154,13 +1163,17 @@ local function zeigeSpieler(H)
             artText = GRUEN .. L["Bank"] .. "|r"
         elseif e.art == "anhebung" then
             artText = AKZENT .. L["Anhebung"] .. "|r"
+        elseif e.art == "korrektur" then
+            artText = AKZENT .. L["Korrektur"] .. "|r"
         else
             artText = tostring(e.art)
         end
         z.b:SetText(artText)
 
         local p = e.punkte or 0
-        if p > 0 then
+        if e.art == "korrektur" then
+            z.c:SetText((p > 0 and GELB or GRUEN) .. string.format("%+.1f", p) .. "|r")
+        elseif p > 0 then
             local valStr = (p == math.floor(p)) and tostring(p) or string.format("%.1f", p)
             z.c:SetText(GELB .. "+" .. valStr .. "|r")
         else
@@ -1183,14 +1196,28 @@ local function zeigeSpieler(H)
     local zStr = (zuschlaege == math.floor(zuschlaege)) and tostring(zuschlaege) or string.format("%.1f", zuschlaege)
     local aStr = (anhebungen == math.floor(anhebungen)) and tostring(anhebungen) or string.format("%.1f", anhebungen)
 
-    local fussText = string.format(L["Wertung: %s · %d Main-Items (+%d)"], wStr, haupt, haupt)
-    if zuschlaege > 0 then
-        fussText = fussText .. " · " .. string.format(L["Zuschläge (+%s)"], zStr)
+    local fussText
+    if ns.Verteilung and ns.Verteilung.ProAbend() and not zustand.beispiel and not zustand.probe then
+        -- ⭐ „Items pro Abend“: die Zahl und woraus sie besteht
+        local lst = Kern.Bilanz(H, 0, { zustand.spieler }, { zustand.spieler }, ns.Anwesenheit.ZuschlaegeDaten())
+        local zb = lst[1]
+        if zb then
+            fussText = string.format(L["Items pro Abend: %s · %d Items in %d Abenden (letzte %d Raid-IDs)"],
+                Kern.WertText(zb.wertung, true), zb.fensterItems, zb.abende + (zb.anwesend and 1 or 0), ns.Verteilung.Fenster())
+            if zb.korrektur ~= 0 then fussText = fussText .. " · " .. string.format(L["Korrektur (%s)"], string.format("%+.1f", zb.korrektur)) end
+            fussText = fussText .. " · " .. string.format(L["%d Zweitbedarf (OS)"], zweit)
+        end
     end
-    if anhebungen > 0 then
-        fussText = fussText .. " · " .. string.format(L["Anhebung (+%s)"], aStr)
+    if not fussText then
+        fussText = string.format(L["Wertung: %s · %d Main-Items (+%d)"], wStr, haupt, haupt)
+        if zuschlaege > 0 then
+            fussText = fussText .. " · " .. string.format(L["Zuschläge (+%s)"], zStr)
+        end
+        if anhebungen ~= 0 then
+            fussText = fussText .. " · " .. string.format(L["Anhebung/Korrektur (%s)"], string.format("%+.1f", anhebungen))
+        end
+        fussText = fussText .. " · " .. string.format(L["%d Zweitbedarf (OS)"], zweit)
     end
-    fussText = fussText .. " · " .. string.format(L["%d Zweitbedarf (OS)"], zweit)
     fuss:SetText(fussText)
 
     local info
@@ -1866,6 +1893,8 @@ function Fenster.Aktualisieren()
     nurBtn:SetLabel(zustand.alleSpieler and L["Nur Gruppe zeigen"] or L["Alle Spieler zeigen"])
 
     zurueckBtn:SetShown(zustand.spieler ~= nil)
+    rahmen.korrekturBtn:SetShown(zustand.spieler ~= nil and not zustand.beispiel and not zustand.probe
+        and ns.Anwesenheit.DarfBankVerwalten() and true or false)
     unterzeile:ClearAllPoints()
     if zustand.spieler then
         unterzeile:SetPoint("LEFT", zurueckBtn, "RIGHT", 10, 0)
@@ -1979,6 +2008,8 @@ function Fenster.Aktualisieren()
             unterzeile:SetPoint("RIGHT", verlaufSuche, "LEFT", -10, 0)
         elseif zustand.ansicht == "liste" and eigeneGruppeLabel:IsShown() then
             unterzeile:SetPoint("RIGHT", eigeneGruppeLabel, "LEFT", -10, 0)
+        elseif zustand.spieler and rahmen.korrekturBtn:IsShown() then
+            unterzeile:SetPoint("RIGHT", rahmen.korrekturBtn, "LEFT", -10, 0)
         else
             unterzeile:SetPoint("RIGHT", gruppeBtn, "LEFT", -10, 0)
         end

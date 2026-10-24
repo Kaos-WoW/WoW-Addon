@@ -1556,6 +1556,119 @@ local function testProbeUIUndInteraktion()
     gleich("Probe.Aktiv nach Beenden aus", P.Aktiv(), false)
 end
 
+-- =====================================================================
+--  ⭐ 1.1.0: „Items pro Abend“, Heute-Regel, Korrektur
+-- =====================================================================
+
+local function testItemsProAbend()
+    local jetzt = 2000000000
+    local von = jetzt - 56 * 86400                      -- Fenster: 8 Wochen
+    local H, n = {}, 0
+    local function item(name, ts, os)
+        n = n + 1
+        H["x" .. n] = { awardedTo = name, itemID = 100 + n, timestamp = ts, OS = os or nil }
+    end
+    -- Kaos: 5 Items in 10 besuchten Abenden (Beispiel des Nutzers)
+    for i = 1, 5 do item("Kaos", von + i * 3600) end
+    item("Kaos", von - 86400)                           -- aelter als das Fenster: zaehlt nicht
+    item("Kaos", von + 7200, true)                      -- OS zaehlt nicht
+    local daten = { zuschlaege = {}, anhebungen = {},
+        abend = { von = von, k = 4, p0 = 0.55, abende = { kaos = 10 }, korrektur = {}, heute = {} } }
+    local l = Kern.Bilanz(H, 0, { "Kaos" }, { "Kaos" }, daten)
+    -- (5 + 0,55 * 4) / (10 + 4) = 0,5143
+    gleich("Items pro Abend: 5 Items in 10 Abenden, geglaettet", l[1].wertung, 0.514)
+    gleich("nur Items im Fenster zaehlen", l[1].fensterItems, 5)
+
+    -- ohne Glaettung die echte Zahl
+    daten.abend.k = 0
+    gleich("ohne Glaettung 0,5", Kern.Bilanz(H, 0, { "Kaos" }, { "Kaos" }, daten)[1].wertung, 0.5)
+    -- ohne Abende und ohne Glaettung: der Gildenschnitt
+    daten.abend.abende = {}
+    gleich("ohne Abende und ohne Glaettung: der Gildenschnitt", Kern.Bilanz(H, 0, { "Kaos" }, { "Kaos" }, daten)[1].wertung, 0.55)
+    daten.abend.k = 4
+
+    -- Neuer Spieler: genau der Gildenschnitt
+    daten.abend.abende = { kaos = 10 }
+    local neu = Kern.Bilanz(H, 0, { "Neu" }, { "Neu" }, daten)
+    gleich("Neuer startet am Gildenschnitt", neu[1].wertung, 0.55)
+
+    -- Heute da: der heutige Abend zaehlt mit (Nenner 11 + 4)
+    daten.abend.heute = { kaos = true }
+    gleich("heutiger Abend zaehlt mit", Kern.Bilanz(H, 0, { "Kaos" }, { "Kaos" }, daten)[1].wertung,
+        Kern.Runde3((5 + 0.55 * 4) / (11 + 4)))
+    daten.abend.heute = {}
+
+    -- Korrektur: Plus zaehlt wie ein Item, Minus wie ein verrechnetes
+    daten.abend.korrektur = { kaos = 1 }
+    gleich("Korrektur +1", Kern.Bilanz(H, 0, { "Kaos" }, { "Kaos" }, daten)[1].wertung, Kern.Runde3((6 + 0.55 * 4) / 14))
+    daten.abend.korrektur = { kaos = -1 }
+    gleich("Korrektur -1", Kern.Bilanz(H, 0, { "Kaos" }, { "Kaos" }, daten)[1].wertung, Kern.Runde3((4 + 0.55 * 4) / 14))
+
+    -- Fehlen kostet nichts: gleiche Rate, egal wie viele Abende
+    local H2 = {}
+    for i = 1, 5 do H2["a" .. i] = { awardedTo = "Immer", itemID = i, timestamp = von + i * 3600 } end
+    for i = 1, 3 do H2["b" .. i] = { awardedTo = "Selten", itemID = 50 + i, timestamp = von + i * 3600 } end
+    local d2 = { zuschlaege = {}, anhebungen = {},
+        abend = { von = von, k = 0, p0 = 0.5, abende = { immer = 10, selten = 6 }, korrektur = {}, heute = {} } }
+    local l2 = Kern.Bilanz(H2, 0, { "Immer", "Selten" }, { "Immer", "Selten" }, d2)
+    gleich("5 in 10 und 3 in 6 Abenden sind gleich", l2[1].wertung, l2[2].wertung)
+end
+
+local function testHeuteRegel()
+    local autoAlt = Kern.AUTO_ANHEBUNG
+    Kern.AUTO_ANHEBUNG = false                      -- die alte Anhebung wuerde die Reihenfolge verfaelschen
+    local function spieler(name, wertung, heute, wurf)
+        return { name = name, haupt = 1, zweit = 0, letzte = 0, wertung = wertung, heute = heute }
+    end
+    local alle = function() return "haupt" end
+
+    -- ohne Regel: nur die Wertung
+    local l1 = { spieler("Voll", 1, 1), spieler("Leer", 2, 0) }
+    Kern.WurfReihenfolge(l1, alle)
+    gleich("ohne Regel gewinnt die niedrigere Wertung", l1[1].name, "Voll")
+
+    -- streng: wer heute noch keins hat, zuerst
+    local l2 = { spieler("Voll", 1, 1), spieler("Leer", 2, 0) }
+    l2.regel = "streng"
+    Kern.WurfReihenfolge(l2, alle)
+    gleich("streng: ohne Item heute zuerst", l2[1].name, "Leer")
+
+    -- streng: bei gleich vielen Items heute entscheidet die Wertung
+    local l3 = { spieler("Hoch", 3, 1), spieler("Niedrig", 1, 1) }
+    l3.regel = "streng"
+    Kern.WurfReihenfolge(l3, alle)
+    gleich("streng: gleich viele heute, die Wertung entscheidet", l3[1].name, "Niedrig")
+
+    -- leicht: jedes Item von heute zaehlt extra, die Wertung bleibt entscheidend
+    local l4 = { spieler("Voll", 1, 1), spieler("Leer", 1.2, 0) }
+    l4.regel, l4.leicht = "leicht", 0.5
+    Kern.WurfReihenfolge(l4, alle)
+    gleich("leicht: kleiner Abstand kippt", l4[1].name, "Leer")
+    local l5 = { spieler("Voll", 1, 1), spieler("Leer", 3, 0) }
+    l5.regel, l5.leicht = "leicht", 0.5
+    Kern.WurfReihenfolge(l5, alle)
+    gleich("leicht: grosser Abstand kippt nicht", l5[1].name, "Voll")
+    Kern.AUTO_ANHEBUNG = autoAlt
+end
+
+local function testKorrekturBuch()
+    -- Datenbuch: negative Korrektur mit Kommentar geht durch, ohne Kommentar oder mit Wert 0 nicht
+    local zeile = Kern.BuchAnhebungKodieren("k_kaos_1_2", { name = "Kaos", wert = -1.5, zeit = 1700000000, datum = "2026-10-24", autor = "Leitung", grund = "Einsatz" })
+    local satz = Kern.BuchDekodieren(zeile, 1700000100)
+    gleich("negative Korrektur wird gelesen", satz and satz.wert, -1.5)
+    gleich("Kommentar kommt mit", satz and satz.grund, "Einsatz")
+    local ohne = Kern.BuchAnhebungKodieren("k_kaos_1_3", { name = "Kaos", wert = 1, zeit = 1700000000, datum = "2026-10-24", autor = "Leitung", grund = "" })
+    gleich("ohne Kommentar abgelehnt", (Kern.BuchDekodieren(ohne, 1700000100)), nil)
+    local null = Kern.BuchAnhebungKodieren("k_kaos_1_4", { name = "Kaos", wert = 0, zeit = 1700000000, datum = "2026-10-24", autor = "Leitung", grund = "x" })
+    gleich("Wert 0 abgelehnt", (Kern.BuchDekodieren(null, 1700000100)), nil)
+    local alt = Kern.BuchAnhebungKodieren("h_kaos_1_2", { name = "Kaos", wert = -1, zeit = 1700000000, datum = "2026-10-24", autor = "Leitung", grund = "x" })
+    gleich("eine normale Anhebung bleibt positiv", (Kern.BuchDekodieren(alt, 1700000100)), nil)
+    gleich("Korrektur erkannt", Kern.IstKorrektur("k_a_1_2"), true)
+    gleich("Anhebung ist keine Korrektur", Kern.IstKorrektur("h_a_1_2"), false)
+    gleich("Text: Punkte ganzzahlig", Kern.WertText(7, false), "7")
+    gleich("Text: Items pro Abend mit zwei Stellen", Kern.WertText(0.514, true), "0.51")
+end
+
 function Tests.Alle(ausgeben)
     gut, schlecht, meldungen = 0, 0, {}
 
@@ -1586,6 +1699,9 @@ function Tests.Alle(ausgeben)
     testPflichtnamen()
     testNur()
     testWurfReihenfolge()
+    testItemsProAbend()
+    testHeuteRegel()
+    testKorrekturBuch()
     testWurfArt()
     testWurfWert()
     testBereiche()

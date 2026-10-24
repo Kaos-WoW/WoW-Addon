@@ -42,3 +42,12 @@ Startet der Plündermeister einen Wurf, geht ein kleines Fenster auf: **Haupt (1
 ## Hilft bei Problemen
 
 `/kl test` prüft das Addon, `/kl rolle` zeigt, ob es im Dienst ist, `/kl abgleich status` den Datenstand.
+
+## Wie die Wertung zustande kommt
+
+Die Leitung stellt in den Einstellungen unter **Verteilung** ein, nach welchem Verfahren gerechnet wird:
+
+- **Punkte mit Zuschlägen:** Items plus Zuschläge für verpasste Abende (wie bisher).
+- **Items pro Abend:** Wie viele Items du pro besuchtem Abend der letzten 8 Raid-IDs bekommen hast. Wer pro Abend am wenigsten hat, ist zuerst dran. Fehlen kostet nichts, und wer oft da ist, wird nicht schlechter gestellt.
+
+Dazu gilt **Heute schon ein Item**: Wer an diesem Abend schon eins hat, steht bei den weiteren Items hinter allen, die noch keins haben. Die Leitung kann außerdem eine **Korrektur** mit Kommentar eintragen, zum Beispiel für unangekündigtes Fehlen. Du siehst sie im Spielerdetail.

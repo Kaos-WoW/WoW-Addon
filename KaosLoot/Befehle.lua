@@ -59,6 +59,9 @@ local function hilfe()
     print(L["  |cffffff78/kl anhebung <Name>|r – Spieler manuell auf Niedrigster + 2 anheben (Raid- oder Gildenleitung)"])
     print(L["  |cffffff78/kl einladewort [Wort|an|aus]|r – wer dir das Stichwort flüstert, wird eingeladen"])
     print(L["  |cffffff78/kl neu|r          – was ist neu in dieser Version"])
+    print(L["  |cffffff78/kl verfahren|r    – wie die Wertung zustande kommt (|cffffff78zuschlag|r oder |cffffff78abend|r)"])
+    print(L["  |cffffff78/kl korrektur <Name> <Wert> <Kommentar>|r – Plus oder Minus mit Kommentar (Leitung)"])
+    print(L["  |cffffff78/kl vergleich|r     – beide Verfahren nebeneinander"])
     print(L["  |cffffff78/kl reset|r        – Historie auf diesem Rechner leeren (mit Rückfrage und Sicherung)"])
     print(L["  |cffffff78/kl reset gilde|r  – Daten bei ALLEN Gildenmitgliedern zurücksetzen (nur Stufe 1 und 2, mit Rückfrage)"])
     print(L["  |cffffff78/kl filter|r       – ab welcher Qualität und wo aufgezeichnet wird"])
@@ -981,6 +984,62 @@ befehle["einladewort"] = function(arg)
     if ns.Einstellungen and ns.Einstellungen.Aktualisieren then pcall(ns.Einstellungen.Aktualisieren) end
 end
 befehle["invitekeyword"] = befehle["einladewort"]
+
+--- ⭐ Korrektur der Leitung: `/kl korrektur <Name> <Wert> <Kommentar>` (Name mit Leerzeichen in Anfuehrungszeichen).
+befehle["korrektur"] = function(arg)
+    arg = tostring(arg or "")
+    local name, wert, text = arg:match('^%s*"([^"]+)"%s+([%-%+]?[%d%.,]+)%s+(.+)$')
+    if not name then name, wert, text = arg:match("^%s*(%S+)%s+([%-%+]?[%d%.,]+)%s+(.+)$") end
+    if not name then
+        sag(L["Korrektur: |cffffff78/kl korrektur <Name> <Wert> <Kommentar>|r, zum Beispiel |cffffff78/kl korrektur Protti 1 unangekündigt nicht erschienen|r."])
+        return
+    end
+    local w = tonumber((wert:gsub(",", ".")))
+    local id, grund = ns.Anwesenheit.KorrekturBuchen(name, w, text)
+    if not id then sag(ROT .. tostring(grund) .. "|r") return end
+    sag(string.format(L["Korrektur für %s eingetragen: %s (%s)."], Kern.Anzeigename(name), string.format("%+.1f", w), text))
+    if Fenster.Sichtbar() then Fenster.Aktualisieren() end
+end
+befehle["correction"] = befehle["korrektur"]
+
+--- ⭐ Wie die Wertung zustande kommt: `/kl verfahren` zeigt, `/kl verfahren zuschlag|abend` stellt um (nur Leitung).
+befehle["verfahren"] = function(arg)
+    local V = ns.Verteilung
+    local was = tostring(arg or ""):lower():match("^%s*(.-)%s*$")
+    if was ~= "" then
+        if ns.Konfig.Gesperrt() then
+            sag(ROT .. L["Gesperrt: nur Gildenränge mit Schreibrecht dürfen das ändern."] .. "|r")
+            return
+        end
+        local neu = (was == "abend" or was == "items" or was == "proabend") and "abend"
+                    or ((was == "zuschlag" or was == "punkte") and "zuschlag" or nil)
+        if not neu then sag(L["Verfahren: |cffffff78/kl verfahren zuschlag|r oder |cffffff78/kl verfahren abend|r."]) return end
+        V.VerfahrenSetzen(neu)
+        if ns.Konfig.AutoSenden then pcall(ns.Konfig.AutoSenden) end
+        if Fenster.Sichtbar() then Fenster.Aktualisieren() end
+    end
+    sag(string.format(L["Verfahren: %s. Zeitfenster %d Raid-IDs, Glättung %d, Heute-Regel: %s."],
+        V.Name(V.Verfahren()), V.Fenster(), V.Glaettung(), V.Regel()))
+end
+befehle["procedure"] = befehle["verfahren"]
+
+--- Vergleich der beiden Verfahren fuer die Spieler, die jetzt in der Gruppe sind (oder den Kader).
+befehle["vergleich"] = function()
+    local H = ns.Erfassung.Historie()
+    local namen = (IsInGroup and IsInGroup()) and ns.Rolle.Namen() or ns.Gruppen.Pflicht(nil)
+    if not namen or #namen == 0 then sag(L["Keine Spieler zum Vergleichen."]) return end
+    sag(L["Reihenfolge nach den beiden Verfahren (niedrigste Wertung zuerst):"])
+    for _, v in ipairs({ "zuschlag", "abend" }) do
+        local liste = Kern.Bilanz(H, 0, namen, namen, ns.Anwesenheit.ZuschlaegeDaten(v))
+        local teile = {}
+        for i, e in ipairs(liste) do
+            if i > 10 then break end
+            teile[#teile + 1] = string.format("%s %s", e.name, Kern.WertText(e.wertung, v == "abend"))
+        end
+        print("  " .. ns.Verteilung.Name(v) .. ": " .. table.concat(teile, ", "))
+    end
+end
+befehle["compare"] = befehle["vergleich"]
 
 befehle["konfig"] = function(arg)
     local was = (arg or ""):lower():match("^(%S*)") or ""
