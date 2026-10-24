@@ -113,4 +113,4 @@ if ($ausgerollt -eq 0) {
 }
 
 Write-Host ""
-Write-Host "Im Spiel: /reload, dann /fs test und /fs" -ForegroundColor Cyan
+Write-Host "Im Spiel: /reload, dann /kl test und /kl" -ForegroundColor Cyan
