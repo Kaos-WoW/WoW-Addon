@@ -6,21 +6,21 @@ Version **1.0.1**. Sprache: Deutsch und Englisch (nach dem Client).
 
 ## Kurz erklärt
 
-* **Wertung** = erhaltene Main-Items + Zuschläge für verpasste Abende. Bank/Bench kostet nichts, Unentschuldigt mindestens 2 Punkte. Die Anhebung gibt es nur von Hand (`/fs anhebung <Name>`).
+* **Wertung** = erhaltene Main-Items + Zuschläge für verpasste Abende. Bank/Bench kostet nichts, Unentschuldigt mindestens 2 Punkte. Die Anhebung gibt es nur von Hand (`/kl anhebung <Name>`).
 * **Eigenes Würfelfenster:** Haupt (1-100), OS (1-99), Passen. Der erste Wurf zählt.
 * **Zuteilen** aus dem Beutefenster oder per Handel, Entzaubern, Rückgängig.
 * **Historie** für alle in der Gruppe, automatischer Abgleich (es kommt nur hinzu). Offiziere gleichen gildenweit ab.
 * **Gruppen** für 10, 20 und 40: Raidkader aus Gildenrängen, Einteilung einmal je Raid-ID, Reiter *Anwesenheit*, Wochenabschluss, Gruppe mit einem Klick einladen.
-* **Kompaktfenster** für den Raid (`/fs kompakt`): nur die Wertung und der laufende Wurf, mit Knopf *Wurf starten*; Vorschau mit `/fs kompakt test`.
-* **Einladen per Flüstern** (persönlich, standardmäßig aus): Wer dir dein Stichwort flüstert (`/fs einladewort`, Einstellungen → Gruppen), wird in deine Gruppe eingeladen; eine volle normale Gruppe wird dafür zum Raid.
-* **Neu in KaosLoot** (`/fs neu`): Änderungsliste je Version, mit „!“ am Knopf und an Einstellungsseiten mit Neuem.
-* **Geteilte Einstellungen** (Gildenmeister und Offiziere), gildenweiter Reset (`/fs reset gilde`), Übungsmodus (`/fs probe`).
+* **Kompaktfenster** für den Raid (`/kl kompakt`): nur die Wertung und der laufende Wurf, mit Knopf *Wurf starten*; Vorschau mit `/kl kompakt test`.
+* **Einladen per Flüstern** (persönlich, standardmäßig aus): Wer dir dein Stichwort flüstert (`/kl einladewort`, Einstellungen → Gruppen), wird in deine Gruppe eingeladen; eine volle normale Gruppe wird dafür zum Raid.
+* **Neu in KaosLoot** (`/kl neu`): Änderungsliste je Version, mit „!“ am Knopf und an Einstellungsseiten mit Neuem.
+* **Geteilte Einstellungen** (Gildenmeister und Offiziere), gildenweiter Reset (`/kl reset gilde`), Übungsmodus (`/kl probe`).
 
 Nur in einer Gruppe wird aufgezeichnet; **nur der Plündermeister braucht das Addon** (ohne ihn der Raidleiter). Alle anderen würfeln wie gewohnt mit `/roll`; wer das Addon hat, bekommt das Würfelfenster und kann Historie und Wertungen einsehen. KaosLoot fragt erst, wenn die Beutemethode auf Plündermeister steht, ob es genutzt werden soll („KaosLoot nutzen?“); mit Ja übernimmt es, bei jeder anderen Beutemethode bleibt es still.
 
 ## Benutzen
 
-`/fs` öffnet das Fenster, `/fs hilfe` zeigt alle Befehle. Eine kurze Anleitung für Spieler steht in [`ANLEITUNG.md`](ANLEITUNG.md), die Regeln in [`REGELWERK-ENTWURF.md`](REGELWERK-ENTWURF.md).
+`/kl` öffnet das Fenster, `/kl hilfe` zeigt alle Befehle. Eine kurze Anleitung für Spieler steht in [`ANLEITUNG.md`](ANLEITUNG.md), die Regeln in [`REGELWERK-ENTWURF.md`](REGELWERK-ENTWURF.md).
 
 ## Für Entwickler
 

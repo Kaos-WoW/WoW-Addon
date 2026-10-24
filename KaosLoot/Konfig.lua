@@ -8,7 +8,7 @@
 
     Ablauf:
       * Wer senden darf (Gildenrang, siehe unten), klickt *An alle senden*
-        (oder `/fs konfig senden`). Die Einstellungen gehen über die Gilde an
+        (oder `/kl konfig senden`). Die Einstellungen gehen über die Gilde an
         alle, die gerade online sind (Nachricht `K`).
       * Wer später kommt, fragt beim Anmelden und beim Beitritt zu einer Gruppe
         (`A;<mein Stand>`). Hat jemand einen neueren Stand, schickt er ihn
@@ -27,7 +27,7 @@
     Ort, Ansage, Abgleich und die Rangstufe. NICHT geteilt wird, was persönlich
     ist: Fenstergröße und -lage, „selbst öffnen", wer aufzeichnet (`schreiben`),
     die aktive Gruppe. Vor jeder Übernahme wird der alte Stand gesichert
-    (`/fs konfig zurueck`).
+    (`/kl konfig zurueck`).
 ------------------------------------------------------------------------]]
 
 local ADDON, ns = ...
@@ -62,7 +62,7 @@ local function sag(text) print(MELDUNG .. text) end
 
 local letzteAnfrage = 0          -- wann ICH zuletzt nach neueren Einstellungen gefragt habe
 
--- Was zuletzt mit Einstellungsnachrichten passiert ist (/fs konfig status)
+-- Was zuletzt mit Einstellungsnachrichten passiert ist (/kl konfig status)
 local protokoll = {}
 local function merke(text)
     protokoll[#protokoll + 1] = date("%H:%M:%S", time()) .. "  " .. text
@@ -600,7 +600,7 @@ local function sitzungAbschliessen(S)
     d.konfigStand, d.konfigVon, d.konfigRoh = S.stand, S.von, zeilen
     if s.resetZeit then ns.Erfassung.ResetAnwenden(s.resetZeit, S.von) end
     merke(string.format(L["Einstellungen von %s übernommen"], tostring(S.von)))
-    sag(string.format(L["Einstellungen von |cffffff78%s|r übernommen. |cffffff78/fs konfig zurueck|r nimmt sie zurück."],
+    sag(string.format(L["Einstellungen von |cffffff78%s|r übernommen. |cffffff78/kl konfig zurueck|r nimmt sie zurück."],
         tostring(S.von)))
 end
 
@@ -663,7 +663,7 @@ end
 --  Anzeige
 -- =====================================================================
 
---- Zeilen fuer /fs konfig status.
+--- Zeilen fuer /kl konfig status.
 function Konfig.Status()
     local d = db()
     local z = {}

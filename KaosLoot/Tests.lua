@@ -7,7 +7,7 @@
     liess einen echten Regelverstoss durch, weil der Sollwert aus der
     Implementierung stammte.
 
-    Laeuft im Spiel ueber /fs test und ohne Client in jedem Lua.
+    Laeuft im Spiel ueber /kl test und ohne Client in jedem Lua.
 ------------------------------------------------------------------------]]
 
 local _, ns = ...

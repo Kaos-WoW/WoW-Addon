@@ -2,7 +2,7 @@
     Neu.lua  —  „Neu in KaosLoot“ (wie bei KaosUI)
 
     Zeigt, was sich im Release geändert hat:
-      * ein Fenster mit der Änderungsliste (`/fs neu`, Knopf „Neu“ im Kopf des Fensters),
+      * ein Fenster mit der Änderungsliste (`/kl neu`, Knopf „Neu“ im Kopf des Fensters),
       * ein „!“ am Knopf, bis das Fenster einmal geöffnet wurde,
       * ein „!“ an Einstellungsseiten, auf denen etwas Neues steht, bis die Seite besucht wurde,
       * einmal nach dem Anmelden ein Hinweis im Chat.
@@ -29,12 +29,13 @@ local MARKE = "Interface\\GossipFrame\\AvailableQuestIcon"
 -- Neueste Version zuerst. Gezeigt werden alle Abschnitte, das „!“ gilt nur für den ersten.
 Neu.LISTE = {
     { version = "1.0.1", eintraege = {
+        { text = L["Geändert: Der Befehl heißt jetzt /kl (vorher /fs; /fs geht vorerst weiter)."] },
         { text = L["Geändert: Der Ordner heißt jetzt KaosLoot. Den alten Ordner Fairshare im AddOns-Ordner bitte löschen; Daten der Version 1.0.0 holt der Abgleich von den Mitspielern."] },
     } },
     { version = "1.0.0", eintraege = {
         { text = L["KaosLoot ist Version 1.0.0: Die Beta ist vorbei."] },
-        { text = L["Geändert: Aus Fairshare wird KaosLoot. Der Befehl /fs und deine Daten bleiben."] },
-        { text = L["Neu: „Neu in KaosLoot“ (/fs neu) zeigt die Änderungen jeder Version, ein „!“ markiert Neues."] },
+        { text = L["Geändert: Aus Fairshare wird KaosLoot. Der Befehl /kl und deine Daten bleiben."] },
+        { text = L["Neu: „Neu in KaosLoot“ (/kl neu) zeigt die Änderungen jeder Version, ein „!“ markiert Neues."] },
     } },
     { version = "0.9.2", eintraege = {
         { text = L["Neu: Einladen per Flüstern – lege ein Stichwort fest, wer es dir flüstert, wird in deine Gruppe eingeladen (Einstellungen → Gruppen)."], seite = "gruppen" },
@@ -42,7 +43,7 @@ Neu.LISTE = {
         { text = L["Behoben: Die Einteilung listet links nur noch die Spieler des Raidkaders."] },
     } },
     { version = "0.9.1", eintraege = {
-        { text = L["Neu: Kompaktfenster für den Raid (/fs kompakt) mit Wertung, laufendem Wurf und Knopf Wurf starten; Vorschau mit /fs kompakt test."] },
+        { text = L["Neu: Kompaktfenster für den Raid (/kl kompakt) mit Wertung, laufendem Wurf und Knopf Wurf starten; Vorschau mit /kl kompakt test."] },
         { text = L["Neu: Einteilung und Anwesenheit nach Gildenrang sortiert, Namen in Klassenfarben (auch bei Spieler und Verlauf)."] },
         { text = L["Neu: Item-Tooltip beim Überfahren eines Items im Verlauf."] },
         { text = L["Behoben: Knöpfe ragten bei schmalem Fenster über den Rand."] },
@@ -214,7 +215,7 @@ do
         C_Timer.After(8, function()
             if db().gemeldet == Neu.Version() then return end
             db().gemeldet = Neu.Version()
-            print(string.format(L["|cff1B6B57KaosLoot|r %s: Was ist neu? |cffffff78/fs neu|r zeigt es."], Neu.Version()))
+            print(string.format(L["|cff1B6B57KaosLoot|r %s: Was ist neu? |cffffff78/kl neu|r zeigt es."], Neu.Version()))
         end)
     end)
 end

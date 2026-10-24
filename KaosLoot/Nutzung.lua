@@ -12,7 +12,7 @@
       * **Nein** → das Addon schläft, bis die Beutemethode wechselt oder man
                    die Gruppe verlässt.
       * Das Kreuz/Esc schließt den Dialog ohne Antwort: das Addon schläft
-        weiter, gefragt wird nicht noch einmal (`/fs nutzung` fragt neu).
+        weiter, gefragt wird nicht noch einmal (`/kl nutzung` fragt neu).
       * Jede andere Beutemethode (Gruppenbeute, Bedarf vor Gier, Reihum,
         Jeder gegen Jeden, persönliche Beute) oder keine Gruppe: Die Antwort
         wird vergessen, das Addon schläft.
@@ -123,7 +123,7 @@ local function dialogMessen(p)
     p:SetHeight(math.max(190, math.ceil(h)))
 end
 
---- Den Dialog zeigen (auch von Hand: `/fs nutzung`).
+--- Den Dialog zeigen (auch von Hand: `/kl nutzung`).
 function Nutzung.Fragen()
     local p = dialogBauen()
     gefragt = true

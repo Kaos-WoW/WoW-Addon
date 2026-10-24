@@ -177,9 +177,9 @@ function Rolle.Aktiv()
     elseif nutzung ~= "ja" then
         -- ⭐ Fragen muss nur der Plündermeister; alle anderen warten auf seine Antwort (Nutzung.lua)
         if Rolle.IchBinPluendermeister() then
-            return false, L["KaosLoot wartet auf deine Antwort – /fs nutzung"]
+            return false, L["KaosLoot wartet auf deine Antwort – /kl nutzung"]
         end
-        return false, L["KaosLoot wartet auf die Antwort des Plündermeisters – oder /fs nutzung ja"]
+        return false, L["KaosLoot wartet auf die Antwort des Plündermeisters – oder /kl nutzung ja"]
     end
     return true
 end

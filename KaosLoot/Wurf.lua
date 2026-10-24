@@ -5,7 +5,7 @@
     was die Gilde braucht:
 
       1. Der Pluendermeister (Leiter, Assistent) startet einen Wurf fuer einen
-         Gegenstand: `/fs wurf <Link>`, der Knopf *Wurf starten* oder
+         Gegenstand: `/kl wurf <Link>`, der Knopf *Wurf starten* oder
          die Beute im offenen Beutefenster anklicken.
       2. Bei ALLEN in der Gruppe mit KaosLoot geht ein kleines Fenster auf:
          Gegenstand, Restzeit, Knoepfe **Haupt**, **Zweit (OS)**, **Passen**.
@@ -527,7 +527,7 @@ function Wurf.Vergeben(link)
 end
 
 -- Die letzten Wurfmeldungen und was daraus wurde — damit sich bei einem Spieler,
--- bei dem „nichts aufgeht", nachlesen laesst, WARUM (/fs wurf status).
+-- bei dem „nichts aufgeht", nachlesen laesst, WARUM (/kl wurf status).
 local protokoll = {}
 
 local function merke(text)
@@ -1364,7 +1364,7 @@ function Wurf.Zuteilen(z)
         end
         -- ⭐ Auch wenn der Handel jetzt nicht klappt (zu weit weg, offline): Die
         -- Zuteilung bleibt vorgemerkt und wird beim naechsten Handel eingelegt.
-        sag(GRAU .. string.format(L["Vorgemerkt: %s für %s. Ist der Spieler zu weit weg, wird der Gegenstand beim nächsten Handel mit ihm automatisch eingelegt. |cffffff78/fs wurf offen|r zeigt alle."], link, name) .. "|r")
+        sag(GRAU .. string.format(L["Vorgemerkt: %s für %s. Ist der Spieler zu weit weg, wird der Gegenstand beim nächsten Handel mit ihm automatisch eingelegt. |cffffff78/kl wurf offen|r zeigt alle."], link, name) .. "|r")
     end
     -- Der Wurf ist entschieden; was jetzt noch aussteht, ist nur der Handel.
     ns.Erfassung.RundeBeenden(link)
@@ -1501,7 +1501,7 @@ ergebnisVerstecken = function()
     ergebnisDaten = nil
 end
 
---- Das Ergebnis des letzten Wurfs noch einmal oeffnen (`/fs wurf ergebnis`).
+--- Das Ergebnis des letzten Wurfs noch einmal oeffnen (`/kl wurf ergebnis`).
 function Wurf.ErgebnisOeffnen()
     if not ergebnisDaten then return false, L["Es gibt kein Ergebnis."] end
     ergebnisBauen()
@@ -1518,7 +1518,7 @@ end
 --- ⭐ Wuerfelt niemand, geht der Gegenstand zum Entzaubern an einen Spieler mit
 --  Verzauberkunst. Die Verzauberer stehen in den Einstellungen (`verzauberer`).
 --  Das Fenster erscheint, wenn die Wuerfelzeit ohne einen Wurf ablief, und
---  laesst sich ueber den Knopf *Entzaubern* im Ergebnis oder `/fs wurf
+--  laesst sich ueber den Knopf *Entzaubern* im Ergebnis oder `/kl wurf
 --  entzaubern` jederzeit oeffnen. Der Plündermeister bestaetigt mit *Vergeben*.
 --
 --  ⚠️ Das zaehlt dem Verzauberer NICHT als Beute: Es kommt kein Eintrag in die
@@ -1620,7 +1620,7 @@ function Wurf.Entzaubern(name, link)
         if handelAnfragen(name) then
             sag(string.format(L["Handel mit %s angefragt – der Gegenstand wird eingelegt, sobald das Fenster offen ist."], name))
         end
-        sag(GRAU .. string.format(L["Vorgemerkt: %s für %s. Ist der Spieler zu weit weg, wird der Gegenstand beim nächsten Handel mit ihm automatisch eingelegt. |cffffff78/fs wurf offen|r zeigt alle."], link, name) .. "|r")
+        sag(GRAU .. string.format(L["Vorgemerkt: %s für %s. Ist der Spieler zu weit weg, wird der Gegenstand beim nächsten Handel mit ihm automatisch eingelegt. |cffffff78/kl wurf offen|r zeigt alle."], link, name) .. "|r")
     end
 
     ns.Erfassung.RundeBeenden(link)
@@ -1743,7 +1743,7 @@ entzauberZeigen = function(link, keinWurf)
     return true
 end
 
---- Das Auswahlfenster fuer das Entzaubern oeffnen (`/fs wurf entzaubern [Link]`).
+--- Das Auswahlfenster fuer das Entzaubern oeffnen (`/kl wurf entzaubern [Link]`).
 --  Ohne Link gilt der Gegenstand des letzten Wurfs.
 function Wurf.EntzauberOeffnen(link)
     link = link or (ergebnisDaten and ergebnisDaten.link) or Wurf.letzterLink

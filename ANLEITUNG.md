@@ -4,7 +4,7 @@ KaosLoot hält fest, **wer welches Item bekommen hat**, und sortiert daraus die 
 
 ## Fenster öffnen
 
-Im Chat **`/fs`** eingeben. Alle Befehle: `/fs hilfe`.
+Im Chat **`/kl`** eingeben. Alle Befehle: `/kl hilfe`.
 
 ## Was du im Fenster siehst
 
@@ -30,15 +30,15 @@ Startet der Plündermeister einen Wurf, geht ein kleines Fenster auf: **Haupt (1
 | Weder an- noch abgemeldet | erst wie abgemeldet, ab dem 3. Mal wie unentschuldigt |
 
 - Gezählt werden deine **letzten 6 Raidabende**.
-- **Anhebung:** gibt es nur noch von Hand: Die Raid- oder Gildenleitung kann einen Spieler anheben (`/fs anhebung <Name>`).
+- **Anhebung:** gibt es nur noch von Hand: Die Raid- oder Gildenleitung kann einen Spieler anheben (`/kl anhebung <Name>`).
 - **Neu im Kader:** 1. Abend Proberaid (kein Würfeln), am 2. Abend Einstieg bei *Niedrigster + 2*.
 
 ## Für den Plündermeister
 
 - Beutemethode „Plündermeister“ einstellen und **„KaosLoot nutzen?“ mit Ja** beantworten.
-- Wurf starten: Knopf **„Wurf starten“** oder **`/fs wurf`**, danach im Ergebnis **„Zuteilen“**.
+- Wurf starten: Knopf **„Wurf starten“** oder **`/kl wurf`**, danach im Ergebnis **„Zuteilen“**.
 - Falsch zugeteilt: im Verlauf **„Rückgängig“**.
 
 ## Hilft bei Problemen
 
-`/fs test` prüft das Addon, `/fs rolle` zeigt, ob es im Dienst ist, `/fs abgleich status` den Datenstand.
+`/kl test` prüft das Addon, `/kl rolle` zeigt, ob es im Dienst ist, `/kl abgleich status` den Datenstand.

@@ -334,7 +334,7 @@ for befehl in ["", "verlauf", "rolle", "gruppe", "gruppe hilfe", "gruppe neu 20e
                "demo", "demo", "import", "sync"]:
     sl(befehl)
 keinFehler("alle Befehle")
-fest(any("Prüfungen" in x and "0 fehlgeschlagen" in x for x in ausgabe()), "/fs test: alles bestanden")
+fest(any("Prüfungen" in x and "0 fehlgeschlagen" in x for x in ausgabe()), "/kl test: alles bestanden")
 
 print("== 13. Englischer Client: alles auf Englisch ==")
 w = Welt([{"name": "Leader", "leader": True}, {"name": "Timo"}], "-Realm", locale="enUS")
@@ -640,7 +640,7 @@ w.ereignis("GROUP_ROSTER_UPDATE")
 w.weiter(60)
 fest(w.stand(0) != w.stand(1), "mit Auto aus bleibt es beim Hinweis")
 
-print("== 18. /fs reset: fragen, sichern, zurueckholen ==")
+print("== 18. /kl reset: fragen, sichern, zurueckholen ==")
 w = gruppe(3)
 w.ereignis("PLAYER_ENTERING_WORLD")
 w.weiter(15)
@@ -658,11 +658,11 @@ def ausgaben():
 
 # Erst fragen, noch nichts geloescht
 sl("reset")
-fest(anz(w, 0) == 8, "/fs reset allein loescht nichts")
+fest(anz(w, 0) == 8, "/kl reset allein loescht nichts")
 fest(any("8" in x and "Einträge" in x for x in ausgaben()), "es nennt die Zahl der Eintraege")
 # Bestaetigung ohne vorherige Frage in neuer Sitzung waere wirkungslos - hier mit Frage
 sl("reset ja")
-fest(anz(w, 0) == 0, "nach /fs reset ja ist die Historie leer")
+fest(anz(w, 0) == 0, "nach /kl reset ja ist die Historie leer")
 fest(ns.Gruppen.Holen("40er") is not None, "Gruppen bleiben")
 fest(ns.Erfassung.SicherungInfo() is not None and ns.Erfassung.SicherungInfo()["n"] == 8, "die Sicherung hat 8 Eintraege")
 # Bestaetigen ohne Frage geht nicht
@@ -670,7 +670,7 @@ sl("reset ja")
 fest(any("innerhalb einer Minute" in x for x in ausgaben()), "ohne vorherige Frage wird nichts getan")
 # Zurueckholen
 sl("reset undo")
-fest(anz(w, 0) == 8, "/fs reset undo holt alles zurueck")
+fest(anz(w, 0) == 8, "/kl reset undo holt alles zurueck")
 fest(ns.Erfassung.SicherungInfo() is None, "danach gibt es keine Sicherung mehr")
 sl("reset undo")
 fest(any("keine Sicherung" in x for x in ausgaben()), "ein zweites Zurueckholen sagt, dass nichts da ist")
@@ -911,7 +911,7 @@ sl = L0["g"]["SlashCmdList"]["FAIRSHARE"]
 for befehl in ["wurf", "wurf ende", "wurf " + LINK, "wurf ende", "roll", "beutetest", "lootcheck"]:
     sl(befehl)
 fehler = [str(x) for x in L0["g"]["__ausgabe"].values() if "Fehler" in str(x)]
-fest(not fehler, "/fs wurf und /fs beutetest ohne Fehler%s" % ((": " + fehler[0][:150]) if fehler else ""))
+fest(not fehler, "/kl wurf und /kl beutetest ohne Fehler%s" % ((": " + fehler[0][:150]) if fehler else ""))
 fest(L0["ns"].Wurf.Dialog() is True and hat_text(0, "Dauer (s)"), "Startdialog oeffnet sich")
 fest(T1["ns"].Wurf.Dialog() is False, "fuer ein Mitglied oeffnet er sich nicht")
 zeilen = L0["ns"].Wurf.Beutetest()
@@ -1180,9 +1180,9 @@ g["__klick"]("Zuteilen")
 sl = g["SlashCmdList"]["FAIRSHARE"]
 g["__ausgabe"] = lua.table()
 sl("wurf offen")
-fest(any("Timo" in str(x) for x in g["__ausgabe"].values()), "/fs wurf offen zeigt die Vormerkung")
+fest(any("Timo" in str(x) for x in g["__ausgabe"].values()), "/kl wurf offen zeigt die Vormerkung")
 sl("wurf offen leeren")
-fest(len(list(ns.Wurf.Offene().values())) == 0, "/fs wurf offen leeren loescht sie")
+fest(len(list(ns.Wurf.Offene().values())) == 0, "/kl wurf offen leeren loescht sie")
 fehler = [str(x) for x in g["__ausgabe"].values() if "Fehler" in str(x)]
 fest(not fehler, "ohne Fehler")
 
@@ -1282,11 +1282,11 @@ sl = g["SlashCmdList"]["FAIRSHARE"]
 sl("rueckgaengig ja")
 fest(gezaehlt(w, 0) == 2, "ohne vorherige Rueckfrage passiert nichts")
 sl("rueckgaengig")
-fest(gezaehlt(w, 0) == 2, "/fs rueckgaengig fragt nur")
+fest(gezaehlt(w, 0) == 2, "/kl rueckgaengig fragt nur")
 sl("rueckgaengig ja")
-fest(gezaehlt(w, 0) == 2 and bool(w.hist(0)["u2"]["rueckgabe"]), "/fs rueckgaengig ja vermerkt die Rueckgabe der letzten Vergabe")
+fest(gezaehlt(w, 0) == 2 and bool(w.hist(0)["u2"]["rueckgabe"]), "/kl rueckgaengig ja vermerkt die Rueckgabe der letzten Vergabe")
 sl("undo"); sl("undo yes")
-fest(gezaehlt(w, 0) == 2, "englisch: /fs undo, /fs undo yes (schon zurueckgegeben, nichts aendert sich)")
+fest(gezaehlt(w, 0) == 2, "englisch: /kl undo, /kl undo yes (schon zurueckgegeben, nichts aendert sich)")
 sl("undo")
 fehler = [str(x) for x in g["__ausgabe"].values() if "Fehler" in str(x)]
 fest(not fehler, "ohne Fehler")
@@ -1423,7 +1423,7 @@ fest("angenommen" in text and ns2.Wurf.Aktiv() is True, "Status nennt: Wurf ange
 sl = g2["SlashCmdList"]["FAIRSHARE"]
 sl("wurf status")
 fehler = [str(x) for x in g2["__ausgabe"].values() if "Fehler" in str(x)]
-fest(not fehler, "/fs wurf status ohne Fehler")
+fest(not fehler, "/kl wurf status ohne Fehler")
 
 print("== 26. Einstellbare Wuerfelbereiche ==")
 w = gruppe(3)
@@ -1455,14 +1455,14 @@ ns.Erfassung.BereicheSetzen(1, 100, 1, 99)
 # --- Befehl ---------------------------------------------------------------------
 sl = g["SlashCmdList"]["FAIRSHARE"]
 sl("bereiche haupt 1 120")
-fest(K.Bedarfsart(1, 120) == "haupt", "/fs bereiche haupt 1 120")
+fest(K.Bedarfsart(1, 120) == "haupt", "/kl bereiche haupt 1 120")
 sl("bereiche os 1 30")
-fest(K.Bedarfsart(1, 30) == "zweit", "/fs bereiche os 1 30")
+fest(K.Bedarfsart(1, 30) == "zweit", "/kl bereiche os 1 30")
 sl("bereiche haupt 9 3")
 fest(K.Bedarfsart(1, 120) == "haupt", "ungueltige Eingabe aendert nichts")
 sl("bereiche")
 fehler = [str(x) for x in g["__ausgabe"].values() if "Fehler" in str(x)]
-fest(not fehler, "/fs bereiche ohne Fehler")
+fest(not fehler, "/kl bereiche ohne Fehler")
 ns.Erfassung.BereicheSetzen(1, 100, 1, 99)
 
 # --- Einstellungsseite ----------------------------------------------------------
@@ -1584,7 +1584,7 @@ fest(L0["ns"].Wurf.Aktiv() is True, "ein Mitglied, das abbricht, beendet nur sei
 sl = L0["g"]["SlashCmdList"]["FAIRSHARE"]
 sl("wurf abbrechen")
 w.weiter(3)
-fest(not L0["ns"].Wurf.Aktiv() and not N2["ns"].Wurf.Aktiv(), "/fs wurf abbrechen beim Leiter: bei allen aus")
+fest(not L0["ns"].Wurf.Aktiv() and not N2["ns"].Wurf.Aktiv(), "/kl wurf abbrechen beim Leiter: bei allen aus")
 sl("wurf abbrechen")
 fehler = [str(x) for x in L0["g"]["__ausgabe"].values() if "Fehler" in str(x)]
 fest(not fehler, "ohne Fehler")
@@ -1691,7 +1691,7 @@ fest(sichtbar29(g, "FairshareWurfEntz") and len(list(g["__text"]("Zum Entzaubern
 sl = g["SlashCmdList"]["FAIRSHARE"]
 g["FairshareWurfEntz"].Hide(g["FairshareWurfEntz"])
 sl("wurf entzaubern")
-fest(sichtbar29(g, "FairshareWurfEntz"), "/fs wurf entzaubern oeffnet sie ebenfalls")
+fest(sichtbar29(g, "FairshareWurfEntz"), "/kl wurf entzaubern oeffnet sie ebenfalls")
 
 # --- Verzauberer verwalten ---------------------------------------------------------------------
 w, cl, g, ns, lua = welt29(verz=None)
@@ -1734,7 +1734,7 @@ fest(not L0["ns"].Wurf.Aktiv() and not T1["ns"].Wurf.Aktiv(), "nach 97 s ist er 
 L0["g"]["SlashCmdList"]["FAIRSHARE"]("wurf 20 " + LINK)
 w.weiter(2)
 text = " ".join(str(x) for x in L0["ns"].Wurf.Status().values())
-fest("noch 18 s" in text or "noch 19 s" in text or "noch 20 s" in text, "/fs wurf 20 <Link>: zwanzig Sekunden (%s)" % text[:60])
+fest("noch 18 s" in text or "noch 19 s" in text or "noch 20 s" in text, "/kl wurf 20 <Link>: zwanzig Sekunden (%s)" % text[:60])
 w.weiter(25)
 fest(not L0["ns"].Wurf.Aktiv(), "und nach 27 s vorbei")
 
@@ -1938,7 +1938,7 @@ sl("konfig nachfragen")
 sl("config undo")
 w.weiter(12)
 fehler = [str(x) for x in g["__ausgabe"].values() if "Fehler" in str(x)]
-fest(not fehler, "/fs konfig ohne Fehler")
+fest(not fehler, "/kl konfig ohne Fehler")
 ns = w.clients[0]["ns"]
 ns.Einstellungen.Zeigen()
 g["__klick"]("Würfeln & Abgleich")
@@ -2053,7 +2053,7 @@ fest(ns.Nutzung.Sichtbar() is False, "und es wird nicht erneut gefragt")
 fest(ns.Wurf.DarfStarten() is False, "kein Wurf startbar")
 # Befehl: umentscheiden
 g["SlashCmdList"]["FAIRSHARE"]("nutzung ja")
-fest(ns.Rolle.Nutzung() == "ja" and tup(ns.Rolle.Aktiv())[0] is True, "/fs nutzung ja schaltet ein")
+fest(ns.Rolle.Nutzung() == "ja" and tup(ns.Rolle.Aktiv())[0] is True, "/kl nutzung ja schaltet ein")
 # Beutemethode wechselt: Antwort vergessen
 for c in w.clients:
     c["g"]["__welt"]["ml"] = None
@@ -2604,7 +2604,7 @@ g["__ereignis"]("TRADE_SHOW")
 w.weiter(1)
 fest(g["__angeboten"][1] == LINK, "Lina handelt: der gruene Gegenstand (ohne Handelsfrist) liegt schon im Fenster")
 
-print("== 41. Rueckgabe: Entzaubern loest sie auf, /fs rueckgabe, Spielerdetail zeigt den Gegenstand (Fund im Spiel 17.10.2026) ==")
+print("== 41. Rueckgabe: Entzaubern loest sie auf, /kl rueckgabe, Spielerdetail zeigt den Gegenstand (Fund im Spiel 17.10.2026) ==")
 L9802 = "|cff1eff00|Hitem:9802::::::::60:::::|h[Ding 9802]|h|r"
 
 # (a) Lina gibt das Item zurueck, der Leiter entzaubert es selbst: der Punkt faellt weg
@@ -2620,16 +2620,16 @@ fest(gezaehlt(w, 0) == 1, "Timos Vergabe bleibt")
 w.weiter(15)
 fest(gezaehlt(w, 1) == 1 and gezaehlt(w, 2) == 1, "bei den Mitspielern ebenso")
 
-# (b) Anderweitig weitergegeben: /fs rueckgabe zeigt die offenen und schliesst ab
+# (b) Anderweitig weitergegeben: /kl rueckgabe zeigt die offenen und schliesst ab
 w = welt23()
 ns, g = w.clients[0]["ns"], w.clients[0]["g"]
 sl = g["SlashCmdList"]["FAIRSHARE"]
 ns.Erfassung.Zuruecknehmen("u2")
 sl("rueckgabe")
 aus = [str(x) for x in g["__ausgabe"].values()]
-fest(any("9802" in x for x in aus), "/fs rueckgabe nennt das offene Item")
+fest(any("9802" in x for x in aus), "/kl rueckgabe nennt das offene Item")
 sl("rueckgabe 1")
-fest(w.hist(0)["u2"]["zurueck"] is True and gezaehlt(w, 0) == 1, "/fs rueckgabe 1 schliesst ab, der Punkt faellt weg")
+fest(w.hist(0)["u2"]["zurueck"] is True and gezaehlt(w, 0) == 1, "/kl rueckgabe 1 schliesst ab, der Punkt faellt weg")
 sl("rueckgabe 1")
 aus = [str(x) for x in g["__ausgabe"].values()]
 fest(any("Diese Nummer" in x or "There is no such" in x for x in aus), "danach gibt es keine Nummer 1 mehr")
@@ -2894,7 +2894,7 @@ g0 = c0["g"]
 sl0 = g0["SlashCmdList"]["FAIRSHARE"]
 sl0("einteilung")
 w.weiter(1)
-fest(ns0.Fenster.Sichtbar() is True, "/fs einteilung oeffnet das Fenster")
+fest(ns0.Fenster.Sichtbar() is True, "/kl einteilung oeffnet das Fenster")
 fest(g0["__klick"]("Raidkader synchronisieren") is True, "Knopf Raidkader synchronisieren laeuft")
 ids_ = list(ns0.Gruppen.IdListe().values())
 fest(len(ids_) == 2 and len(list(g0["__text"]("Diese ID").values())) > 0, "die Einteilung zeigt die laufende Raid-ID")
@@ -3346,7 +3346,7 @@ c2["g"]["SlashCmdList"]["FAIRSHARE"]("einteilung")
 fest(c2["ns"].Fenster.ReiterSichtbar("einteilung") is False and c2["ns"].Fenster.ReiterSichtbar("bank") is False,
      "ein Raider sieht nur Spieler und Verlauf")
 fest(c2["ns"].Fenster.ReiterSichtbar("liste") is True and c2["ns"].Fenster.ReiterSichtbar("verlauf") is True, "die beiden bleiben")
-fest(str(c2["ns"].Fenster.AktuelleAnsicht()) == "liste", "und /fs einteilung landet bei ihm in der Spielerliste")
+fest(str(c2["ns"].Fenster.AktuelleAnsicht()) == "liste", "und /kl einteilung landet bei ihm in der Spielerliste")
 n0.Fenster.Verstecken()
 c2["ns"].Fenster.Verstecken()
 
@@ -3470,9 +3470,9 @@ fest(float(ns_k.Erfassung.ResetZeit()) == vorher and anz(w, 0) >= 1, "eine Reset
 # Gesperrt: Lina kann es auch ueber den Befehl nicht
 w.clients[2]["g"]["SlashCmdList"]["FAIRSHARE"]("reset gilde")
 aus = [str(x) for x in w.clients[2]["g"]["__ausgabe"].values()]
-fest(any("Stufe 1 und 2" in x or "level 1 and 2" in x for x in aus), "/fs reset gilde meldet ihr, dass nur Stufe 1 und 2 es duerfen")
+fest(any("Stufe 1 und 2" in x or "level 1 and 2" in x for x in aus), "/kl reset gilde meldet ihr, dass nur Stufe 1 und 2 es duerfen")
 
-print("== 61. /fs test laeuft auch, wenn der Spieler eine Einteilung und eine aktive Gruppe hat (Fund im Spiel 19.10.2026) ==")
+print("== 61. /kl test laeuft auch, wenn der Spieler eine Einteilung und eine aktive Gruppe hat (Fund im Spiel 19.10.2026) ==")
 w = welt36()
 n0, g0 = w.clients[0]["ns"], w.clients[0]["g"]
 heute = str(n0.Gruppen.EinteilungTag(0))
@@ -3482,7 +3482,7 @@ g0["__ausgabe"] = w.clients[0]["lua"].table()
 g0["SlashCmdList"]["FAIRSHARE"]("test")
 aus = [str(x) for x in g0["__ausgabe"].values()]
 fehler = [x for x in aus if "Error" in x or "Fehler im" in x or "attempt to" in x]
-fest(not fehler, "/fs test meldet keinen Fehler (%s)" % (fehler[:2],))
+fest(not fehler, "/kl test meldet keinen Fehler (%s)" % (fehler[:2],))
 fest(any("bestanden" in x.lower() or "passed" in x.lower() or "Prüfungen" in x for x in aus) or len(aus) > 0, "und gibt etwas aus (%d Zeilen)" % len(aus))
 
 print("== 62. Auto-Senden ueber die Oberflaeche: Gruppe in den Einstellungen loeschen erreicht die anderen (Fund im Spiel 19.10.2026) ==")
@@ -3521,7 +3521,7 @@ rest1 = [str(x) for x in n1.Gruppen.Namen().values()]
 fest(len(rest1) == 0, "und Timo hat die Loeschung ohne Zutun bekommen (%s)" % (rest1,))
 n0.Einstellungen.Verstecken()
 
-print("== 63. Probe-Modus: /fs probe abend simuliert Standardabend, FairshareDB bleibt unverändert, nichts gesendet ==")
+print("== 63. Probe-Modus: /kl probe abend simuliert Standardabend, FairshareDB bleibt unverändert, nichts gesendet ==")
 w = welt36(auto=True)
 c0, c1 = w.clients[0], w.clients[1]
 n0, n1 = c0["ns"], c1["ns"]
@@ -3534,11 +3534,11 @@ fest(anz(w, 0) == 1 and anz(w, 1) == 1, "Ausgangslage: 1 echter Eintrag in Fairs
 abende_0 = len(list(n0.Anwesenheit.Daten()["abende"].keys()))
 zuschlaege_0 = len(list(n0.Anwesenheit.Daten()["zuschlaege"].keys()))
 
-# Client 0 ruft /fs probe auf -> Hilfezeilen
+# Client 0 ruft /kl probe auf -> Hilfezeilen
 g0["SlashCmdList"]["FAIRSHARE"]("probe")
-fest(any("probe abend" in str(m) for m in g0["__ausgabe"].values()), "/fs probe nennt /fs probe abend")
+fest(any("probe abend" in str(m) for m in g0["__ausgabe"].values()), "/kl probe nennt /kl probe abend")
 
-# Client 0 ruft /fs probe abend auf
+# Client 0 ruft /kl probe abend auf
 g0["__ausgabe"] = c0["lua"].table()
 g0["SlashCmdList"]["FAIRSHARE"]("probe abend")
 
@@ -4123,7 +4123,7 @@ w.weiter(5)
 ns.Kompakt.Zeigen()
 w.weiter(1)
 kf = g["FairshareKompakt"]
-fest(ns.Kompakt.Sichtbar() and kf is not None, "/fs kompakt: das Fenster ist da")
+fest(ns.Kompakt.Sichtbar() and kf is not None, "/kl kompakt: das Fenster ist da")
 fest(bool(g["FairshareDB"]["kompakt"]["offen"]), "offen wird gemerkt")
 a1, a2, a3 = zeile_von("Leiter Kaos"), zeile_von("Lina"), zeile_von("Timo")
 fest(a1 and a2 and a3 and a1 < a2 < a3, "Wertung: niedrigste zuerst (Kaos 0, Lina 1, Timo 2)")
@@ -4267,9 +4267,9 @@ fest(len(eingeladen()) == n_vor + 1, "als Assistent im Raid schon")
 
 # Befehl
 g["SlashCmdList"]["FAIRSHARE"]("einladewort aus")
-fest(tup(ns.Anwesenheit.EinladeWort())[1] is False, "/fs einladewort aus schaltet aus")
+fest(tup(ns.Anwesenheit.EinladeWort())[1] is False, "/kl einladewort aus schaltet aus")
 g["SlashCmdList"]["FAIRSHARE"]("einladewort treffen")
-fest(tup(ns.Anwesenheit.EinladeWort())[0] == "treffen", "/fs einladewort <Wort> setzt das Wort")
+fest(tup(ns.Anwesenheit.EinladeWort())[0] == "treffen", "/kl einladewort <Wort> setzt das Wort")
 fest(tup(ns.Anwesenheit.EinladeWort())[1] is True, "und schaltet es ein")
 
 print("== 74. Neu in Fairshare: Fenster, Markierungen je Version, Hinweis im Chat ==")
@@ -4279,7 +4279,7 @@ w.weiter(15)
 cl = w.clients[0]
 ns, g, lua = cl["ns"], cl["g"], cl["lua"]
 aus = [str(x) for x in g["__ausgabe"].values()]
-fest(sum(1 for x in aus if "/fs neu" in x) == 1, "nach dem Anmelden kommt genau ein Hinweis im Chat")
+fest(sum(1 for x in aus if "/kl neu" in x) == 1, "nach dem Anmelden kommt genau ein Hinweis im Chat")
 fest(g["FairshareDB"]["neu"]["gemeldet"] == ns.Neu.Version(), "und er wird je Version nur einmal gezeigt")
 fest(ns.Neu.FensterNeu() is True, "das Fenster gilt als ungesehen")
 fest(ns.Neu.SeiteNeu("gruppen") is True and ns.Neu.SeiteNeu("erfassung") is False, "nur die Seite Gruppen hat etwas Neues")
@@ -4292,7 +4292,7 @@ fest(ns.Neu.SeiteNeu("gruppen") is False, "die Seite Gruppen ist nach dem Besuch
 ns.Neu.Umschalten()
 fest(ns.Neu.Sichtbar() is False, "Umschalten schliesst das Fenster")
 g["SlashCmdList"]["FAIRSHARE"]("neu")
-fest(ns.Neu.Sichtbar() is True, "/fs neu oeffnet es")
+fest(ns.Neu.Sichtbar() is True, "/kl neu oeffnet es")
 # Mit einer neuen Version ist wieder alles neu
 lua.execute("FairshareDB.neu.fenster = '0.0.1'; FairshareDB.neu.seiten.gruppen = '0.0.1'")
 fest(ns.Neu.FensterNeu() is True and ns.Neu.SeiteNeu("gruppen") is True, "bei einer anderen gemerkten Version ist es wieder neu")

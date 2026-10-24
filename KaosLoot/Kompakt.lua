@@ -9,8 +9,8 @@
       Wurf      automatisch, solange ein Wurf laeuft (Gegenstand, Zeit, Wuerfe)
       Leiste    eine Zeile: wer dran ist, im Wurf der Gegenstand
 
-      /fs kompakt         schaltet das Fenster
-      /fs kompakt test    Vorschau mit Beispieldaten (Wertung, dann Wurf, dann aus),
+      /kl kompakt         schaltet das Fenster
+      /kl kompakt test    Vorschau mit Beispieldaten (Wertung, dann Wurf, dann aus),
                           damit man es auch allein ansehen kann
 
     Gross und klein schliessen sich gegenseitig: Wer das eine oeffnet, schliesst

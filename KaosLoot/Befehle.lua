@@ -1,5 +1,5 @@
 --[[----------------------------------------------------------------------
-    Befehle.lua  —  /fs
+    Befehle.lua  —  /kl
 
     ⭐ **Kein Befehl darf still scheitern.** WoW verschluckt Laufzeitfehler
     in Addons, solange scriptErrors aus ist — und das ist die
@@ -29,45 +29,45 @@ local befehle = {}
 
 local function hilfe()
     sag(L["Befehle:"])
-    print(L["  |cffffff78/fs|r              – Fenster öffnen und schließen"])
-    print(L["  |cffffff78/fs verlauf|r      – wer bekam was, wann"])
-    print(L["  |cffffff78/fs einstellungen|r – das Einstellungsfenster"])
-    print(L["  |cffffff78/fs demo|r         – Fenster mit Beispieldaten (nichts wird gespeichert)"])
-    print(L["  |cffffff78/fs liste|r        – dieselbe Auswertung im Chat, |cffffff78liste 4|r für 4 Wochen"])
-    print(L["  |cffffff78/fs <Name>|r       – Einzelvergaben eines Spielers im Chat"])
-    print(L["  |cffffff78/fs abgleich|r     – Historien der Gruppe zusammenführen (|cffffff78abgleich status|r zeigt den Stand)"])
-    print(L["  |cffffff78/fs invite|r       – Anwesende Spieler der Gruppe in den Raid einladen"])
-    print(L["  |cffffff78/fs nutzung|r      – KaosLoot für diese Gruppe nutzen? (|cffffff78nutzung ja|r, |cffffff78nutzung nein|r, |cffffff78nutzung fragen|r)"])
-    print(L["  |cffffff78/fs rolle|r        – wer zeichnet gerade auf, und warum"])
-    print(L["  |cffffff78/fs rueckgaengig|r – die letzte Vergabe zurücknehmen (mit Rückfrage; einzelne Vergaben im Verlauf)"])
-    print(L["  |cffffff78/fs wurf|r         – eigenes Würfelfenster starten (|cffffff78wurf [Sekunden] <Link>|r, |cffffff78wurf ende|r, |cffffff78wurf abbrechen|r, |cffffff78wurf entzaubern|r, |cffffff78wurf ergebnis|r, |cffffff78wurf offen|r, |cffffff78wurf status|r)"])
-    print(L["  |cffffff78/fs konfig|r       – Einstellungen teilen (|cffffff78konfig senden|r, |cffffff78nachfragen|r, |cffffff78zurueck|r)"])
-    print(L["  |cffffff78/fs verzauberer|r  – Verzauberer fürs Entzaubern (|cffffff78verzauberer add Name, Name|r, |cffffff78verzauberer del Name|r)"])
-    print(L["  |cffffff78/fs beutetest|r    – Diagnose: Beutefenster und Zuteilung durch den Plündermeister"])
-    print(L["  |cffffff78/fs kompakt|r      – kleines Fenster für den Raid (|cffffff78kompakt test|r = Vorschau)"])
-    print(L["  |cffffff78/fs gruppe|r       – Kader und Raidgruppen (|cffffff78gruppe hilfe|r)"])
-    print(L["  |cffffff78/fs anwesenheit|r  – Anwesenheit und Bosskämpfe des heutigen Abends"])
-    print(L["  |cffffff78/fs abschluss|r     – Raidabend abschließen und Zuschläge festschreiben"])
-    print(L["  |cffffff78/fs bank|r         – Bank- und Abwesenheitsliste (|cffffff78/fs bank <Name>|r)"])
-    print(L["  |cffffff78/fs unentschuldigt|r – Unentschuldigte Spieler (|cffffff78/fs unent <Name>|r)"])
-    print(L["  |cffffff78/fs vergessen|r    – Anmeldung vergessen (|cffffff78/fs vergessen <Name>|r)"])
-    print(L["  |cffffff78/fs abmeldung|r    – ausdrücklich abgemeldet (|cffffff78/fs abmeldung <Name>|r, |cffffff78alle|r = alle Offenen)"])
-    print(L["  |cffffff78/fs einteilung|r   – Raidkader und Einteilung je Raid-ID und Gruppe (|cffffff78/fs raidkader <Rang>|r liest den Raidkader ein)"])
-    print(L["  |cffffff78/fs rueckgabe|r    – zurückgegebene Items, noch nicht neu vergeben (|cffffff78/fs rueckgabe <Nr>|r schließt ab)"])
-    print(L["  |cffffff78/fs bereiche|r     – Würfelbereiche (|cffffff78bereiche haupt 1 100|r, |cffffff78zweit 1 99|r)"])
-    print(L["  |cffffff78/fs auto|r         – Fenster bei Wurfbeginn automatisch öffnen (an/aus)"])
-    print(L["  |cffffff78/fs anhebung <Name>|r – Spieler manuell auf Niedrigster + 2 anheben (Raid- oder Gildenleitung)"])
-    print(L["  |cffffff78/fs einladewort [Wort|an|aus]|r – wer dir das Stichwort flüstert, wird eingeladen"])
-    print(L["  |cffffff78/fs neu|r          – was ist neu in dieser Version"])
-    print(L["  |cffffff78/fs reset|r        – Historie auf diesem Rechner leeren (mit Rückfrage und Sicherung)"])
-    print(L["  |cffffff78/fs reset gilde|r  – Daten bei ALLEN Gildenmitgliedern zurücksetzen (nur Stufe 1 und 2, mit Rückfrage)"])
-    print(L["  |cffffff78/fs filter|r       – ab welcher Qualität und wo aufgezeichnet wird"])
-    print(L["  |cffffff78/fs gilde|r        – Diagnose: was die Gildenliste liefert (Namen, Ränge)"])
-    print(L["  |cffffff78/fs stand|r        – Diagnose: eigene Historie und Aufzeichnung"])
-    print(L["  |cffffff78/fs muster|r       – Diagnose: Textvorlagen für eigene Erkennung"])
-    print(L["  |cffffff78/fs darstellung|r  – Diagnose: Einstellungsfenster zeichnet nicht richtig"])
-    print(L["  |cffffff78/fs test|r         – Selbsttests der Auswertung"])
-    print(L["  |cffffff78/fs probe|r        – Übungsmodus (Standardabend testen, keine echten Daten)"])
+    print(L["  |cffffff78/kl|r              – Fenster öffnen und schließen"])
+    print(L["  |cffffff78/kl verlauf|r      – wer bekam was, wann"])
+    print(L["  |cffffff78/kl einstellungen|r – das Einstellungsfenster"])
+    print(L["  |cffffff78/kl demo|r         – Fenster mit Beispieldaten (nichts wird gespeichert)"])
+    print(L["  |cffffff78/kl liste|r        – dieselbe Auswertung im Chat, |cffffff78liste 4|r für 4 Wochen"])
+    print(L["  |cffffff78/kl <Name>|r       – Einzelvergaben eines Spielers im Chat"])
+    print(L["  |cffffff78/kl abgleich|r     – Historien der Gruppe zusammenführen (|cffffff78abgleich status|r zeigt den Stand)"])
+    print(L["  |cffffff78/kl invite|r       – Anwesende Spieler der Gruppe in den Raid einladen"])
+    print(L["  |cffffff78/kl nutzung|r      – KaosLoot für diese Gruppe nutzen? (|cffffff78nutzung ja|r, |cffffff78nutzung nein|r, |cffffff78nutzung fragen|r)"])
+    print(L["  |cffffff78/kl rolle|r        – wer zeichnet gerade auf, und warum"])
+    print(L["  |cffffff78/kl rueckgaengig|r – die letzte Vergabe zurücknehmen (mit Rückfrage; einzelne Vergaben im Verlauf)"])
+    print(L["  |cffffff78/kl wurf|r         – eigenes Würfelfenster starten (|cffffff78wurf [Sekunden] <Link>|r, |cffffff78wurf ende|r, |cffffff78wurf abbrechen|r, |cffffff78wurf entzaubern|r, |cffffff78wurf ergebnis|r, |cffffff78wurf offen|r, |cffffff78wurf status|r)"])
+    print(L["  |cffffff78/kl konfig|r       – Einstellungen teilen (|cffffff78konfig senden|r, |cffffff78nachfragen|r, |cffffff78zurueck|r)"])
+    print(L["  |cffffff78/kl verzauberer|r  – Verzauberer fürs Entzaubern (|cffffff78verzauberer add Name, Name|r, |cffffff78verzauberer del Name|r)"])
+    print(L["  |cffffff78/kl beutetest|r    – Diagnose: Beutefenster und Zuteilung durch den Plündermeister"])
+    print(L["  |cffffff78/kl kompakt|r      – kleines Fenster für den Raid (|cffffff78kompakt test|r = Vorschau)"])
+    print(L["  |cffffff78/kl gruppe|r       – Kader und Raidgruppen (|cffffff78gruppe hilfe|r)"])
+    print(L["  |cffffff78/kl anwesenheit|r  – Anwesenheit und Bosskämpfe des heutigen Abends"])
+    print(L["  |cffffff78/kl abschluss|r     – Raidabend abschließen und Zuschläge festschreiben"])
+    print(L["  |cffffff78/kl bank|r         – Bank- und Abwesenheitsliste (|cffffff78/kl bank <Name>|r)"])
+    print(L["  |cffffff78/kl unentschuldigt|r – Unentschuldigte Spieler (|cffffff78/kl unent <Name>|r)"])
+    print(L["  |cffffff78/kl vergessen|r    – Anmeldung vergessen (|cffffff78/kl vergessen <Name>|r)"])
+    print(L["  |cffffff78/kl abmeldung|r    – ausdrücklich abgemeldet (|cffffff78/kl abmeldung <Name>|r, |cffffff78alle|r = alle Offenen)"])
+    print(L["  |cffffff78/kl einteilung|r   – Raidkader und Einteilung je Raid-ID und Gruppe (|cffffff78/kl raidkader <Rang>|r liest den Raidkader ein)"])
+    print(L["  |cffffff78/kl rueckgabe|r    – zurückgegebene Items, noch nicht neu vergeben (|cffffff78/kl rueckgabe <Nr>|r schließt ab)"])
+    print(L["  |cffffff78/kl bereiche|r     – Würfelbereiche (|cffffff78bereiche haupt 1 100|r, |cffffff78zweit 1 99|r)"])
+    print(L["  |cffffff78/kl auto|r         – Fenster bei Wurfbeginn automatisch öffnen (an/aus)"])
+    print(L["  |cffffff78/kl anhebung <Name>|r – Spieler manuell auf Niedrigster + 2 anheben (Raid- oder Gildenleitung)"])
+    print(L["  |cffffff78/kl einladewort [Wort|an|aus]|r – wer dir das Stichwort flüstert, wird eingeladen"])
+    print(L["  |cffffff78/kl neu|r          – was ist neu in dieser Version"])
+    print(L["  |cffffff78/kl reset|r        – Historie auf diesem Rechner leeren (mit Rückfrage und Sicherung)"])
+    print(L["  |cffffff78/kl reset gilde|r  – Daten bei ALLEN Gildenmitgliedern zurücksetzen (nur Stufe 1 und 2, mit Rückfrage)"])
+    print(L["  |cffffff78/kl filter|r       – ab welcher Qualität und wo aufgezeichnet wird"])
+    print(L["  |cffffff78/kl gilde|r        – Diagnose: was die Gildenliste liefert (Namen, Ränge)"])
+    print(L["  |cffffff78/kl stand|r        – Diagnose: eigene Historie und Aufzeichnung"])
+    print(L["  |cffffff78/kl muster|r       – Diagnose: Textvorlagen für eigene Erkennung"])
+    print(L["  |cffffff78/kl darstellung|r  – Diagnose: Einstellungsfenster zeichnet nicht richtig"])
+    print(L["  |cffffff78/kl test|r         – Selbsttests der Auswertung"])
+    print(L["  |cffffff78/kl probe|r        – Übungsmodus (Standardabend testen, keine echten Daten)"])
 end
 
 -- =====================================================================
@@ -87,7 +87,7 @@ befehle["reset"] = function(arg)
         end
         if gilde == "ja" or gilde == "yes" then
             if not resetGildeBereit or (time() - resetGildeBereit) > 60 then
-                sag(ROT .. L["Erst |cffffff78/fs reset gilde|r eingeben, dann innerhalb einer Minute bestätigen."] .. "|r")
+                sag(ROT .. L["Erst |cffffff78/kl reset gilde|r eingeben, dann innerhalb einer Minute bestätigen."] .. "|r")
                 return
             end
             resetGildeBereit = nil
@@ -101,7 +101,7 @@ befehle["reset"] = function(arg)
         for _ in pairs(ns.Erfassung.Historie()) do n = n + 1 end
         resetGildeBereit = time()
         sag(string.format(L["Das entfernt |cffffff78%d Einträge|r der Historie samt allen Abschlüssen, Zuschlägen und Anhebungen bei |cffff5555ALLEN|r Gildenmitgliedern mit dem Addon. Einstellungen, Gruppen und Einteilung bleiben. Das lässt sich nicht zurücknehmen."], n))
-        print(L["  Zum Bestätigen innerhalb einer Minute: |cffffff78/fs reset gilde ja|r"])
+        print(L["  Zum Bestätigen innerhalb einer Minute: |cffffff78/kl reset gilde ja|r"])
         return
     end
 
@@ -114,13 +114,13 @@ befehle["reset"] = function(arg)
 
     if arg == "ja" or arg == "yes" then
         if not resetBereit or (time() - resetBereit) > 60 then
-            sag(ROT .. L["Erst |cffffff78/fs reset|r eingeben, dann innerhalb einer Minute bestätigen."] .. "|r")
+            sag(ROT .. L["Erst |cffffff78/kl reset|r eingeben, dann innerhalb einer Minute bestätigen."] .. "|r")
             return
         end
         resetBereit = nil
         local n = ns.Erfassung.Zuruecksetzen()
-        sag(string.format(L["|cff55ff55%d Einträge|r entfernt. Gesichert: |cffffff78/fs reset undo|r holt sie zurück."], n))
-        print(L["  |cff8E9A94Nur auf diesem Rechner: Haben andere in der Gruppe die Einträge noch, bringt sie der nächste Abgleich zurück. Für alle in der Gilde: |cffffff78/fs reset gilde|r.|r"])
+        sag(string.format(L["|cff55ff55%d Einträge|r entfernt. Gesichert: |cffffff78/kl reset undo|r holt sie zurück."], n))
+        print(L["  |cff8E9A94Nur auf diesem Rechner: Haben andere in der Gruppe die Einträge noch, bringt sie der nächste Abgleich zurück. Für alle in der Gilde: |cffffff78/kl reset gilde|r.|r"])
         return
     end
 
@@ -128,7 +128,7 @@ befehle["reset"] = function(arg)
     for _ in pairs(ns.Erfassung.Historie()) do n = n + 1 end
     resetBereit = time()
     sag(string.format(L["Das entfernt |cffffff78%d Einträge|r der Historie auf diesem Rechner (Einstellungen und Gruppen bleiben, eine Sicherung wird angelegt)."], n))
-    print(L["  Zum Bestätigen innerhalb einer Minute: |cffffff78/fs reset ja|r"])
+    print(L["  Zum Bestätigen innerhalb einer Minute: |cffffff78/kl reset ja|r"])
 end
 
 befehle["filter"] = function(arg)
@@ -144,7 +144,7 @@ befehle["filter"] = function(arg)
     elseif arg == "wurf" or arg == "roll" then
         d.nurGewuerfelt = not d.nurGewuerfelt
     elseif arg ~= "" then
-        sag(L["Nutzung: |cffffff78/fs filter 0-5|r (Qualität), |cffffff78raid|instanz|überall|r (Ort) oder |cffffff78wurf|r (nur Ausgewürfeltes)"])
+        sag(L["Nutzung: |cffffff78/kl filter 0-5|r (Qualität), |cffffff78raid|instanz|überall|r (Ort) oder |cffffff78wurf|r (nur Ausgewürfeltes)"])
         return
     end
 
@@ -244,7 +244,7 @@ befehle["auto"] = function()
     if an then
         sag(L["Fenster öffnet sich automatisch, sobald ein Wurf startet."])
     else
-        sag(L["Automatisches Öffnen aus. |cffffff78/fs|r öffnet es von Hand."])
+        sag(L["Automatisches Öffnen aus. |cffffff78/kl|r öffnet es von Hand."])
     end
 end
 
@@ -301,7 +301,7 @@ befehle["probe"] = function(arg)
             sag(L["Probe-Modus nicht verfügbar."])
         end
         sag(L["Probe-Modus (Übungsmodus):"])
-        print(L["  |cffffff78/fs probe abend|r  – Standardabend im Chat ausgeben (Erwartet / Ist)"])
+        print(L["  |cffffff78/kl probe abend|r  – Standardabend im Chat ausgeben (Erwartet / Ist)"])
     end
 end
 befehle["practice"] = befehle["probe"]
@@ -332,7 +332,7 @@ befehle["anwesenheit"] = function(rest)
     if unter == "boss" then
         local bossName = rest:match("^%S+%s+(.+)$")
         if not bossName or bossName == "" then
-            sag(L["Bitte einen Bossnamen angeben: /fs anwesenheit boss <Name>"])
+            sag(L["Bitte einen Bossnamen angeben: /kl anwesenheit boss <Name>"])
             return
         end
         if not ns.Anwesenheit then return end
@@ -420,10 +420,10 @@ befehle["bench"] = befehle["bank"]
 befehle["abwesenheit"] = befehle["bank"]
 befehle["absence"] = befehle["bank"]
 
---- ⭐ Ausdrückliche Abmeldung: `/fs abmeldung <Name>` setzt oder hebt sie auf, `/fs abmeldung alle`
+--- ⭐ Ausdrückliche Abmeldung: `/kl abmeldung <Name>` setzt oder hebt sie auf, `/kl abmeldung alle`
 --  setzt alle noch offenen Spieler als abgemeldet.
---- ⭐ Einteilung je Tag und Gruppe: `/fs einteilung` oeffnet die Ansicht, `/fs einteilung status` zeigt die
---  letzten Meldungen, `/fs raidkader [Rangnummer]` liest den Raidkader bis zum Rang ein.
+--- ⭐ Einteilung je Tag und Gruppe: `/kl einteilung` oeffnet die Ansicht, `/kl einteilung status` zeigt die
+--  letzten Meldungen, `/kl raidkader [Rangnummer]` liest den Raidkader bis zum Rang ein.
 befehle["invite"] = function(rest)
     if not ns.Anwesenheit or not ns.Anwesenheit.GruppeEinladen then
         print("|cff1B6B57KaosLoot|r: " .. ROT .. L["Anwesenheit nicht verfügbar."] .. "|r")
@@ -457,8 +457,8 @@ befehle["einteilung"] = function(rest)
 end
 befehle["assignment"] = befehle["einteilung"]
 
---- ⭐ Wochenabschluss: `/fs woche` zeigt, wer als abgemeldet oder „Keine Meldung“ gebucht würde, `/fs woche ja` bucht,
---  `/fs woche zurueck` nimmt zurück.
+--- ⭐ Wochenabschluss: `/kl woche` zeigt, wer als abgemeldet oder „Keine Meldung“ gebucht würde, `/kl woche ja` bucht,
+--  `/kl woche zurueck` nimmt zurück.
 local function wocheAusgeben(v)
     sag(string.format(L["Woche ab %s: %d Abende je Spieler, Schnitt je Abend %s"], v.montag, v.n,
         (function()
@@ -491,7 +491,7 @@ befehle["woche"] = function(rest)
     local v, grund = ns.Anwesenheit.WocheVorschau(datum)
     if not v then sag(ROT .. tostring(grund) .. "|r") return end
     wocheAusgeben(v)
-    print(GRAU .. L["Zum Buchen: /fs woche ja"] .. "|r")
+    print(GRAU .. L["Zum Buchen: /kl woche ja"] .. "|r")
 end
 befehle["week"] = befehle["woche"]
 
@@ -525,7 +525,7 @@ befehle["abmeldung"] = function(rest)
         local offene = ns.Anwesenheit.OffeneSpieler()
         sag(string.format(L["Offene Spieler heute: %d"], #offene))
         for _, n in ipairs(offene) do print("  " .. n) end
-        print(GRAU .. L["Abmelden / aufheben mit: /fs abmeldung <Name>, alle Offenen mit: /fs abmeldung alle"] .. "|r")
+        print(GRAU .. L["Abmelden / aufheben mit: /kl abmeldung <Name>, alle Offenen mit: /kl abmeldung alle"] .. "|r")
         return
     end
     if rest:lower() == "alle" or rest:lower() == "all" then
@@ -569,7 +569,7 @@ befehle["unentschuldigt"] = function(rest)
         if anzahl == 0 then
             print(L["  Keine unentschuldigten Spieler eingetragen."])
         end
-        print(GRAU .. L["Eintragen / aufheben mit: /fs unentschuldigt <Name>"] .. "|r")
+        print(GRAU .. L["Eintragen / aufheben mit: /kl unentschuldigt <Name>"] .. "|r")
         return
     end
 
@@ -606,7 +606,7 @@ befehle["vergessen"] = function(rest)
         if anzahl == 0 then
             print(L["  Keine Spieler als vergessen eingetragen."])
         end
-        print(GRAU .. L["Eintragen / aufheben mit: /fs vergessen <Name>"] .. "|r")
+        print(GRAU .. L["Eintragen / aufheben mit: /kl vergessen <Name>"] .. "|r")
         return
     end
 
@@ -695,7 +695,7 @@ befehle["abschluss"] = function(rest)
         end
     end
 
-    print(L["Zum Festschreiben: /fs abschluss ja"])
+    print(L["Zum Festschreiben: /kl abschluss ja"])
 end
 befehle["close"] = befehle["abschluss"]
 
@@ -782,8 +782,8 @@ befehle["gilde"] = function()
 end
 befehle["guild"] = befehle["gilde"]
 
---- ⭐ Eigenes Wuerfelfenster: `/fs wurf <Link>` startet, `/fs wurf` oeffnet den Dialog,
---  `/fs wurf ende` beendet.
+--- ⭐ Eigenes Wuerfelfenster: `/kl wurf <Link>` startet, `/kl wurf` oeffnet den Dialog,
+--  `/kl wurf ende` beendet.
 befehle["wurf"] = function(arg)
     arg = arg or ""
     local kleinn = arg:lower()
@@ -822,7 +822,7 @@ befehle["wurf"] = function(arg)
             print(string.format(L["  %s an %s (vor %d Min.)"], e.link, e.name, math.floor((time() - (e.zeit or 0)) / 60)) ..
                 (e.entzaubern and (" " .. L["(Entzaubern)"]) or ""))
         end
-        print(L["  |cff8E9A94Beim nächsten Handel mit dem Spieler wird der Gegenstand eingelegt. |r|cffffff78/fs wurf offen leeren|r|cff8E9A94 löscht alle.|r"])
+        print(L["  |cff8E9A94Beim nächsten Handel mit dem Spieler wird der Gegenstand eingelegt. |r|cffffff78/kl wurf offen leeren|r|cff8E9A94 löscht alle.|r"])
         return
     end
     if kleinn == "ergebnis" or kleinn == "result" then
@@ -834,7 +834,7 @@ befehle["wurf"] = function(arg)
         ns.Wurf.Dialog()
         return
     end
-    -- „/fs wurf 45 <Link>": die Dauer fuer diesen Wurf vorweg
+    -- „/kl wurf 45 <Link>": die Dauer fuer diesen Wurf vorweg
     local sek, rest = arg:match("^(%d+)%s+(.+)$")
     local ok, grund = ns.Wurf.Starten(rest or arg, sek)
     if not ok then
@@ -846,9 +846,9 @@ end
 befehle["roll"] = befehle["wurf"]
 
 --- ⭐ Verzauberer fuers Entzaubern: anzeigen, eintragen, entfernen.
---    /fs verzauberer                    zeigt die Liste
---    /fs verzauberer add Name, Name     tragen ein (Komma trennt)
---    /fs verzauberer del Name|Nummer    entfernt
+--    /kl verzauberer                    zeigt die Liste
+--    /kl verzauberer add Name, Name     tragen ein (Komma trennt)
+--    /kl verzauberer del Name|Nummer    entfernt
 befehle["verzauberer"] = function(arg)
     arg = arg or ""
     local was, rest = arg:match("^(%S*)%s*(.-)%s*$")
@@ -864,7 +864,7 @@ befehle["verzauberer"] = function(arg)
 
     local liste = ns.Wurf.Verzauberer()
     if #liste == 0 then
-        sag(GRAU .. L["Noch keine Verzauberer. |cffffff78/fs verzauberer add Name|r trägt einen ein."] .. "|r")
+        sag(GRAU .. L["Noch keine Verzauberer. |cffffff78/kl verzauberer add Name|r trägt einen ein."] .. "|r")
         return
     end
     sag(L["Verzauberer:"])
@@ -898,7 +898,7 @@ befehle["rueckgaengig"] = function(arg)
 
     if arg == "ja" or arg == "yes" then
         if not undoBereit or undoBereit.id ~= e.id or (time() - undoBereit.zeit) > 60 then
-            sag(ROT .. L["Erst |cffffff78/fs rueckgaengig|r eingeben, dann innerhalb einer Minute bestätigen."] .. "|r")
+            sag(ROT .. L["Erst |cffffff78/kl rueckgaengig|r eingeben, dann innerhalb einer Minute bestätigen."] .. "|r")
             return
         end
         undoBereit = nil
@@ -913,7 +913,7 @@ befehle["rueckgaengig"] = function(arg)
 
     undoBereit = { id = e.id, zeit = time() }
     sag(string.format(L["Zurücknehmen: %s an %s (%s)?"], Quelle.Gegenstandstext(e.eintrag), e.name, date(L["%d.%m. %H:%M"], e.zeit)))
-    print(L["  Zum Bestätigen innerhalb einer Minute: |cffffff78/fs rueckgaengig ja|r"])
+    print(L["  Zum Bestätigen innerhalb einer Minute: |cffffff78/kl rueckgaengig ja|r"])
 end
 befehle["undo"] = befehle["rueckgaengig"]
 
@@ -929,7 +929,7 @@ befehle["rueckgabe"] = function(rest)
             print(string.format(L["  %d: %s, vorher bei %s"], i, Quelle.Gegenstandstext(x.e), Kern.Anzeigename(x.e.awardedTo)))
         end
         if #liste > 0 then
-            print(GRAU .. L["Mit /fs rueckgabe <Nr> bestätigst du: das Item ist weitergegeben, der Punkt wird abgezogen."] .. "|r")
+            print(GRAU .. L["Mit /kl rueckgabe <Nr> bestätigst du: das Item ist weitergegeben, der Punkt wird abgezogen."] .. "|r")
         end
         return
     end
@@ -951,7 +951,7 @@ befehle["revert"] = befehle["rueckgaengig"]
 befehle["anhebung"] = function(arg)
     local name = tostring(arg or ""):match("^%s*(.-)%s*$")
     if name == "" then
-        sag(L["Anhebung: |cffffff78/fs anhebung <Name>|r setzt den Spieler auf den Niedrigsten der anderen Kaderspieler im Raid plus 2 (nur Raid- oder Gildenleitung)."])
+        sag(L["Anhebung: |cffffff78/kl anhebung <Name>|r setzt den Spieler auf den Niedrigsten der anderen Kaderspieler im Raid plus 2 (nur Raid- oder Gildenleitung)."])
         return
     end
     local id, ziel, diff = ns.Anwesenheit.AnhebungSetzen(name)
@@ -961,7 +961,7 @@ befehle["anhebung"] = function(arg)
 end
 befehle["raise"] = befehle["anhebung"]
 
---- Einladen per Flüstern: `/fs einladewort` zeigt, `an`/`aus` schaltet, ein Wort setzt es und schaltet ein.
+--- Einladen per Flüstern: `/kl einladewort` zeigt, `an`/`aus` schaltet, ein Wort setzt es und schaltet ein.
 befehle["einladewort"] = function(arg)
     local A = ns.Anwesenheit
     local was = tostring(arg or ""):match("^%s*(.-)%s*$")
@@ -1015,9 +1015,9 @@ end
 befehle["sync"] = befehle["abgleich"]
 
 --- Die Wuerfelbereiche: anzeigen und aendern.
---    /fs bereiche                 zeigt die Bereiche
---    /fs bereiche haupt 1 100     Bereich fuer Hauptbedarf
---    /fs bereiche zweit 1 99      Bereich fuer Zweitbedarf (OS)
+--    /kl bereiche                 zeigt die Bereiche
+--    /kl bereiche haupt 1 100     Bereich fuer Hauptbedarf
+--    /kl bereiche zweit 1 99      Bereich fuer Zweitbedarf (OS)
 befehle["bereiche"] = function(arg)
     local was, a, z = (arg or ""):lower():match("^(%S*)%s*(%d*)%s*(%d*)")
     was = was or ""
@@ -1050,14 +1050,14 @@ befehle["gruppe"] = function(arg)
 
     if was == "hilfe" or was == "help" or was == "?" then
         sag(L["Gruppen:"])
-        print(L["  |cffffff78/fs gruppe|r                   – alle Gruppen"])
-        print(L["  |cffffff78/fs gruppe neu <Name>|r        – Gruppe anlegen (Kader)"])
-        print(L["  |cffffff78/fs gruppe aktiv <Name>|r      – aktive Gruppe; ohne Namen: keine"])
-        print(L["  |cffffff78/fs gruppe kader A, B, C|r     – Namen zum Kader (Komma!)"])
-        print(L["  |cffffff78/fs gruppe sync|r              – Kader mit den Gildenrängen abgleichen (hinzufügen und entfernen)"])
-        print(L["  |cffffff78/fs gruppe raenge|r            – Gildenränge anzeigen; |cffffff78raenge <Nr>|r wählt oder streicht einen"])
-        print(L["  |cffffff78/fs gruppe entfernen <Name>|r  – Name aus dem Kader"])
-        print(L["  |cffffff78/fs gruppe loeschen <Name>|r   – Gruppe löschen"])
+        print(L["  |cffffff78/kl gruppe|r                   – alle Gruppen"])
+        print(L["  |cffffff78/kl gruppe neu <Name>|r        – Gruppe anlegen (Kader)"])
+        print(L["  |cffffff78/kl gruppe aktiv <Name>|r      – aktive Gruppe; ohne Namen: keine"])
+        print(L["  |cffffff78/kl gruppe kader A, B, C|r     – Namen zum Kader (Komma!)"])
+        print(L["  |cffffff78/kl gruppe sync|r              – Kader mit den Gildenrängen abgleichen (hinzufügen und entfernen)"])
+        print(L["  |cffffff78/kl gruppe raenge|r            – Gildenränge anzeigen; |cffffff78raenge <Nr>|r wählt oder streicht einen"])
+        print(L["  |cffffff78/kl gruppe entfernen <Name>|r  – Name aus dem Kader"])
+        print(L["  |cffffff78/kl gruppe loeschen <Name>|r   – Gruppe löschen"])
         return
     end
 
@@ -1105,7 +1105,7 @@ befehle["gruppe"] = function(arg)
     else
         local Namen = G.Namen()
         if #Namen == 0 then
-            sag(L["Noch keine Gruppe. |cffffff78/fs gruppe neu 40er|r legt eine an, |cffffff78/fs gruppe hilfe|r zeigt alles."])
+            sag(L["Noch keine Gruppe. |cffffff78/kl gruppe neu 40er|r legt eine an, |cffffff78/kl gruppe hilfe|r zeigt alles."])
             return
         end
         local aktiv = G.AktivName()
@@ -1186,8 +1186,11 @@ end
 
 -- =====================================================================
 
-SLASH_FAIRSHARE1 = "/fs"
-SLASH_FAIRSHARE2 = "/fairshare"
+SLASH_FAIRSHARE1 = "/kl"
+SLASH_FAIRSHARE2 = "/kaosloot"
+-- Die alten Befehle der Version 1.0.0 gehen vorerst weiter (nicht mehr in der Hilfe).
+SLASH_FAIRSHARE3 = "/fs"
+SLASH_FAIRSHARE4 = "/fairshare"
 SlashCmdList["FAIRSHARE"] = function(eingabe)
     local wort, rest = (eingabe or ""):match("^%s*(%S*)%s*(.-)%s*$")
     wort = wort or ""
@@ -1207,7 +1210,7 @@ SlashCmdList["FAIRSHARE"] = function(eingabe)
     end
 
     if not ok then
-        print(PRAEFIX .. ROT .. string.format(L["Fehler in /fs %s"], wort) .. "|r")
+        print(PRAEFIX .. ROT .. string.format(L["Fehler in /kl %s"], wort) .. "|r")
         print(ROT .. tostring(fehler) .. "|r")
         print(GRAU .. L["Bitte diese zwei Zeilen weitergeben."] .. "|r")
     end
@@ -1222,9 +1225,9 @@ rahmen:SetScript("OnEvent", function(self)
         local n = 0
         for _ in pairs(ns.Erfassung.Historie()) do n = n + 1 end
         if n > 0 then
-            sag(string.format(L["%d Vergaben aufgezeichnet. |cffffff78/fs|r öffnet die Übersicht."], n))
+            sag(string.format(L["%d Vergaben aufgezeichnet. |cffffff78/kl|r öffnet die Übersicht."], n))
         else
-            sag(L["|cff8E9A94Noch keine Vergabe aufgezeichnet – |r|cffffff78/fs demo|r|cff8E9A94 zeigt die Anzeige trotzdem.|r"])
+            sag(L["|cff8E9A94Noch keine Vergabe aufgezeichnet – |r|cffffff78/kl demo|r|cff8E9A94 zeigt die Anzeige trotzdem.|r"])
         end
     end)
 end)

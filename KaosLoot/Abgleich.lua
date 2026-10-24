@@ -844,7 +844,7 @@ function Abgleich.Empfangen(text, sender, kanalName)
     -- Gildenpruefung: Wer im Raid in einer anderen Gilde ist, soll mitwuerfeln
     -- koennen; geprueft wird, dass der Absender Pluendermeister, Leiter oder
     -- Assistent der Gruppe ist. Wurf.lua fuehrt Buch, warum etwas abgelehnt wurde
-    -- (/fs wurf status).
+    -- (/kl wurf status).
     if typ == "S" or typ == "X" or typ == "P" then
         if ns.Wurf then ns.Wurf.Empfangen(typ, rest, sender, unit) end
         return

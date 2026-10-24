@@ -51,7 +51,7 @@ Gegenüber dem Schnitt der Anwesenden gilt: **Faktor unter 1 = Vorteil, 1,0 = ne
 
 **Seit dem 19.10.2026 gibt es keine automatische Anhebung mehr.** Die Zuschläge für verpasste Abende (§ 2) reichen aus. Die frühere Regel (wer mehr als 1 Punkt unter dem Niedrigsten liegt, kommt zu Beginn des Abends auf *Niedrigster plus 2*) hat auch Spieler getroffen, die jeden Abend dabei waren und nur Pech beim Würfeln hatten. Das war als Strafe nicht gewollt.
 
-**Manuelle Anhebung:** Die Raid- oder Gildenleitung kann einen Spieler anheben, zum Beispiel nach einer sehr langen Pause. Das geht unter **Einstellungen → Gruppen → Anhebung** (Namen eintragen, „Anheben“) oder mit **`/fs anhebung <Name>`**. Der Spieler kommt auf *den Niedrigsten der anderen Kaderspieler im Raid plus 2*, nie nach unten (liegt er schon dort oder höher, passiert nichts). Die Anhebung steht im Spielerdetail und geht an alle.
+**Manuelle Anhebung:** Die Raid- oder Gildenleitung kann einen Spieler anheben, zum Beispiel nach einer sehr langen Pause. Das geht unter **Einstellungen → Gruppen → Anhebung** (Namen eintragen, „Anheben“) oder mit **`/kl anhebung <Name>`**. Der Spieler kommt auf *den Niedrigsten der anderen Kaderspieler im Raid plus 2*, nie nach unten (liegt er schon dort oder höher, passiert nichts). Die Anhebung steht im Spielerdetail und geht an alle.
 
 ## 4. Neue Spieler und Gäste
 

@@ -538,7 +538,7 @@ local function seiteWuerfeln(P)
         get = function() return d().startAuto ~= false end,
         set = function(v) d().startAuto = v end })
     zeile(kw, { art = "knopf", label = L["Wurf starten"],
-        beschr = L["Öffnet den Dialog: Gegenstand per Shift-Klick einfügen oder aus der Beute wählen. Auch: /fs wurf <Link>."],
+        beschr = L["Öffnet den Dialog: Gegenstand per Shift-Klick einfügen oder aus der Beute wählen. Auch: /kl wurf <Link>."],
         knopf = { text = L["Öffnen"], art = "primary",
             aktiv = function() return ns.Wurf.DarfStarten() end,
             klick = function() ns.Wurf.Dialog() end } })

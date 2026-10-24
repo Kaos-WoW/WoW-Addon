@@ -1607,7 +1607,7 @@ end
 --  eingeteilt war (und auch an keinem Gruppenabend dabei), gilt als ABGEMELDET; wer nur bei „Keine Meldung“ stand,
 --  als „Keine Meldung“. Beide bekommen einen Zuschlag **für zwei Abende** (so viele Abende hat eine Raid-ID): je Abend
 --  Staffel × Schnitt, und der Schnitt ist das **Mittel der Schnitte der Gruppen** für diese Abend-Nummer. Gebucht wird
---  bewusst mit einem Knopf, nachdem alle Gruppenabende der Woche abgeschlossen sind (`/fs woche`).
+--  bewusst mit einem Knopf, nachdem alle Gruppenabende der Woche abgeschlossen sind (`/kl woche`).
 -- =====================================================================
 
 --- Die sieben Tage (JJJJ-MM-TT) der **Raid-ID**, in der `datum` liegt (vom Wechseltag an, Entscheid 22.10.2026).
@@ -2493,12 +2493,12 @@ function Anwesenheit.SpielerEreignisse(spielerName, abend, historie, seit, istBe
 end
 
 -- =====================================================================
---  Demo-Daten (fuer /fs demo)
+--  Demo-Daten (fuer /kl demo)
 -- =====================================================================
 
 local beispielBankState = nil
 
---- Liefert interaktive Beispiel-Kandidaten für /fs demo.
+--- Liefert interaktive Beispiel-Kandidaten für /kl demo.
 function Anwesenheit.BeispielKandidaten()
     if not beispielBankState then
         local t = time()

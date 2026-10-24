@@ -271,7 +271,7 @@ end
 --- Alle Gildenmitglieder.
 --  Forever liest ueber C_Club, Anniversary/Classic ueber GetGuildRosterInfo
 --  (so hat es schon die erste Fassung dieses Projekts gemessen).
---  Gemessen mit `/fs gilde` (14.10.2026): Forever liefert Vor- UND Nachname
+--  Gemessen mit `/kl gilde` (14.10.2026): Forever liefert Vor- UND Nachname
 --  plus Gildenrang.
 --  @return Liste aus { name, rang, rangIndex } oder nil und ein Grund
 function Gruppen.GildenMitglieder()
@@ -1142,7 +1142,7 @@ end
 
 local eMerke = {}
 
---- Letzte Meldungen zur Einteilung (fuer `/fs einteilung status`).
+--- Letzte Meldungen zur Einteilung (fuer `/kl einteilung status`).
 function Gruppen.EinteilungStatus()
     return eMerke
 end

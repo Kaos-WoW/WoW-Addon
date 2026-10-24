@@ -377,7 +377,7 @@ Kern.ANHEBUNG_ABSTAND = 2
 -- ⭐ Die AUTOMATISCHE Anhebung (§ 3: wer mehr als 1 Punkt unter dem Niedrigsten liegt, kommt auf Niedrigster + 2) ist
 -- seit dem 19.10.2026 AUS (Entscheid der Gildenleitung: die Zuschläge für Fehlen reichen, die Anhebung durfte keine
 -- Strafe für Anwesende sein). Es bleibt die manuelle Anhebung (Anwesenheit.AnhebungSetzen, Einstellungen → Gruppen,
--- `/fs anhebung <Name>`) und der Einstieg der Neulinge am 2. Abend. Die Rechnung steht weiter hier und in den Tests.
+-- `/kl anhebung <Name>`) und der Einstieg der Neulinge am 2. Abend. Die Rechnung steht weiter hier und in den Tests.
 Kern.AUTO_ANHEBUNG = false
 -- ⭐ „Anmeldung vergessen" (Gildenleitung 17.10.2026): Wer innerhalb von `VERGESSEN_FENSTER` Raidabenden
 -- MEHR als `VERGESSEN_SCHWELLE` Mal weder an- noch abgemeldet war und nicht kam, wird wie unentschuldigt
