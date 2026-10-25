@@ -34,7 +34,7 @@ Neu.LISTE = {
         { text = L["Neu: Heute schon ein Item: Wer an diesem Abend schon eins bekommen hat, steht hinter allen ohne Item (aus, leicht oder streng, Standard streng)."] },
         { text = L["Neu: Korrektur der Leitung mit Pflichtkommentar, Plus oder Minus (/kl korrektur oder Knopf im Spielerdetail), für alle sichtbar."] },
         { text = L["Neu: /kl vergleich zeigt beide Verfahren nebeneinander."] },
-        { text = L["Wichtig: Alle in der Gruppe brauchen 1.1.0, sonst ordnen die Addons unterschiedlich."] },
+        { text = L["Wichtig: Wer das Addon in einer Gruppe nutzt, braucht 1.1.0, sonst ordnen die Addons unterschiedlich."] },
     } },
     { version = "1.0.1", eintraege = {
         { text = L["Geändert: Der Befehl heißt jetzt /kl (vorher /fs; /fs geht vorerst weiter)."] },

@@ -190,4 +190,4 @@ Die Leitung wählt in den Einstellungen unter **Verteilung**, wie die Wertung zu
 
 **Keine Item-Gewichte:** Alle Main-Items zählen gleich (Entscheid der Leitung, 24.10.2026). Für Sonderfälle gibt es die Korrektur.
 
-**Alle in der Gruppe brauchen dieselbe Version (1.1.0):** Sonst ordnen die Addons unterschiedlich.
+**Wer das Addon in einer Gruppe nutzt, braucht dieselbe Version (1.1.0):** Sonst ordnen die Addons unterschiedlich. Wer das Addon nicht hat, ist davon nicht betroffen.
