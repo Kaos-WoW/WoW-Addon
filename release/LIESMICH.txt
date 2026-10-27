@@ -1,4 +1,4 @@
-KaosLoot 1.1.0  -  Faire Beuteverteilung fuer WoW Forever (Gilde Resurrected)
+KaosLoot 1.1.1  -  Faire Beuteverteilung fuer WoW Forever (Gilde Resurrected)
 ===========================================================================
 
 WICHTIG: ALLE, die KaosLoot nutzen, brauchen DIESELBE Fassung (1.0.x oder eine 0.9.x). Das

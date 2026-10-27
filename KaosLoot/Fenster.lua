@@ -83,16 +83,17 @@ local function layout(name, w)
         return { { 0, a, "LEFT" }, { a + L6, b, "LEFT" }, { a + L6 + b + L6, c, "RIGHT" },
                  { dx, math.max(80, w - dx - 96), "LEFT" }, { 0, 1, "LEFT" } }
     end
-    -- liste: Spieler | Wertung | Zweit | Zuletzt | Wurf
-    local ew, dw, cw, bw = 120, 160, 60, 64
+    -- liste: Spieler | Items | Wertung | Zweit | Zuletzt | Wurf   (Items steht in Spalte f)
+    local ew, dw, cw, bw, fw = 120, 150, 56, 72, 56
     local ex = w - ew
     local dx = ex - L6 - dw
     local cx = dx - L6 - cw
     local bx = cx - L6 - bw
-    return { { 0, math.max(80, bx - L6), "LEFT" }, { bx, bw, "RIGHT" }, { cx, cw, "RIGHT" },
-             { dx, dw, "LEFT" }, { ex, ew, "RIGHT" } }
+    local fx = bx - L6 - fw
+    return { { 0, math.max(80, fx - L6), "LEFT" }, { bx, bw, "RIGHT" }, { cx, cw, "RIGHT" },
+             { dx, dw, "LEFT" }, { ex, ew, "RIGHT" }, { fx, fw, "RIGHT" } }
 end
-local SPALTEN = { "a", "b", "c", "d", "e" }
+local SPALTEN = { "a", "b", "c", "d", "e", "f" }
 
 -- =====================================================================
 --  Einstellungen
@@ -880,8 +881,13 @@ local function ordneSpalten(name)
         fs:SetJustifyH(def[3])
     end
     for i, k in ipairs(SPALTEN) do
-        setze(kopfZeile, kopfZeile[k], Lay[i])
-        for j = 1, MAXZEILEN do setze(zeilen[j], zeilen[j][k], Lay[i]) end
+        local def = Lay[i] or { 0, 1, "LEFT" }                  -- nur die Liste nutzt die sechste Spalte
+        setze(kopfZeile, kopfZeile[k], def)
+        for j = 1, MAXZEILEN do setze(zeilen[j], zeilen[j][k], def) end
+    end
+    if name ~= "liste" then                                     -- Items steht nur in der Liste; nichts stehen lassen
+        kopfZeile.f:SetText("")
+        for j = 1, MAXZEILEN do zeilen[j].f:SetText("") end
     end
 end
 
@@ -900,11 +906,12 @@ local function leereZeilen(ab)
         if z.probeRaidBtn then z.probeRaidBtn:Hide() end
         z.hover:SetShown(false)
         z.markiert:SetShown(false)
-        z.a:SetText(""); z.b:SetText(""); z.c:SetText(""); z.d:SetText(""); z.e:SetText("")
+        z.a:SetText(""); z.b:SetText(""); z.c:SetText(""); z.d:SetText(""); z.e:SetText(""); z.f:SetText("")
     end
 end
 
-local function setzeKopf(a, b, c, d, e)
+local function setzeKopf(a, b, c, d, e, f)
+    kopfZeile.f:SetText(f or "")
     kopfZeile.a:SetText(a or "")
     kopfZeile.b:SetText(b or "")
     kopfZeile.c:SetText(c or "")
@@ -1000,7 +1007,8 @@ local function zeigeListe(H)
         end)
     end
 
-    setzeKopf(L["Spieler"], (ns.Verteilung and ns.Verteilung.ProAbend()) and L["Items/Abend"] or L["Haupt"], L["Zweit"], L["Zuletzt"], W and L["Wurf"] or nil)
+    setzeKopf(L["Spieler"], (ns.Verteilung and ns.Verteilung.ProAbend()) and L["Items/Abend"] or L["Wertung"], L["Zweit"], L["Zuletzt"],
+        W and L["Wurf"] or nil, L["Items"])
 
     zustand.maxVersatz = math.max(0, #liste - zeilenSicht)
     if zustand.versatz > zustand.maxVersatz then zustand.versatz = zustand.maxVersatz end
@@ -1038,6 +1046,10 @@ local function zeigeListe(H)
             wStr = wStr .. " (+" .. aStr .. ")"
         end
         z.b:SetText(w > 0 and (GELB .. wStr .. "|r") or (GRAU .. Kern.WertText(0, proAbend) .. "|r"))
+        -- ⭐ Die erhaltenen Main-Items stehen getrennt von der Wertung (Nutzerwunsch 27.10.2026): Bei „Items pro Abend“
+        -- die Items im Zeitfenster (sie stehen in der Wertung), sonst alle Main-Items des Zeitraums.
+        local itemsAnz = (proAbend and not zustand.beispiel) and (e.fensterItems or 0) or (e.haupt or 0)
+        z.f:SetText(itemsAnz > 0 and (HELL .. itemsAnz .. "|r") or (GRAU .. "0|r"))
         z.c:SetText(e.zweit > 0 and (GRAU .. e.zweit .. "|r") or "")
         z.d:SetText(zuletztText(e.letzte))
 

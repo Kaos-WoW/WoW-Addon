@@ -13,7 +13,7 @@ Datei bleibt als Sicherung. Spätere Umbenennungen brauchen denselben Weg.
 
 ⭐ **Das Addon heißt KaosLoot (seit 23.10.2026; vorher Fairshare), Ordner und TOC seit 1.0.1 ebenfalls** (`KaosLoot/KaosLoot.toc`, Zip `KaosLoot-<Version>.zip`, Releases-Ordner `..\KaosLoot-releases`). Befehl seit 1.0.1: `/kl` (auch `/kaosloot`; `/fs` und `/fairshare` gehen als stille Altbefehle weiter). Bewusst unverändert: die Variable `FairshareDB` (die Datei heißt `KaosLoot.lua`), Rahmennamen `Fairshare…` und das Protokollpräfix. Die Doku unten sagt teils noch „Fairshare“ und meint dasselbe.
 
-Stand 22.10.2026, Version 1.1.0 (Loot-Regelsystem Resurrected integriert, Datenbuch verteilt, Protokollversion 3; seit dem 17./18.10. mehrere Gruppen mit Raidkader, Einteilung je Tag, Bench, „Keine Meldung“, Wochenabschluss, geteilte Einstellungen mit Vertrauenswurzel; seit dem 22.10. Probe-Modus und Anwesenheits-Reiter mit Default = Anwesend). Nur für Forever. **Übergabe-Stand und offene Punkte: `WORKBOARD.md`.**
+Stand 22.10.2026, Version 1.1.1 (Loot-Regelsystem Resurrected integriert, Datenbuch verteilt, Protokollversion 3; seit dem 17./18.10. mehrere Gruppen mit Raidkader, Einteilung je Tag, Bench, „Keine Meldung“, Wochenabschluss, geteilte Einstellungen mit Vertrauenswurzel; seit dem 22.10. Probe-Modus und Anwesenheits-Reiter mit Default = Anwesend). Nur für Forever. **Übergabe-Stand und offene Punkte: `WORKBOARD.md`.**
 
 ---
 

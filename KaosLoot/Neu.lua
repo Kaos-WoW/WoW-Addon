@@ -28,6 +28,9 @@ local MARKE = "Interface\\GossipFrame\\AvailableQuestIcon"
 
 -- Neueste Version zuerst. Gezeigt werden alle Abschnitte, das „!“ gilt nur für den ersten.
 Neu.LISTE = {
+    { version = "1.1.1", eintraege = {
+        { text = L["Neu: In der Spielerliste stehen die erhaltenen Main-Items und die Wertung jetzt in getrennten Spalten, auch im Kompaktfenster."] },
+    } },
     { version = "1.1.0", eintraege = {
         { text = L["Neu: Zwei Verfahren für die Wertung, die Leitung wählt in den Einstellungen unter Verteilung: Punkte mit Zuschlägen (wie bisher) und Items pro Abend."], seite = "verteilung" },
         { text = L["Neu: Items pro Abend zählt die Items pro besuchtem Abend der letzten 8 Raid-IDs, gleitend und ohne Reset. Fehlen kostet nichts, Anwesenheit schadet nicht."] },

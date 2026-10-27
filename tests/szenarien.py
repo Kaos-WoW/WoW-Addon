@@ -268,7 +268,7 @@ fest(len(list(g["__text"]("Timo").values())) > 0, "Liste zeigt Timo")
 fest(g["__klick"]("Verlauf") is True, "Reiter Verlauf anklickbar")
 fest(len(list(g["__text"]("Wann").values())) > 0, "Verlauf hat seine Kopfzeile")
 fest(g["__klick"]("Spieler") is True, "Reiter Spieler anklickbar")
-fest(len(list(g["__text"]("Haupt").values())) > 0, "Liste hat ihre Kopfzeile")
+fest(len(list(g["__text"]("Items").values())) > 0 and len(list(g["__text"]("Wertung").values())) > 0, "Liste hat ihre Kopfzeile mit getrennten Spalten Items und Wertung")
 keinFehler("Reiterwechsel")
 
 fest(g["__klick"]("Einstellungen") is True, "Knopf Einstellungen im Hauptfenster")

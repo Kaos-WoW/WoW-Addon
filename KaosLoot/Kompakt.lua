@@ -157,6 +157,13 @@ local function zeilenAus(ab)
     for i = ab, MAXZEILEN do zeilen[i]:Hide() end
 end
 
+--- Die erhaltenen Main-Items als kleiner Text neben dem Namen (Items pro Abend: die im Zeitfenster).
+local function itemsText(e)
+    if e.klasse then return "" end                              -- Vorschau mit Beispieldaten: keine Anzahl
+    local n = (ns.Verteilung and ns.Verteilung.ProAbend()) and (e.fensterItems or 0) or (e.haupt or 0)
+    return GRAU .. n .. " " .. L["Items"] .. "|r"
+end
+
 local function zeigeWertung()
     setzeBasis(WERTUNG_OBEN)
     local ich = ichName()
@@ -178,7 +185,7 @@ local function zeigeWertung()
     for i = 1, n do
         local e = liste[i + versatz]
         local istIch = e.ich or (not vorschau and Kern.GleicherSpieler(e.name, ich))
-        zeile(i, farbName(e.name, e.klasse), nil, GELB .. zahlText(e.wertung or e.haupt or 0) .. "|r",
+        zeile(i, farbName(e.name, e.klasse), itemsText(e), GELB .. zahlText(e.wertung or e.haupt or 0) .. "|r",
             istIch and "ich" or ((i + versatz) == 1 and "dran" or nil))
     end
     zeilenAus(n + 1)
@@ -382,11 +389,11 @@ local function bauen()
         z.markiert = S.Form(z, 4, C.hover)
         z.a = S.Text(z, 12, C.tx, "LEFT")
         z.a:SetPoint("LEFT", z, "LEFT", 6, 0)
-        z.a:SetWidth(112)
+        z.a:SetWidth(100)
         z.a:SetWordWrap(false)
         z.b = S.Text(z, 11, C.mu, "LEFT")
         z.b:SetPoint("LEFT", z.a, "RIGHT", 2, 0)
-        z.b:SetWidth(40)
+        z.b:SetWidth(56)
         z.c = S.Text(z, 12, C.tx, "RIGHT")
         z.c:SetPoint("RIGHT", z, "RIGHT", -6, 0)
         z.c:SetPoint("LEFT", z.b, "RIGHT", 2, 0)
