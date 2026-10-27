@@ -5,15 +5,9 @@ Addon für die Gilde **Resurrected** (Thunderstrike EU). Es beantwortet:
 wann was?** Damit der Plündermeister im Moment der Vergabe schnell und
 begründet entscheiden kann.
 
-**Name:** Fairshare, Befehl `/kl` (bis 14.10.2026 „Loot-Historie“, `/lh`; der Name sagte zu wenig, das Addon zeichnet
-auf, gleicht ab, verwaltet Gruppen). Ordner `KaosLoot/`, SavedVariables `FairshareDB`, Nachrichtenpräfix
-`FSHARE`. ⚠️ **Der Umzug der gespeicherten Daten** (`LootHistorie.lua` → `Fairshare.lua`, Variable umbenannt)
-macht `deploy.ps1` einmalig und **nur bei beendetem WoW** (sonst bricht es ab, ohne etwas zu ändern); die alte
-Datei bleibt als Sicherung. Spätere Umbenennungen brauchen denselben Weg.
+⭐ **Name:** KaosLoot (Anzeigename seit 23.10.2026; bis 14.10.2026 „Loot-Historie“, dann „Fairshare“). Ordner, TOC und Zip heißen seit 1.0.1 `KaosLoot` (`KaosLoot/KaosLoot.toc`, Zip `KaosLoot-<Version>.zip`, Releases in `..\KaosLoot-releases`: aktuelle Version oben, Älteres in `old.releases`). Befehl `/kl` (auch `/kaosloot`; `/fs`, `/fairshare` als stille Altbefehle). Bewusst unverändert: Variable `FairshareDB` (Datei `SavedVariables\KaosLoot.lua`), Rahmennamen `Fairshare…`, Nachrichtenpräfix `FSHARE`. Die Doku unten sagt teils noch „Fairshare“ und meint dasselbe. `deploy.ps1` übernimmt `Fairshare.lua` → `KaosLoot.lua` und räumt den alten Ordner (nur bei beendetem WoW).
 
-⭐ **Das Addon heißt KaosLoot (seit 23.10.2026; vorher Fairshare), Ordner und TOC seit 1.0.1 ebenfalls** (`KaosLoot/KaosLoot.toc`, Zip `KaosLoot-<Version>.zip`, Releases-Ordner `..\KaosLoot-releases`). Befehl seit 1.0.1: `/kl` (auch `/kaosloot`; `/fs` und `/fairshare` gehen als stille Altbefehle weiter). Bewusst unverändert: die Variable `FairshareDB` (die Datei heißt `KaosLoot.lua`), Rahmennamen `Fairshare…` und das Protokollpräfix. Die Doku unten sagt teils noch „Fairshare“ und meint dasselbe.
-
-Stand 22.10.2026, Version 1.1.1 (Loot-Regelsystem Resurrected integriert, Datenbuch verteilt, Protokollversion 3; seit dem 17./18.10. mehrere Gruppen mit Raidkader, Einteilung je Tag, Bench, „Keine Meldung“, Wochenabschluss, geteilte Einstellungen mit Vertrauenswurzel; seit dem 22.10. Probe-Modus und Anwesenheits-Reiter mit Default = Anwesend). Nur für Forever. **Übergabe-Stand und offene Punkte: `WORKBOARD.md`.**
+**Stand 27.10.2026: Version 1.1.1, veröffentlicht** (Regelwerk Resurrected, Datenbuch/Protokollversion 3, mehrere Gruppen mit Raidkader/Einteilung/Bench/Keine Meldung/Wochenabschluss, geteilte Einstellungen mit Vertrauenswurzel, Probe-Modus, Anwesenheit mit Default = Anwesend, Kompaktfenster, „Neu in KaosLoot“, ab 1.1.0 wählbares Verfahren, Korrektur der Leitung, ab 1.1.1 Items und Wertung getrennt). Nur für Forever. **Übergabe-Stand, Release-Ablauf, Tests und offene Punkte: `WORKBOARD.md`.**
 
 ---
 
@@ -37,9 +31,6 @@ Stand 22.10.2026, Version 1.1.1 (Loot-Regelsystem Resurrected integriert, Datenb
 Vorbilder (CurseForge-Auswertung 14.10.2026, nur Funktionsweise, kein Code):
 RCLootCouncil „Improved History" und CLM gleichen per Prüfsumme ab und
 tauschen nur Abweichendes; CLM verwirft Nachrichten Unberechtigter still.
-
-Davor (25.09.–13.10.) las das Addon die Historie eines anderen Addons; das wurde
-verworfen und am 22.10.2026 auch die letzte Anbindung entfernt.
 
 ---
 
@@ -65,7 +56,7 @@ verworfen und am 22.10.2026 auch die letzte Anbindung entfernt.
 | `Neu.lua` | „Neu in Fairshare“ (`/kl neu`): Änderungsliste `Neu.LISTE`, „!“-Marker je Version (`FairshareDB.neu`), Chat-Hinweis einmal je Version. ⭐ **Bei jedem Release oben in `Neu.LISTE` einen Abschnitt ergänzen** (Texte in `Locale.lua`) | ja |
 | `Verteilung.lua` | ⭐ 1.1.0: Wie die Wertung zustande kommt: Einstellungen (Verfahren, Fenster, Glättung, Heute-Regel), `AbendDaten` (besuchte Abende, Korrekturen im Fenster, Gildenschnitt). Die Rechnung steht in `Kern.Bilanz` (`daten.abend`) und `Kern.WurfReihenfolge` (`liste.regel`); `Anwesenheit.ZuschlaegeDaten` liefert beides. Korrektur: `Anwesenheit.KorrekturBuchen` (Satz `k_…` im Datenbuch). Regeln: `REGELWERK-ENTWURF.md` § 9 | ja |
 | `Befehle.lua` | `/kl` | ja |
-| `Tests.lua` | Prüfstand für `Kern.lua` und `Anwesenheit.lua` (478 Prüfungen); dazu `tests/szenarien.py` (65 Szenarien) | **nein** |
+| `Tests.lua` | Prüfstand für `Kern.lua` und `Anwesenheit.lua` (501 Prüfungen); dazu `tests/szenarien.py` (75 Szenarien) | **nein** |
 
 Alles Rechnerische steht in `Kern.lua` und wird dort getestet. Jede
 Auswertung nimmt die Historie **als Parameter**, dadurch laufen Beispieldaten
@@ -140,7 +131,7 @@ Speziell für die Gilde **Resurrected** (Thunderstrike EU) entwickeltes Regelwer
   - Rangliste lädt live `Anwesenheit.ZuschlaegeDaten()`.
   - Bei Zuteilung eines angehobenen Spielers wird die Anhebung in `FairshareDB.anhebungen` festgeschrieben.
 * **Test-Isolation (`Anwesenheit._SetDB`, `_SetAnwesende`):**
-  - Unit-Tests in `Tests.lua` (478 Prüfungen) laufen in einer isolierten Mock-Datenbank. Dadurch lesen Tests weder die SavedVariables des Spielers noch hinterlassen sie Testdaten.
+  - Unit-Tests in `Tests.lua` (501 Prüfungen) laufen in einer isolierten Mock-Datenbank. Dadurch lesen Tests weder die SavedVariables des Spielers noch hinterlassen sie Testdaten.
   - ⭐ **Probe-Modus / Probe-Abend (`/kl probe abend`, `Anwesenheit.ProbeStandardAbend` und `/kl probe` UI-Modus):**
     Simuliert einen vollen Standardabend in einer Wegwerf-Datenbank mit 14 erfundenen Spielern (Anna, Ben, Chris, David, Elena, Frank, Greta, Hanna, Igor [1. Abend Proberaid], Jonas [2. Abend Neuling], Kevin & Lisa [abgemeldet], Max [weder an- noch abgemeldet = Keine Meldung], Nora [Bench]). Prüft die 6 Rechenregeln (Raid, Bench, Keine Meldung, Abgemeldet, Proberaid, Neuling) und gibt Zeile für Zeile „Erwartet / Ist“ im Chat aus (`/kl probe abend`, 6/6 Prüfungen grün).
     Interaktiver Modus (`/kl probe` bzw. Knopf „Probe“): Zeigt die gelbe Hinweisleiste „PROBE – keine echten Daten“ und eine Steuerungsleiste (`probeLeiste`) zum Vergeben von Main-/OS-Items, Status-Toggles und fertigem Ablauf.
@@ -304,13 +295,7 @@ Englisch heißt Zweitbedarf **„OS"** (Nutzerwunsch), nicht „Off".
 
 ⭐ **Passen und frühes Ende (Wunsch 17.10.2026):** „Passen" geht als Nachricht `P;<Kennung>` an die Gruppe (jeder darf sie senden, gilt nur für den laufenden Wurf mit dieser Kennung); `Erfassung.WurfPasst` vermerkt es in der Runde (`Arten[k] = "pass"`, Wert 0, nie in der Rangliste, ein späterer Wurf ändert es nicht). Das Würfelfenster zeigt „Gewählt x von y · Passt z", die Übersicht „passt" in der Wurfspalte. **Der Wurf endet früh** (Ticker in `Wurf.lua`, nur beim Starter, frühestens 2 s nach dem Start), sobald jeder in der Gruppe gewürfelt oder gepasst hat; Spieler ohne Addon können nur würfeln, halten den Wurf sonst bis zum Zeitende offen. Szenario 47.
 
-**Offene Wünsche (Nutzer, 14.10.2026, „für die Zukunft"):**
-* **Würfelzeit frei wählbar**, länger oder kürzer. Heute: Einstellung `wurfDauer` mit 20/30/45/60 s (Einstellungen →
-  Würfeln & Abgleich → Würfelfenster, Grenzen 10–120 s in `Wurf.Dauer`). Idee: Feld im Startdialog für diesen einen Wurf.
-* **Festlegbar, was ein „Main"- und was ein „OS"-Wurf ist.** Früher fest 1-100 / 1-50 (heute Standard 1-100 / 1-99) an vier Stellen: `Kern.Bedarfsart`,
-  die Knöpfe in `Wurf.lua` (`RandomRoll`, Beschriftung), Texte. Idee: zwei Einstellungen
-  (Obergrenze Haupt, Obergrenze OS), überall daraus lesen; Beschriftungen und Erkennung folgen; Abgleich-Protokoll
-  unberührt (die Art steckt im Eintrag, nicht der Bereich).
+*(Die Wünsche „freie Würfelzeit“ und „einstellbare Würfelbereiche“ sind umgesetzt, siehe unten.)*
 
 ### Einstellungen teilen (`Konfig.lua`, Nutzerwunsch 15.10.2026)
 
@@ -704,15 +689,4 @@ nicht, `deploy.ps1` rollt dort nicht mehr aus.
 
 ## Vorgeschichte
 
-Davor stand ein größeres System: **`Prio = Einsatz ÷ Rüstwert`**, Konten in
-der Offiziersnotiz, Verfall, Regelwerk mit zehn Paragrafen. Der Gildenleiter
-hat es am 25.09.2026 als zu komplex verworfen. Stand im Tag
-**`prio-system-stand`** (Commit `0727bf7`):
-
-```
-git checkout prio-system-stand -- .
-```
-
-* **Offiziersnotizen sind in Forever für Addons nicht beschreibbar.**
-  `C_GuildInfo.SetNote` ist geschützt.
-* **SavedVariables laden seit Build 70009 (25.09.2026) wieder zurück.**
+Davor stand das Prio-System (`Prio = Einsatz ÷ Rüstwert`, Konten in der Offiziersnotiz); der Gildenleiter verwarf es am 25.09.2026 als zu komplex (Git-Tag `prio-system-stand`, `0727bf7`). Offiziersnotizen sind in Forever für Addons nicht beschreibbar (`C_GuildInfo.SetNote` geschützt); SavedVariables laden seit Build 70009 wieder zurück.
